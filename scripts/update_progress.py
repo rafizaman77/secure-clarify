@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Regenerate the README.md 'Schedule & progress' table from real repo state.
+"""Regenerate the PROGRESS.md 'Schedule & progress' table from real repo state.
 
 Usage:
-  python scripts/update_progress.py          # print table; exit 1 if README differs
-  python scripts/update_progress.py --write  # rewrite the table in README.md
+  python scripts/update_progress.py          # print table; exit 1 if PROGRESS.md differs
+  python scripts/update_progress.py --write  # rewrite the table in PROGRESS.md
 
 Do not hand-edit the schedule table. If a status looks wrong, fix row() here.
 """
@@ -23,7 +23,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
 
 ROOT = Path(__file__).resolve().parents[1]
-README = ROOT / "README.md"
+PROGRESS_FILE = ROOT / "PROGRESS.md"
 HEADING = "## 📅 Schedule & progress"
 STATE_PATH = ROOT / "results" / "progress_state.json"
 
@@ -369,8 +369,8 @@ def render_progress_block() -> str:
     return build_table()
 
 
-def read_current_table_from_readme() -> str | None:
-    text = README.read_text(encoding="utf-8")
+def read_current_table_from_progress_file() -> str | None:
+    text = PROGRESS_FILE.read_text(encoding="utf-8")
     span = _extract_section_span(text, HEADING)
     if span is None:
         return None
@@ -379,15 +379,15 @@ def read_current_table_from_readme() -> str | None:
 
 
 def write_table(table: str) -> None:
-    text = README.read_text(encoding="utf-8")
+    text = PROGRESS_FILE.read_text(encoding="utf-8")
     span = _extract_section_span(text, HEADING)
     if span is None:
         raise SystemExit(
-            f"README.md missing heading {HEADING!r}. Add it before running --write."
+            f"PROGRESS.md missing heading {HEADING!r}. Add it before running --write."
         )
     start, end = span
     new_text = text[:start] + table + text[end:]
-    README.write_text(new_text, encoding="utf-8")
+    PROGRESS_FILE.write_text(new_text, encoding="utf-8")
 
 
 def load_prev_state() -> dict[str, str]:
@@ -413,7 +413,7 @@ def main() -> int:
     ap.add_argument(
         "--write",
         action="store_true",
-        help="Rewrite the Schedule & progress table in README.md",
+        help="Rewrite the Schedule & progress table in PROGRESS.md",
     )
     args = ap.parse_args()
 
@@ -432,7 +432,7 @@ def main() -> int:
     if args.write:
         write_table(table)
         save_state(statuses)
-        print("Wrote schedule table to README.md")
+        print("Wrote schedule table to PROGRESS.md")
         if changed:
             print("Status changes:")
             for c in changed:
@@ -441,20 +441,20 @@ def main() -> int:
 
     # dry-run / check mode
     print(table)
-    current = read_current_table_from_readme()
+    current = read_current_table_from_progress_file()
     if current is None:
-        print("README missing schedule heading.", file=sys.stderr)
+        print("PROGRESS.md missing schedule heading.", file=sys.stderr)
         return 1
     # Normalize trailing whitespace for comparison
     if current.strip() != table.strip():
         print(
-            "README schedule table differs from regenerated output.",
+            "PROGRESS.md schedule table differs from regenerated output.",
             file=sys.stderr,
         )
         return 1
-    print("README schedule table matches regenerated output.")
+    print("PROGRESS.md schedule table matches regenerated output.")
     if changed and prev:
-        print("Note: statuses changed since last --write, but README already matches.")
+        print("Note: statuses changed since last --write, but PROGRESS.md already matches.")
     return 0
 
 
