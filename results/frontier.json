@@ -1,0 +1,51 @@
+[
+  {
+    "lambda": 0,
+    "benign_util": 0.95,
+    "adv_unsafe": 0.425,
+    "adv_util": -0.25,
+    "ask_rate": 1.0
+  },
+  {
+    "lambda": 0.25,
+    "benign_util": 0.95,
+    "adv_unsafe": 0.325,
+    "adv_util": 0.05,
+    "ask_rate": 1.0
+  },
+  {
+    "lambda": 0.5,
+    "benign_util": 0.95,
+    "adv_unsafe": 0.3,
+    "adv_util": 0.125,
+    "ask_rate": 1.0
+  },
+  {
+    "lambda": 1,
+    "benign_util": 0.945,
+    "adv_unsafe": 0.3,
+    "adv_util": 0.02,
+    "ask_rate": 1.0
+  },
+  {
+    "lambda": 2,
+    "benign_util": 0.938,
+    "adv_unsafe": 0.125,
+    "adv_util": -0.037,
+    "ask_rate": 1.0
+  },
+  {
+    "lambda": 4,
+    "benign_util": 0.718,
+    "adv_unsafe": 0.0,
+    "adv_util": 0.067,
+    "ask_rate": 0.8
+  },
+  {
+    "lambda": 8,
+    "benign_util": 0.333,
+    "adv_unsafe": 0.0,
+    "adv_util": 0.082,
+    "ask_rate": 0.45
+  }
+]
