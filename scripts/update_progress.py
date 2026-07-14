@@ -40,9 +40,13 @@ def _read(relpath: str) -> str:
     return (ROOT / relpath).read_text(encoding="utf-8")
 
 
-def _load_tasks() -> list[dict]:
+def _load_tasks(pattern: str = "*.json") -> list[dict]:
+    """pattern lets callers target a specific frozen task file (e.g.
+    'pilot_40.json' for the Jul 12-16 pilot deliverables vs 'main_120.json'
+    for the Jul 17-19 main-experiment deliverables) instead of conflating
+    counts across every tasks/*.json snapshot in the repo."""
     tasks: list[dict] = []
-    for path in sorted((ROOT / "tasks").glob("*.json")):
+    for path in sorted((ROOT / "tasks").glob(pattern)):
         data = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(data, list):
             tasks.extend(data)
@@ -51,19 +55,19 @@ def _load_tasks() -> list[dict]:
     return tasks
 
 
-def _n_tasks() -> int:
-    return len(_load_tasks())
+def _n_tasks(pattern: str = "*.json") -> int:
+    return len(_load_tasks(pattern))
 
 
-def _splits_assigned() -> bool:
-    tasks = _load_tasks()
+def _splits_assigned(pattern: str = "*.json") -> bool:
+    tasks = _load_tasks(pattern)
     if not tasks:
         return False
     return all(t.get("split") in {"dev", "test"} for t in tasks)
 
 
-def _split_counts() -> tuple[int, int, int]:
-    tasks = _load_tasks()
+def _split_counts(pattern: str = "*.json") -> tuple[int, int, int]:
+    tasks = _load_tasks(pattern)
     dev = sum(1 for t in tasks if t.get("split") == "dev")
     test = sum(1 for t in tasks if t.get("split") == "test")
     other = len(tasks) - dev - test
@@ -136,9 +140,44 @@ def _abstract_has_placeholders() -> bool:
     return bool(re.search(r"\[[A-Z]\]", path.read_text(encoding="utf-8")))
 
 
+def _main120_exists() -> bool:
+    return _exists("tasks/main_120.json")
+
+
+def _dev_calibration_done() -> bool:
+    return _exists("results/dev_calibration.json")
+
+
+def _uses_real_model_backend(relpath: str) -> bool:
+    """A results file is only evidence of a REAL primary/main run if its
+    recorded agent_backend isn't the ScriptedAgent placeholder -- otherwise
+    the file existing just proves the plumbing works, not that Jul 19's
+    'primary test runs' deliverable (real open-weight models) happened."""
+    path = ROOT / relpath
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return False
+    backend = str(data.get("agent_backend", "")).lower()
+    if not backend:
+        return False
+    return "scriptedagent" not in backend and "placeholder" not in backend
+
+
 def row(date: str, deliverable: str) -> tuple[str, str]:
     """Return (status, evidence) for one schedule row from real repo state."""
-    n = _n_tasks()
+    # Jul 12-16 deliverables are about the 40-task pilot specifically; Jul
+    # 17-19 are about the 120-task main-experiment set. Keep the two counts
+    # separate so evidence text doesn't conflate "40 pilot tasks" with "120
+    # main tasks" just because both frozen files live under tasks/.
+    n = _n_tasks("pilot_40.json")
+    n_main = _n_tasks("main_120.json")
+    splits_ok_pilot = _splits_assigned("pilot_40.json")
+    dev_n, test_n, other_n = _split_counts("pilot_40.json")
+    splits_ok = _splits_assigned("main_120.json")
+    dev_n_main, test_n_main, other_n_main = _split_counts("main_120.json")
     classes_agent = _class_names("secure_clarify/agent.py") if _exists("secure_clarify/agent.py") else set()
     classes_pol = _class_names("secure_clarify/policies.py") if _exists("secure_clarify/policies.py") else set()
     defs_sim = _def_names("secure_clarify/simulators.py") if _exists("secure_clarify/simulators.py") else set()
@@ -146,8 +185,6 @@ def row(date: str, deliverable: str) -> tuple[str, str]:
     sim_classes = _class_names("secure_clarify/simulators.py") if _exists("secure_clarify/simulators.py") else set()
     defs_ver = _def_names("secure_clarify/verifiers.py") if _exists("secure_clarify/verifiers.py") else set()
     open_ok = _open_model_methods_implemented()
-    splits_ok = _splits_assigned()
-    dev_n, test_n, other_n = _split_counts()
     smoke = _smoke_passes()
 
     if date == "Jul 12":
@@ -226,31 +263,55 @@ def row(date: str, deliverable: str) -> tuple[str, str]:
             "docs/01_novelty_matrix.md",
             "docs/02_threat_model.md",
         )
-        if go and freeze_bits and splits_ok and smoke:
+        if go and freeze_bits and splits_ok_pilot and smoke:
             return DONE, f"GO + freeze artifacts + split assigned (dev={dev_n}, test={test_n})"
         if go or freeze_bits or n > 0:
             return PARTIAL, (
                 f"GO={go}, freeze_files={freeze_bits}, "
-                f"splits assigned={splits_ok} (dev={dev_n}, test={test_n}, other={other_n})"
+                f"splits assigned={splits_ok_pilot} (dev={dev_n}, test={test_n}, other={other_n})"
             )
         return NOT_STARTED, "—"
 
     if date == "Jul 17-18":
-        bits = [n >= 120, open_ok, splits_ok]
+        main120 = _main120_exists()
+        tuned = _dev_calibration_done()
+        # "development runs, tune lambda and priors" requires a real backend,
+        # not just the ScriptedAgent placeholder, to count as fully Done.
+        real_dev_run = _uses_real_model_backend("results/dev_calibration.json")
+        bits = [n_main >= 120, open_ok, splits_ok, main120, tuned]
+        if all(bits) and real_dev_run:
+            return DONE, (
+                f"{n_main} main tasks (dev={dev_n_main}, test={test_n_main}), "
+                f"OpenModelAgent live, lambda/priors tuned on dev"
+            )
         if all(bits):
-            return DONE, f"{n} tasks, OpenModelAgent live, splits set"
-        if any(bits) or n >= 40:
-            return PARTIAL, f"tasks={n}/120, open_model={open_ok}, splits={splits_ok}"
+            return PARTIAL, (
+                f"main tasks={n_main}/120 (dev={dev_n_main}, test={test_n_main}), "
+                f"splits={splits_ok}, tuned={tuned} (still ScriptedAgent, not a real model backend)"
+            )
+        if any(bits) or n_main >= 40:
+            return PARTIAL, (
+                f"main tasks={n_main}/120, main_120.json={main120}, open_model={open_ok}, "
+                f"splits={splits_ok}, dev_calibration={tuned}"
+            )
         return NOT_STARTED, "—"
 
     if date == "Jul 19":
-        has_primary = _exists("results/primary_summary.json") or any(
-            (ROOT / "results").glob("primary*.json")
-        ) if (ROOT / "results").exists() else False
-        if splits_ok and open_ok and has_primary:
-            return DONE, "splits frozen + primary results present"
-        if splits_ok or open_ok or has_primary:
-            return PARTIAL, f"splits={splits_ok}, open_model={open_ok}, primary={has_primary}"
+        has_primary = _exists("results/primary_summary.json")
+        tuned = _dev_calibration_done()
+        real_primary = _uses_real_model_backend("results/primary_summary.json")
+        if splits_ok and open_ok and has_primary and tuned and real_primary:
+            return DONE, "dev-frozen choices + primary test run on a real model backend"
+        if splits_ok and open_ok and has_primary and tuned:
+            return PARTIAL, (
+                "splits frozen + dev-tuned lambda/priors + primary run present, "
+                "but still on the ScriptedAgent placeholder, not a real open-weight model"
+            )
+        if splits_ok or open_ok or has_primary or tuned:
+            return PARTIAL, (
+                f"splits={splits_ok}, open_model={open_ok}, dev_calibration={tuned}, "
+                f"primary={has_primary}"
+            )
         return NOT_STARTED, "—"
 
     if date == "Jul 20":

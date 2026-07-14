@@ -1,5 +1,7 @@
 {
   "n_tasks": 40,
+  "n_per_domain": 20,
+  "tasks_file": "tasks/pilot_40.json",
   "dev": {
     "n": 8,
     "task_ids": [
@@ -53,5 +55,5 @@
     "sha256": "e5446cf4383ba004efa3fd047ea9b05bdaaca36212f3fbf9c8b31c82baba1171"
   },
   "unassigned": [],
-  "note": "Pilot-scale split (n=40, ~20%/80%), frozen from build_pilot(). Re-freeze at n=120 for the Jul 17-19 development/test split; development-only choices (lambda, channel priors, prompt wording) must be tuned on the dev split only."
+  "note": "Frozen from build_pilot(); development-only choices (lambda, channel priors, prompt wording) must be tuned on the dev split only -- see scripts/tune_dev.py and results/dev_calibration.json."
 }

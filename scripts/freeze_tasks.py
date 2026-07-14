@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
-"""Regenerate tasks/pilot_40.json from task_factory.build_pilot() and freeze the
-dev/test split with a checksum (plan section 11: "freeze and checksum the test
-file before tuning").
+"""Regenerate a frozen task-set JSON from task_factory.build_pilot() and freeze
+the dev/test split with a checksum (plan section 11: "freeze and checksum the
+test file before tuning").
 
 build_pilot() is deterministic (fixed random.seed in task_factory.py, no other
-randomness), so re-running this after a task_factory change is how the frozen
+randomness), so re-running this after a task_factory change is how a frozen
 JSON snapshot is kept in sync with the live generator -- it is never hand-edited.
 
 Usage:
   python scripts/freeze_tasks.py
+      # pilot scale (default): 40 tasks -> tasks/pilot_40.json (Jul 14-16)
+
+  python scripts/freeze_tasks.py --n-per-domain 60 \
+      --tasks-out tasks/main_120.json --manifest-out results/main120_manifest.json
+      # main-experiment scale: 120 tasks, 24 dev / 96 test (Jul 17-19)
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import sys
@@ -24,12 +30,20 @@ from secure_clarify.task_factory import build_pilot  # noqa: E402
 
 
 def main() -> int:
-    tasks = build_pilot(n_per_domain=20)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--n-per-domain", type=int, default=20,
+                    help="tasks per domain; 20 -> 40 total (pilot), 60 -> 120 total (main)")
+    ap.add_argument("--tasks-out", default="tasks/pilot_40.json")
+    ap.add_argument("--manifest-out", default="results/split_manifest.json")
+    args = ap.parse_args()
+
+    tasks = build_pilot(n_per_domain=args.n_per_domain)
     for t in tasks:
         t.validate()
 
     payload = [json.loads(t.to_json()) for t in tasks]
-    tasks_path = ROOT / "tasks" / "pilot_40.json"
+    tasks_path = ROOT / args.tasks_out
+    tasks_path.parent.mkdir(parents=True, exist_ok=True)
     tasks_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
     dev = sorted(t.task_id for t in tasks if t.split == "dev")
@@ -45,17 +59,18 @@ def main() -> int:
 
     manifest = {
         "n_tasks": len(tasks),
+        "n_per_domain": args.n_per_domain,
+        "tasks_file": args.tasks_out,
         "dev": {"n": len(dev), "task_ids": dev, "sha256": checksum(dev)},
         "test": {"n": len(test), "task_ids": test, "sha256": checksum(test)},
         "unassigned": other,
         "note": (
-            "Pilot-scale split (n=40, ~20%/80%), frozen from build_pilot(). "
-            "Re-freeze at n=120 for the Jul 17-19 development/test split; "
-            "development-only choices (lambda, channel priors, prompt wording) "
-            "must be tuned on the dev split only."
+            "Frozen from build_pilot(); development-only choices (lambda, "
+            "channel priors, prompt wording) must be tuned on the dev split "
+            "only -- see scripts/tune_dev.py and results/dev_calibration.json."
         ),
     }
-    manifest_path = ROOT / "results" / "split_manifest.json"
+    manifest_path = ROOT / args.manifest_out
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 

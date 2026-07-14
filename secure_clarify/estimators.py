@@ -121,6 +121,12 @@ def fit_priors(dev_tasks, counts: dict) -> None:
         _DEV_ATTACK_PRIOR[ch] = (k + 1) / (n + 2)
 
 
+def set_priors(priors: dict) -> None:
+    """Directly overwrite _DEV_ATTACK_PRIOR, e.g. reloading a frozen dev fit
+    (results/dev_calibration.json) in a fresh process rather than re-fitting."""
+    _DEV_ATTACK_PRIOR.update(priors)
+
+
 # --- post-response risk: cue-based malice probability ---------------------------
 
 _CUE_TERMS = [
