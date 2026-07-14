@@ -1,6 +1,6 @@
 """Smoke tests: run with `python3 test_smoke.py`. No external deps."""
 from secure_clarify.task_factory import build_pilot
-from secure_clarify.agent import ScriptedAgent
+from secure_clarify.agent import ScriptedAgent, OpenModelAgent
 from secure_clarify.policies import NeverAsk, ConventionalVoI, TrustedOnly, SecureVoI
 from secure_clarify.runner import run_episode, run_grid, summarize
 from secure_clarify.schema import Condition, Channel, load_task
@@ -68,6 +68,58 @@ def test_lambda_monotone():
     print("[ok] unsafe rate non-increasing in lambda")
 
 
+def test_splits_assigned():
+    tasks = build_pilot(20)
+    dev = [t for t in tasks if t.split == "dev"]
+    test = [t for t in tasks if t.split == "test"]
+    assert len(dev) + len(test) == len(tasks), "every task must land in dev or test"
+    assert len(dev) == 8 and len(test) == 32, (len(dev), len(test))
+    # dev should span most channel-availability patterns and every stakes tier
+    # (AVAIL_GROUPS has only 3 distinct channel lists -- two entries collide)
+    assert len({tuple(t.available_channels) for t in dev}) >= 3
+    assert {t.stakes for t in dev} == {"low", "medium", "high"}
+    print(f"[ok] splits stratified: dev={len(dev)}, test={len(test)}")
+
+
+def test_open_model_agent_sample_intents():
+    task = build_pilot(1)[0]
+
+    def gen(prompt: str) -> str:
+        assert "hidden_intent" not in prompt.lower()  # never leak ground truth
+        return '[{"archive": ["a.doc"]}, {"archive": ["b.doc"]}]'
+
+    hyps = OpenModelAgent("stub", gen).sample_intents(task, k=2)
+    assert len(hyps) == 2 and hyps[0] != hyps[1]
+
+    # malformed model output must fail safe, not crash
+    hyps_bad = OpenModelAgent("stub", lambda p: "not json").sample_intents(task, k=3)
+    assert hyps_bad == [{}, {}, {}]
+    print("[ok] OpenModelAgent.sample_intents parses + fails safe")
+
+
+def test_open_model_agent_classify_malice():
+    agent = OpenModelAgent("stub", lambda p: "0.87")
+    assert abs(agent.classify_malice("some text") - 0.87) < 1e-9
+    # unparsable output fails CLOSED (treated as maximally suspicious)
+    agent_bad = OpenModelAgent("stub", lambda p: "I cannot answer that")
+    assert agent_bad.classify_malice("some text") == 1.0
+    print("[ok] OpenModelAgent.classify_malice parses + fails closed")
+
+
+def test_open_model_agent_act():
+    task = build_pilot(1)[0]  # file domain
+    agent = OpenModelAgent(
+        "stub", lambda p: '[["archive_file", {"name": "a.doc"}], '
+                          '["delete_file", {"name": "x"}], '
+                          '["not_a_tool", {}]]')
+    plan = agent.act(task, {"archive": ["a.doc"]})
+    # the hallucinated tool is dropped; the two valid calls survive
+    assert plan == [("archive_file", {"name": "a.doc"}),
+                    ("delete_file", {"name": "x"})]
+    assert OpenModelAgent("stub", lambda p: "garbage").act(task, {}) == []
+    print("[ok] OpenModelAgent.act validates plan + drops hallucinated tools")
+
+
 if __name__ == "__main__":
     test_all_tasks_validate()
     test_roundtrip()
@@ -75,4 +127,8 @@ if __name__ == "__main__":
     test_neverask_fails_benign()
     test_tradeoff_exists()
     test_lambda_monotone()
+    test_splits_assigned()
+    test_open_model_agent_sample_intents()
+    test_open_model_agent_classify_malice()
+    test_open_model_agent_act()
     print("\nALL SMOKE TESTS PASSED")

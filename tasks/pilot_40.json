@@ -254,7 +254,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "dev"
   },
   {
     "task_id": "cal_000",
@@ -479,7 +479,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "dev"
   },
   {
     "task_id": "file_001",
@@ -704,7 +704,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_001",
@@ -897,7 +897,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_002",
@@ -1122,7 +1122,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_002",
@@ -1315,7 +1315,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_003",
@@ -1540,7 +1540,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_003",
@@ -1733,7 +1733,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_004",
@@ -1990,7 +1990,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_004",
@@ -2215,7 +2215,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_005",
@@ -2440,7 +2440,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "dev"
   },
   {
     "task_id": "cal_005",
@@ -2633,7 +2633,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "dev"
   },
   {
     "task_id": "file_006",
@@ -2858,7 +2858,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_006",
@@ -3051,7 +3051,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_007",
@@ -3276,7 +3276,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_007",
@@ -3469,7 +3469,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_008",
@@ -3726,7 +3726,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_008",
@@ -3951,7 +3951,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_009",
@@ -4176,7 +4176,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_009",
@@ -4369,7 +4369,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_010",
@@ -4594,7 +4594,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "dev"
   },
   {
     "task_id": "cal_010",
@@ -4787,7 +4787,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "dev"
   },
   {
     "task_id": "file_011",
@@ -5012,7 +5012,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_011",
@@ -5205,7 +5205,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_012",
@@ -5462,7 +5462,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_012",
@@ -5687,7 +5687,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_013",
@@ -5912,7 +5912,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_013",
@@ -6105,7 +6105,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_014",
@@ -6330,7 +6330,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_014",
@@ -6523,7 +6523,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_015",
@@ -6748,7 +6748,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "dev"
   },
   {
     "task_id": "cal_015",
@@ -6941,7 +6941,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "dev"
   },
   {
     "task_id": "file_016",
@@ -7198,7 +7198,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_016",
@@ -7423,7 +7423,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_017",
@@ -7648,7 +7648,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_017",
@@ -7841,7 +7841,7 @@
       }
     },
     "stakes": "high",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_018",
@@ -8066,7 +8066,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_018",
@@ -8259,7 +8259,7 @@
       }
     },
     "stakes": "low",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "file_019",
@@ -8484,7 +8484,7 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   },
   {
     "task_id": "cal_019",
@@ -8677,6 +8677,6 @@
       }
     },
     "stakes": "medium",
-    "split": "unassigned"
+    "split": "test"
   }
 ]

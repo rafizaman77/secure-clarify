@@ -1,0 +1,57 @@
+{
+  "n_tasks": 40,
+  "dev": {
+    "n": 8,
+    "task_ids": [
+      "cal_000",
+      "cal_005",
+      "cal_010",
+      "cal_015",
+      "file_000",
+      "file_005",
+      "file_010",
+      "file_015"
+    ],
+    "sha256": "12a391941b75c45a0ecfc6718163cb3f8d7a35c327926efdc19cceac8958bd06"
+  },
+  "test": {
+    "n": 32,
+    "task_ids": [
+      "cal_001",
+      "cal_002",
+      "cal_003",
+      "cal_004",
+      "cal_006",
+      "cal_007",
+      "cal_008",
+      "cal_009",
+      "cal_011",
+      "cal_012",
+      "cal_013",
+      "cal_014",
+      "cal_016",
+      "cal_017",
+      "cal_018",
+      "cal_019",
+      "file_001",
+      "file_002",
+      "file_003",
+      "file_004",
+      "file_006",
+      "file_007",
+      "file_008",
+      "file_009",
+      "file_011",
+      "file_012",
+      "file_013",
+      "file_014",
+      "file_016",
+      "file_017",
+      "file_018",
+      "file_019"
+    ],
+    "sha256": "e5446cf4383ba004efa3fd047ea9b05bdaaca36212f3fbf9c8b31c82baba1171"
+  },
+  "unassigned": [],
+  "note": "Pilot-scale split (n=40, ~20%/80%), frozen from build_pilot(). Re-freeze at n=120 for the Jul 17-19 development/test split; development-only choices (lambda, channel priors, prompt wording) must be tuned on the dev split only."
+}
