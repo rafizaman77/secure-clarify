@@ -1,5 +1,42 @@
 # Security-Aware Clarification for Agents — AAAI-27
 
+## What is this, in plain English?
+
+AI agents that can take real actions (archive a file, schedule a meeting, send
+a message) sometimes get vague instructions and have to decide: act on my best
+guess, or stop and ask a clarifying question?
+
+Asking seems obviously safe. It isn't. The answer to that question doesn't
+always come from the real, trusted user — it might come from a shared
+document, a forwarded email, a third-party tool, or an account that's been
+compromised. So the moment an agent asks a question, it opens a channel that
+an attacker can use to slip in a malicious instruction disguised as an answer.
+That means the same clarifying question that helps the agent do the right
+thing for a real user can also be the thing that gets it hijacked.
+
+**This repo is a testbed for that trade-off.** It builds simulated
+environments (a file system, a calendar) and a benchmark of tasks where the
+*same* ambiguous request gets three matched versions of a clarifying answer —
+one honest, one just noisy/wrong, and one actively adversarial. We then run
+several decision rules ("policies") against those tasks and check,
+automatically (no human grading), whether the agent (1) actually completed the
+task and (2) took any action it shouldn't have.
+
+Our proposed rule, **SecureVoI**, doesn't just ask "would clarifying help?" —
+it also asks "who would be answering, and how much do I trust that channel?"
+before deciding whether to ask, and screens the answer before acting on it.
+The claim we're validating: SecureVoI keeps most of the benefit of asking on
+legitimate tasks while cutting down how often the agent gets tricked on
+adversarial ones — beating simpler baselines like "always ask" or "only ask
+the verified user."
+
+**Important:** nothing here is trained or fine-tuned. The decision rules are
+fixed, hand-designed formulas evaluated against off-the-shelf language models
+at inference time — this repo tests and compares those rules, it doesn't
+train anything.
+
+---
+
 Runnable scaffolding for balancing information gain and attack exposure when
 language-model agents seek clarification. Everything here executes on CPU with a
 **scripted agent** so the pipeline is validated before open-weight models are wired in.
