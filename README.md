@@ -91,4 +91,7 @@ python run_pilot.py                         # full pilot table, go/no-go, writes
 
 Day-by-day deliverable status, current blockers, and the real-model wiring
 notes now live in **[PROGRESS.md](PROGRESS.md)** so this README can stay
-focused on what the project is rather than where it stands this week.
+focused on what the project is rather than where it stands this week. For a
+detailed narrative log — what was built each day, why, what broke, and what's
+left, written for anyone (or any AI) picking this up cold — see
+**[docs/DAILY_LOG.md](docs/DAILY_LOG.md)**.

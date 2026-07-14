@@ -4,7 +4,9 @@ Internal tracker for Rafi + collaborator. The table below is auto-generated
 from real repo state by `scripts/update_progress.py` — nobody hand-types a
 checkmark, so it can't silently drift from what's actually built (see
 `row()` in that script if a status looks wrong). For what the project
-actually *is*, see the main [README](README.md).
+actually *is*, see the main [README](README.md). For the detailed, narrative
+day-by-day record — what was built, what broke, why each design decision was
+made, and exactly what's left — see **[docs/DAILY_LOG.md](docs/DAILY_LOG.md)**.
 
 ## 📅 Schedule & progress
 | Date | Deliverable | Status | Evidence |
@@ -83,21 +85,40 @@ adversarial unsafe rate is 0.417 vs. SecureVoI's 0.042, and SecureVoI's benign
 utility (0.921) still beats Trusted-Only (0.637). See
 `results/primary_summary.json` for the full table.
 
-## Wiring in the real models (Jul 16→17)
+## Wiring in the real models
 
 `agent.OpenModelAgent` is implemented: `sample_intents`, `classify_malice`, and
 `act` all prompt a single injected `generate_fn(prompt: str) -> str` and parse
 its JSON output (failing safe/closed on malformed responses — see the
-docstrings in `secure_clarify/agent.py`). What's left is supplying a real
-`generate_fn` from an actual inference stack (vLLM / HF / llama.cpp / a hosted
-API client) for two open-weight model families:
+docstrings in `secure_clarify/agent.py`). `scripts/model_backends.py` now
+supplies that `generate_fn` for the two routes that actually fit this dev
+environment (no GPU — CPU-only torch):
 
-```python
-OpenModelAgent(model_id="...", generate_fn=my_inference_call)
+- **Hosted API** (recommended): Groq / Together / Fireworks / OpenRouter all
+  serve open-weight models through an OpenAI-chat-compatible endpoint.
+  `openai_compatible_generate_fn(base_url, api_key, model)`.
+- **Local, free, CPU-friendly**: install [Ollama](https://ollama.com),
+  `ollama pull llama3.1:8b`, `ollama serve`.
+  `ollama_generate_fn(model)`.
+
+```bash
+# 1. smoke-test ONE task before spending the full budget
+export GROQ_API_KEY=...
+python scripts/smoke_real_model.py --backend openai \
+    --base-url https://api.groq.com/openai/v1/chat/completions \
+    --api-key-env GROQ_API_KEY --model llama-3.1-8b-instant
+
+# 2. re-run the frozen pipeline with the real agent (repeat per model family --
+#    the plan needs 2 for the pilot re-run, 3 for the main experiment)
+python scripts/tune_dev.py    --tasks tasks/main_120.json
+python scripts/run_primary.py --tasks tasks/main_120.json
 ```
 
-Nothing else changes: policies, estimators, verifiers, and the runner are model-agnostic.
-Keep decoding deterministic for the main runs; fit channel priors and λ on the dev split only.
+Nothing else changes: policies, estimators, verifiers, and the runner are
+model-agnostic. Keep decoding deterministic (`temperature=0`, already the
+default in `model_backends.py`); re-fit lambda/priors **per model family** on
+the dev split only — see `docs/DAILY_LOG.md`'s "What's actually needed to turn
+these into real numbers" section for the full walkthrough and reasoning.
 
 ## Run
 
