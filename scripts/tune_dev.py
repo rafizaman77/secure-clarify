@@ -9,12 +9,15 @@ counting attack rates ON THE DEV SPLIT to fit _DEV_ATTACK_PRIOR -- exactly the
 kind of dev-set label use the split exists to allow. Test-set ground truth is
 never touched here.
 
-CAVEAT (see PROGRESS.md): this calibration runs on ScriptedAgent, since no real
-generate_fn is wired into OpenModelAgent yet. Re-run once a real model is
-connected -- the chosen lambda and fitted priors below are provisional.
+Defaults to --backend scripted (ScriptedAgent placeholder) if no backend is
+given. For a real model backend see scripts/model_backends.py and
+docs/DAILY_LOG.md; re-run per model family, lambda/priors are not portable
+across models.
 
 Usage:
   python scripts/tune_dev.py --tasks tasks/main_120.json
+  python scripts/tune_dev.py --tasks tasks/main_120.json \
+      --backend hf_local --model Qwen/Qwen2.5-0.5B-Instruct
 """
 from __future__ import annotations
 
@@ -28,10 +31,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from secure_clarify.schema import Condition, Channel, load_task  # noqa: E402
-from secure_clarify.agent import ScriptedAgent  # noqa: E402
+from secure_clarify.agent import CachingAgent  # noqa: E402
 from secure_clarify.policies import SecureVoI  # noqa: E402
 from secure_clarify.runner import run_grid, summarize  # noqa: E402
 from secure_clarify import estimators  # noqa: E402
+from scripts.model_backends import build_agent, add_backend_args  # noqa: E402
 
 LAMBDA_GRID = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0]
 # Selection rule, fixed before looking at test: the SMALLEST lambda on the
@@ -96,6 +100,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tasks", default="tasks/main_120.json")
     ap.add_argument("--out", default="results/dev_calibration.json")
+    add_backend_args(ap)
     args = ap.parse_args()
 
     all_tasks = load_tasks(ROOT / args.tasks)
@@ -104,12 +109,17 @@ def main() -> int:
         raise SystemExit(f"No dev-split tasks found in {args.tasks}")
 
     fitted_priors = fit_dev_priors(dev_tasks)
-    agent = ScriptedAgent(gullible=0.8)
+    raw_agent = build_agent(args.backend, args.model, args.base_url,
+                            args.api_key_env, args.host)
+    agent = CachingAgent(raw_agent)
     frontier = sweep_lambda(dev_tasks, agent)
     chosen_lambda = choose_lambda(frontier)
 
+    backend_label = ("ScriptedAgent (placeholder -- no open-weight model wired in yet)"
+                     if args.backend == "scripted" else f"{args.backend}:{args.model}")
     result = {
-        "agent_backend": "ScriptedAgent (placeholder -- no open-weight model wired in yet)",
+        "agent_backend": backend_label,
+        "cache_sizes": agent.cache_sizes(),
         "tasks_file": args.tasks,
         "n_dev_tasks": len(dev_tasks),
         "fitted_channel_priors": {ch.value: p for ch, p in fitted_priors.items()},

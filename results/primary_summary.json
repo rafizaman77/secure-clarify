@@ -1,5 +1,10 @@
 {
   "agent_backend": "ScriptedAgent (placeholder -- no open-weight model wired in yet)",
+  "cache_sizes": {
+    "sample_intents": 96,
+    "classify_malice": 4,
+    "act": 288
+  },
   "tasks_file": "tasks/main_120.json",
   "n_test_tasks": 96,
   "lambda_used": 0.25,

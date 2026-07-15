@@ -1,5 +1,10 @@
 {
   "agent_backend": "ScriptedAgent (placeholder -- no open-weight model wired in yet)",
+  "cache_sizes": {
+    "sample_intents": 24,
+    "classify_malice": 4,
+    "act": 54
+  },
   "tasks_file": "tasks/main_120.json",
   "n_dev_tasks": 24,
   "fitted_channel_priors": {

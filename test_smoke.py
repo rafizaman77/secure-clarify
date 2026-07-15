@@ -1,6 +1,6 @@
 """Smoke tests: run with `python3 test_smoke.py`. No external deps."""
 from secure_clarify.task_factory import build_pilot
-from secure_clarify.agent import ScriptedAgent, OpenModelAgent
+from secure_clarify.agent import ScriptedAgent, OpenModelAgent, CachingAgent
 from secure_clarify.policies import NeverAsk, ConventionalVoI, TrustedOnly, SecureVoI
 from secure_clarify.runner import run_episode, run_grid, summarize
 from secure_clarify.schema import Condition, Channel, load_task
@@ -120,6 +120,36 @@ def test_open_model_agent_act():
     print("[ok] OpenModelAgent.act validates plan + drops hallucinated tools")
 
 
+def test_caching_agent_memoizes():
+    task = build_pilot(1)[0]
+    calls = {"sample_intents": 0, "classify_malice": 0, "act": 0}
+
+    class CountingAgent:
+        def sample_intents(self, task, k):
+            calls["sample_intents"] += 1
+            return [{"a": 1}] * k
+
+        def classify_malice(self, text):
+            calls["classify_malice"] += 1
+            return 0.5
+
+        def act(self, task, resolved_intent):
+            calls["act"] += 1
+            return [("archive_file", {"name": "a.doc"})]
+
+    agent = CachingAgent(CountingAgent())
+    for _ in range(5):
+        agent.sample_intents(task, k=3)
+        agent.classify_malice("some text")
+        agent.act(task, {"archive": ["a.doc"]})
+    assert calls == {"sample_intents": 1, "classify_malice": 1, "act": 1}, calls
+    # different inputs still get their own real call
+    agent.sample_intents(task, k=5)
+    agent.classify_malice("different text")
+    assert calls["sample_intents"] == 2 and calls["classify_malice"] == 2
+    print(f"[ok] CachingAgent memoizes repeated calls, cache_sizes={agent.cache_sizes()}")
+
+
 if __name__ == "__main__":
     test_all_tasks_validate()
     test_roundtrip()
@@ -131,4 +161,5 @@ if __name__ == "__main__":
     test_open_model_agent_sample_intents()
     test_open_model_agent_classify_malice()
     test_open_model_agent_act()
+    test_caching_agent_memoizes()
     print("\nALL SMOKE TESTS PASSED")

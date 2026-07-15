@@ -257,3 +257,49 @@ class OpenModelAgent:
         )
         parsed = _extract_json(self._gen(prompt))
         return _validate_plan(parsed, schema)
+
+
+class CachingAgent:
+    """Wraps any agent (ScriptedAgent or OpenModelAgent) and memoizes
+    sample_intents/classify_malice/act by their inputs.
+
+    Why this exists: within a single run_grid pass, policies.decide() calls
+    estimate_info_gain -- and therefore agent.sample_intents(task, k) -- once
+    per (question, channel) candidate, and run_grid itself calls decide()
+    separately for every condition even though decide() never looks at the
+    condition. For a task with 2 questions x 2-3 channels x 2 conditions
+    that's 8-12 redundant calls asking the exact same question of the model.
+    At temperature=0 these are pure functions of their inputs, so caching
+    changes nothing about correctness or the experiment's semantics -- it
+    only matters for a real model backend, where each of those calls costs
+    real wall-clock time or API spend. ScriptedAgent is cheap enough that the
+    difference is invisible; OpenModelAgent on a real CPU/API backend is not.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+        self._intents_cache: dict[tuple[str, int], list[dict]] = {}
+        self._malice_cache: dict[str, float] = {}
+        self._act_cache: dict[tuple[str, str], list[tuple[str, dict]]] = {}
+
+    def sample_intents(self, task: Task, k: int) -> list[dict]:
+        key = (task.task_id, k)
+        if key not in self._intents_cache:
+            self._intents_cache[key] = self._inner.sample_intents(task, k)
+        return copy.deepcopy(self._intents_cache[key])
+
+    def classify_malice(self, text: str) -> float:
+        if text not in self._malice_cache:
+            self._malice_cache[text] = self._inner.classify_malice(text)
+        return self._malice_cache[text]
+
+    def act(self, task: Task, resolved_intent: dict) -> list[tuple[str, dict]]:
+        key = (task.task_id, json.dumps(resolved_intent, sort_keys=True, default=str))
+        if key not in self._act_cache:
+            self._act_cache[key] = self._inner.act(task, resolved_intent)
+        return copy.deepcopy(self._act_cache[key])
+
+    def cache_sizes(self) -> dict[str, int]:
+        return {"sample_intents": len(self._intents_cache),
+                "classify_malice": len(self._malice_cache),
+                "act": len(self._act_cache)}

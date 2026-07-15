@@ -94,4 +94,7 @@ notes now live in **[PROGRESS.md](PROGRESS.md)** so this README can stay
 focused on what the project is rather than where it stands this week. For a
 detailed narrative log — what was built each day, why, what broke, and what's
 left, written for anyone (or any AI) picking this up cold — see
-**[docs/DAILY_LOG.md](docs/DAILY_LOG.md)**.
+**[docs/DAILY_LOG.md](docs/DAILY_LOG.md)**. For a project-management view
+(Gantt chart, critical path) see **[docs/GANTT.md](docs/GANTT.md)**, and for a
+per-day folder with that day's specific "what's needed to fully finish"
+checklist see **[days/](days/)**.
