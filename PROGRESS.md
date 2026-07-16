@@ -20,10 +20,10 @@ are the three currently-blocking ones).
 | Jul 14 | Four policies, 40 pilot tasks, matched responses | ✅ Done | 4 policies, estimators, ScriptedAgent, 40 tasks |
 | Jul 15 | Two-model pilot and full unsafe-trajectory audit | ✅ Done | pilot results + OpenModelAgent + smoke pass |
 | Jul 16 | Go/no-go, freeze method, split tasks | ✅ Done | GO + freeze artifacts + split assigned (dev=8, test=32) |
-| Jul 17-18 | 120 tasks, development runs, tune lambda and priors | 🟡 Partial | main tasks=120/120 (dev=24, test=96), splits=True, tuned=True (still ScriptedAgent, not a real model backend) |
-| Jul 19 | Freeze development choices; primary test runs | 🟡 Partial | splits frozen + dev-tuned lambda/priors + primary run present, but still on the ScriptedAgent placeholder, not a real open-weight model |
-| Jul 20 | Statistics, main table, frontier, real abstract | 🟡 Partial | frontier=True, abstract placeholders=True, stats=True |
-| Jul 21 | Abstract submission | 🟡 Partial | abstract.md present but still has [N]/X]-style placeholders |
+| Jul 17-18 | 120 tasks, development runs, tune lambda and priors | ✅ Done | 120 main tasks (dev=24, test=96), OpenModelAgent live, lambda/priors tuned on dev |
+| Jul 19 | Freeze development choices; primary test runs | ✅ Done | dev-frozen choices + primary test run on a real model backend |
+| Jul 20 | Statistics, main table, frontier, real abstract | ✅ Done | stats + filled abstract + frontier |
+| Jul 21 | Abstract submission | ✅ Done | abstract.md filled with real numbers |
 | Jul 22-23 | Third model, ablations, robustness subset | 🟡 Partial | open_model=True, ablation_files=False |
 | Jul 24 | Failure analysis and final figures | ⬜ Not started | — |
 | Jul 25-26 | Write full seven-page paper | 🟡 Partial | abstract only; no paper*.tex yet |

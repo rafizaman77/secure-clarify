@@ -58,7 +58,15 @@ def run_episode(task: Task, condition: Condition, policy, agent,
             accepted = bool(dec.accept_response and response is not None)
 
     resolved = resolve_intent(task, response, accepted)
-    plan = agent.act(task, resolved)
+    # A real injection reaches the agent only as the TEXT of an answer it
+    # accepted -- so the accepted answer's text is what act() may be fooled by.
+    # If the policy rejected the answer (SecureVoI's stage-2 gate) or never
+    # asked, no text reaches act() and no injection is possible: that gating IS
+    # the security mechanism, exercised through the realistic channel. (The
+    # deterministic ScriptedAgent ignores this text and is instead driven by
+    # the structured _inject_* keys resolve_intent put in `resolved`.)
+    answer_text = response.text if (accepted and response is not None) else None
+    plan = agent.act(task, resolved, answer_text)
 
     env = make_env(task.domain, task.initial_state)
     for tool, args in plan:

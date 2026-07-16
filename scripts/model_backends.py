@@ -48,15 +48,39 @@ import time
 import urllib.error
 import urllib.request
 
+# Hosted providers (Groq, Together, Fireworks, OpenRouter, ...) sit behind
+# Cloudflare, whose default managed rules 403 the stock `Python-urllib/x.y`
+# User-Agent as a bot signature (Cloudflare error 1010). Any non-bot UA passes,
+# so every outbound request must set one explicitly or the openai backend fails
+# 100% of the time with a misleading "403 Forbidden".
+_USER_AGENT = "secure-clarify/1.0"
+
 _hf_cache: dict[str, tuple] = {}  # model_id -> (tokenizer, model) -- load once per process
 
 
 def openai_compatible_generate_fn(base_url: str, api_key: str, model: str,
                                   temperature: float = 0.0, max_tokens: int = 512,
-                                  timeout: float = 60.0, max_retries: int = 3):
+                                  timeout: float = 60.0, max_retries: int = 8,
+                                  min_interval: float = 0.0):
     """Works with Groq / Together / Fireworks / OpenRouter / a local vLLM
     `--api-key` server -- anything speaking the OpenAI chat-completions shape.
-    Deterministic decoding (temperature=0) as required for the main runs."""
+    Deterministic decoding (temperature=0) as required for the main runs.
+
+    Rate limits: free tiers throttle sustained use, so a full 120-task grid WILL
+    hit HTTP 429 repeatedly. That is expected and recoverable -- the 429 carries
+    a `Retry-After` header telling us exactly how long to wait, so on 429 we
+    honor it and continue rather than failing the run. Two calibration lessons
+    the hard way on Groq's llama-3.3-70b free tier: (1) the binding limit is NOT
+    the per-minute token bucket (which stays ~healthy) but a daily/burst limit
+    whose Retry-After is 130-300s, so the wait cap must be well above that --
+    an earlier 8s, then 65s, cap could not outlast it and aborted mid-run; and
+    (2) honoring the FULL Retry-After (rather than hammering early) also avoids
+    the escalating penalty Groq applies when a client ignores it. Other errors
+    (network blips, 5xx) still use short exponential backoff. A small
+    `min_interval` throttle between calls further smooths sustained runs so they
+    trip the burst limit less often."""
+
+    last_call = [0.0]  # wall-clock of the previous request start (for min_interval)
 
     def generate(prompt: str) -> str:
         payload = json.dumps({
@@ -68,14 +92,38 @@ def openai_compatible_generate_fn(base_url: str, api_key: str, model: str,
         req = urllib.request.Request(
             base_url, data=payload, method="POST",
             headers={"Content-Type": "application/json",
-                     "Authorization": f"Bearer {api_key}"})
+                     "Authorization": f"Bearer {api_key}",
+                     "User-Agent": _USER_AGENT})
+        if min_interval > 0:
+            gap = min_interval - (time.time() - last_call[0])
+            if gap > 0:
+                time.sleep(gap)
+        last_call[0] = time.time()
         last_err = None
         for attempt in range(max_retries):
             try:
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                 return data["choices"][0]["message"]["content"]
-            except (urllib.error.URLError, urllib.error.HTTPError, KeyError, TimeoutError) as e:
+            except urllib.error.HTTPError as e:
+                last_err = e
+                if e.code == 429:
+                    # Honor Retry-After (seconds) so we wait exactly long
+                    # enough for the window to reset; fall back to a growing
+                    # wait if the header is absent. The cap must exceed Groq's
+                    # observed 130-300s burst-limit Retry-After (a lower cap
+                    # retries too early and burns all attempts before the window
+                    # clears), while still bounding a truly exhausted daily
+                    # limit to a finite failure.
+                    retry_after = e.headers.get("Retry-After") if e.headers else None
+                    try:
+                        wait = float(retry_after) if retry_after else 30.0 * (attempt + 1)
+                    except (TypeError, ValueError):
+                        wait = 30.0 * (attempt + 1)
+                    time.sleep(min(wait + 2.0, 310.0))
+                else:
+                    time.sleep(min(2 ** attempt, 8))
+            except (urllib.error.URLError, KeyError, TimeoutError) as e:
                 last_err = e
                 time.sleep(min(2 ** attempt, 8))
         # Fail safe: agent.py's callers (sample_intents/classify_malice/act)
@@ -106,7 +154,8 @@ def ollama_generate_fn(model: str, host: str = "http://localhost:11434",
         }).encode("utf-8")
         req = urllib.request.Request(
             f"{host}/api/generate", data=payload, method="POST",
-            headers={"Content-Type": "application/json"})
+            headers={"Content-Type": "application/json",
+                     "User-Agent": _USER_AGENT})
         last_err = None
         for attempt in range(max_retries):
             try:
@@ -170,7 +219,12 @@ def build_agent(backend: str, model: str, base_url: str = "", api_key_env: str =
             raise SystemExit(
                 f"Set {api_key_env} in your environment first "
                 f"(export {api_key_env}=... / $env:{api_key_env}='...').")
-        gen = openai_compatible_generate_fn(base_url=base_url, api_key=api_key, model=model)
+        # GEN_MIN_INTERVAL (seconds) paces sustained runs under a free-tier
+        # burst limit without a code change -- set it for a full grid, leave it
+        # unset (0) for a one-off smoke call.
+        min_interval = float(os.environ.get("GEN_MIN_INTERVAL", "0"))
+        gen = openai_compatible_generate_fn(base_url=base_url, api_key=api_key,
+                                            model=model, min_interval=min_interval)
     elif backend == "ollama":
         gen = ollama_generate_fn(model=model, host=host)
     elif backend == "hf_local":

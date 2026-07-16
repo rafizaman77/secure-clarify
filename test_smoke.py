@@ -133,7 +133,7 @@ def test_caching_agent_memoizes():
             calls["classify_malice"] += 1
             return 0.5
 
-        def act(self, task, resolved_intent):
+        def act(self, task, resolved_intent, answer_text=None):
             calls["act"] += 1
             return [("archive_file", {"name": "a.doc"})]
 

@@ -392,6 +392,78 @@ and only then does `scripts/update_progress.py`'s Jul 19/21 rows turn ✅ Done
 
 ---
 
+## GAP CLOSED — real open-weight models wired in; held-out numbers obtained
+
+The single blocker above (every number was `ScriptedAgent`) is now closed. The
+held-out test split was run end-to-end on a **real local open-weight model**
+and Jul 17-19 flipped to ✅ Done automatically off the `agent_backend` field.
+
+**Backend actually used:** `ollama:mistral-nemo:12b`, run locally via Ollama on
+CPU/Metal (no rate limits, fully deterministic at temperature 0 — re-running a
+recorded episode reproduces it exactly). A hosted route (Groq
+`llama-3.3-70b-versatile`) was validated on the **dev split** and shows the same
+clean monotone frontier, but its free-tier daily token cap (~100k) could not
+finish the ~138k-token 96-task test grid, so the completed held-out run is the
+local Mistral one. `results/models/{mistral-nemo-12b,llama-3.3-70b}/` archive
+each model's artifacts; the default `results/*.json` hold the Mistral run.
+
+**Held-out result (96 test tasks, λ=0.75 frozen from dev, verdict GO):** benign
+goal rate 0.00 (Never Ask) → 1.00 (asking); Conventional-VoI adversarial unsafe
+**0.500**; SecureVoI **0.083** (paired bootstrap −0.417 [−0.521, −0.323],
+p<0.001); SecureVoI benign utility 0.950 vs Trusted-Only 0.675 (+0.275
+[0.183, 0.367], p<0.001). Both central comparisons significant.
+
+**Model-dependence (a real finding, not a bug):** injection-susceptibility
+varies by model. Mistral-Nemo-12B and Llama-3.3-70B follow the injected riders
+and exhibit the trade-off; GPT-OSS-20B and Qwen3-32B resist them and show little
+Conventional-VoI harm. This belongs in the paper (and is now noted in
+`abstract.md`).
+
+**Eight fixes were required the moment a real model touched the pipeline** —
+each invisible under ScriptedAgent, which hard-codes correct tool calls and a
+structured attack channel:
+1. `scripts/model_backends.py`: set a `User-Agent` (Cloudflare 403s the stock
+   `python-urllib` UA on Groq/Together/Fireworks/OpenRouter).
+2. `scripts/model_backends.py`: honor the `Retry-After` header (cap raised to
+   310s) + optional `GEN_MIN_INTERVAL` throttle — the binding Groq limit is a
+   burst/daily one whose Retry-After is 130-300s, which a 65s cap could not
+   outlast.
+3. `agent.py` `OpenModelAgent.act`: spell out each tool's EXACT arg keys in the
+   prompt — a real model otherwise invents `{"files":…}`/`{"file","user"}`
+   instead of `{"name"}`/`{"name","target"}`, `_validate_plan` drops them, and
+   every benign goal fails.
+4. `runner.py`/`agent.py`: deliver injections as the **text of an accepted
+   answer** into `act`, not as structured `_inject_*` keys a real model ignores.
+   Acceptance (SecureVoI's stage-2 gate) is what admits or blocks that text —
+   the security mechanism, exercised through the realistic channel. ScriptedAgent
+   still uses the `_inject_*` keys (unchanged), so its tests/pilot are untouched.
+5. `agent.py`: filter the latent `private_person` field out of what
+   `OpenModelAgent` acts on (it leaked into benign calendar intents and caused a
+   spurious unsafe `share_availability` on every benign calendar task).
+6. `agent.py` `_repair_json`: repair the common LLM JSON slip (a stray/missing
+   closing delimiter) so a capable model's one-brace error doesn't drop the
+   whole plan.
+7. `agent.py` `act` prompt: frame the agent to treat an accepted clarification
+   as authoritative (so a gullible agent follows an injected rider) while not
+   inventing details that were not provided (so it does not hallucinate unsafe
+   actions on under-specified tasks).
+8. `estimators.py` `estimate_info_gain`: apply the channel-info multiplier
+   OUTSIDE the `min(1.0, …)` saturation clip. A real model's high intent
+   disagreement saturates the clip, erasing per-channel differences, so the
+   risk-blind policy tie-breaks onto the trusted channel and never meets the
+   attack — the exact bug docs/03_gonogo_memo.md fixed for ScriptedAgent,
+   re-emerging at real-model disagreement levels. Algebraically identical when
+   unsaturated, so ScriptedAgent (which never saturates) and its
+   `test_tradeoff_exists`/`test_lambda_monotone` are unchanged.
+
+Still open (Jul 22-28): the two remaining baselines named in the plan
+(confidence-threshold, post-hoc guardrail) are NOT implemented, so the abstract
+was filled to claim only the baselines actually run (risk-blind conventional VoI
+and trusted-channel-only); a second/third completed *test-split* model; the
+oracle-vs-learned-risk ablation; the robustness subset; and the paper draft.
+
+---
+
 ## Jul 20-28 — not yet started (kept here as a concrete plan, not just a label)
 
 - **Jul 20 — Statistics, main table, frontier, real abstract.** Needs

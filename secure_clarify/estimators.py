@@ -67,10 +67,20 @@ def estimate_info_gain(task: Task, q: Question, agent, k: int = 5,
     # in utility units. Without this the two terms live on different scales and
     # SecureVoI degenerates to never-ask.
     RECOVERABLE_UTILITY = 1.0
-    raw = disagreement * focus * fmt_w * chan_w
+    raw = disagreement * focus * fmt_w
     # squash the disagreement proxy into a fraction of recoverable utility, then
     # let stakes scale how much that resolution is worth.
-    return RECOVERABLE_UTILITY * min(1.0, raw / _INFO_NORM) * stakes_w
+    base = RECOVERABLE_UTILITY * min(1.0, raw / _INFO_NORM) * stakes_w
+    # The channel multiplier is applied OUTSIDE the saturation clip so channel
+    # differences survive even when a real model's high intent-disagreement
+    # pushes the base proxy to its ceiling. For ScriptedAgent, whose
+    # disagreement is small enough never to saturate, this is algebraically
+    # identical to folding chan_w into `raw` (the pilot and smoke tests are
+    # unchanged). Without it, every channel yields identical info gain on a real
+    # model and the risk-blind policy tie-breaks onto the trusted channel,
+    # never encountering the attack -- the exact failure docs/03_gonogo_memo.md
+    # fixed for ScriptedAgent, re-emerging at real-model disagreement levels.
+    return base * chan_w
 
 
 # empirically, the disagreement*focus proxy tops out well below 1; normalize so a
