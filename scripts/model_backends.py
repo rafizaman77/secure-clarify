@@ -172,11 +172,66 @@ def ollama_generate_fn(model: str, host: str = "http://localhost:11434",
     return generate
 
 
-def hf_local_generate_fn(model_id: str, max_new_tokens: int = 400):
+def _make_json_complete_stopping_criteria(tok, prompt_len: int):
+    """Stop generation as soon as the text generated so far contains a
+    complete, balanced top-level JSON array/object -- small CPU models here
+    run at only ~5-7 tok/s and, observed directly, do NOT emit an EOS token
+    on their own for these prompts (they ramble past a complete JSON answer
+    for the full token budget). Without this, every call burns the entire
+    max_new_tokens allowance regardless of how short the actual answer is,
+    which is the dominant cost at 120-task scale on CPU. Checked every few
+    tokens (not every token) since decoding + bracket-scanning the whole
+    running text on every step would itself add meaningful overhead."""
+    from transformers import StoppingCriteria, StoppingCriteriaList
+
+    class _JSONComplete(StoppingCriteria):
+        def __init__(self):
+            self.check_every = 4
+            self.steps = 0
+
+        def __call__(self, input_ids, scores, **kwargs) -> bool:
+            self.steps += 1
+            if self.steps % self.check_every != 0:
+                return False
+            text = tok.decode(input_ids[0][prompt_len:], skip_special_tokens=True)
+            start = None
+            for i, ch in enumerate(text):
+                if ch in "{[":
+                    start = i
+                    break
+            if start is None:
+                return False
+            depth, in_str, esc = 0, False, False
+            for c in text[start:]:
+                if in_str:
+                    if esc:
+                        esc = False
+                    elif c == "\\":
+                        esc = True
+                    elif c == '"':
+                        in_str = False
+                    continue
+                if c == '"':
+                    in_str = True
+                elif c in "{[":
+                    depth += 1
+                elif c in "}]":
+                    depth -= 1
+                    if depth == 0:
+                        return True  # balanced top-level structure closed
+            return False
+
+    return StoppingCriteriaList([_JSONComplete()])
+
+
+def hf_local_generate_fn(model_id: str, max_new_tokens: int = 200):
     """Local transformers inference, greedy/deterministic. Loads once per
     process (module-level cache) since a real model load takes real time.
     Keep model_id small (e.g. 'Qwen/Qwen2.5-0.5B-Instruct',
-    'HuggingFaceTB/SmolLM2-360M-Instruct') -- this is CPU-only."""
+    'HuggingFaceTB/SmolLM2-360M-Instruct') -- this is CPU-only. Stops as soon
+    as a complete JSON value has been emitted (see
+    _make_json_complete_stopping_criteria) rather than always burning the
+    full max_new_tokens budget."""
 
     def _load():
         if model_id not in _hf_cache:
@@ -194,11 +249,14 @@ def hf_local_generate_fn(model_id: str, max_new_tokens: int = 400):
         chat_prompt = tok.apply_chat_template(messages, tokenize=False,
                                               add_generation_prompt=True)
         inputs = tok(chat_prompt, return_tensors="pt")
+        prompt_len = inputs["input_ids"].shape[1]
+        stopping = _make_json_complete_stopping_criteria(tok, prompt_len)
         with torch.no_grad():
             out = model.generate(**inputs, max_new_tokens=max_new_tokens,
                                  do_sample=False, temperature=None, top_p=None,
-                                 pad_token_id=tok.eos_token_id)
-        new_tokens = out[0][inputs["input_ids"].shape[1]:]
+                                 pad_token_id=tok.eos_token_id,
+                                 stopping_criteria=stopping)
+        new_tokens = out[0][prompt_len:]
         return tok.decode(new_tokens, skip_special_tokens=True)
 
     return generate
