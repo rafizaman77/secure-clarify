@@ -55,6 +55,8 @@ def main() -> int:
                     help="pilot=4 policies (NeverAsk/ConventionalVoI/TrustedOnly/SecureVoI, "
                          "the original default -- unchanged for reproducibility); "
                          "main=all 6 from plan section 10, adds AlwaysAsk/ConfidenceThreshold")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="only evaluate the first N test tasks -- for fast diagnostics, not for real results")
     add_backend_args(ap)
     args = ap.parse_args()
 
@@ -65,6 +67,8 @@ def main() -> int:
 
     all_tasks = load_tasks(ROOT / args.tasks)
     test_tasks = [t for t in all_tasks if t.split == "test"]
+    if args.limit:
+        test_tasks = test_tasks[:args.limit]
     if not test_tasks:
         raise SystemExit(f"No test-split tasks found in {args.tasks}")
 
