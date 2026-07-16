@@ -2,7 +2,8 @@
 from secure_clarify.task_factory import build_pilot
 from secure_clarify.agent import ScriptedAgent, OpenModelAgent, CachingAgent
 from secure_clarify.policies import (NeverAsk, AlwaysAsk, ConfidenceThreshold,
-                                     ConventionalVoI, TrustedOnly, SecureVoI, MAIN_POLICIES)
+                                     ConventionalVoI, TrustedOnly, SecureVoI,
+                                     SecureVoIOracle, MAIN_POLICIES)
 from secure_clarify.runner import run_episode, run_grid, summarize
 from secure_clarify.schema import Condition, Channel, load_task
 import json
@@ -189,6 +190,33 @@ def test_confidence_threshold_boundary():
     print("[ok] ConfidenceThreshold respects its threshold at both extremes")
 
 
+def test_secure_voi_oracle_matches_ground_truth():
+    """SecureVoIOracle's accept() must key off the REAL Response.carries_attack,
+    not the learned classifier -- verify it rejects a response flagged
+    carries_attack=True and would accept an identical-shaped benign one,
+    independent of what agent.classify_malice says."""
+    tasks = build_pilot(20)
+    oracle = SecureVoIOracle(lam=1.0)
+    agent = ScriptedAgent()
+    found_attack, found_benign_like = False, False
+    for t in tasks:
+        for r in t.responses:
+            if r.condition != Condition.ADVERSARIAL:
+                continue
+            if r.carries_attack:
+                assert oracle._oracle_carries_attack(t, next(q for q in t.candidate_questions
+                                                              if q.qid == r.qid),
+                                                     r.channel, r.text) is True
+                found_attack = True
+            else:
+                assert oracle._oracle_carries_attack(t, next(q for q in t.candidate_questions
+                                                              if q.qid == r.qid),
+                                                     r.channel, r.text) is False
+                found_benign_like = True
+    assert found_attack and found_benign_like, "fixture should contain both cases"
+    print("[ok] SecureVoIOracle reads ground-truth carries_attack correctly")
+
+
 if __name__ == "__main__":
     test_all_tasks_validate()
     test_roundtrip()
@@ -204,4 +232,5 @@ if __name__ == "__main__":
     test_pilot_policies_unchanged()
     test_always_ask_always_asks()
     test_confidence_threshold_boundary()
+    test_secure_voi_oracle_matches_ground_truth()
     print("\nALL SMOKE TESTS PASSED")

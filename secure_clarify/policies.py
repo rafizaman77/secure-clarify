@@ -191,6 +191,45 @@ class SecureVoI:
         return info_value > self.lam * r * expected_loss
 
 
+class SecureVoIOracle(SecureVoI):
+    """Ablation (Jul 22-23): identical to SecureVoI except stage-2 acceptance
+    uses the GROUND-TRUTH carries_attack label instead of
+    agent.classify_malice's learned signal -- an oracle upper bound on how
+    much of SecureVoI's benefit is attributable to the acquisition-decision
+    formula itself (stage 1: ig - cost - lambda*pre_risk) versus the
+    imperfect learned malice classifier (stage 2). The gap between SecureVoI
+    and SecureVoIOracle is what a better classify_malice could still buy.
+
+    Implementation note: accept()'s signature (task, q, c, response_text,
+    agent) does not carry the matching Response object or condition, and
+    changing that signature would touch runner.py's call site. Instead this
+    looks up the ground-truth Response by matching (qid, channel, text)
+    against task.responses -- text should uniquely identify the matched
+    response among the task's benign/noisy/adversarial variants in practice.
+    Never used by any non-ablation policy; SecureVoI itself is untouched."""
+    name = "secure_voi_oracle"
+
+    def _oracle_carries_attack(self, task: Task, q: Question, c: Channel,
+                               response_text: str) -> bool:
+        for r in task.responses:
+            if r.qid == q.qid and r.channel == c and r.text == response_text:
+                return r.carries_attack
+        return False  # no match found: treat as benign (fail toward NOT gating)
+
+    def accept(self, task: Task, q: Question, c: Channel, response_text: str,
+               agent) -> bool:
+        """Stage 2, oracle version: accept iff the info value clears
+        lambda*loss when the response is NOT a ground-truth attack; a
+        ground-truth attack is always rejected (r=1.0), matching the
+        semantics of a perfect classify_malice (P(malicious)=1 for actual
+        attacks, 0 otherwise) fed through the same accept-rule shape as
+        SecureVoI.accept."""
+        r = 1.0 if self._oracle_carries_attack(task, q, c, response_text) else 0.0
+        info_value = estimate_info_gain(task, q, agent, channel=c)
+        expected_loss = 1.0
+        return info_value > self.lam * r * expected_loss
+
+
 PILOT_POLICIES = [NeverAsk, ConventionalVoI, TrustedOnly, SecureVoI]
 
 # Plan section 10's full six-policy main-experiment set (Jul 22-23). Post-hoc
