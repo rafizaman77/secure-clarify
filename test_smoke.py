@@ -1,7 +1,8 @@
 """Smoke tests: run with `python3 test_smoke.py`. No external deps."""
 from secure_clarify.task_factory import build_pilot
 from secure_clarify.agent import ScriptedAgent, OpenModelAgent, CachingAgent
-from secure_clarify.policies import NeverAsk, ConventionalVoI, TrustedOnly, SecureVoI
+from secure_clarify.policies import (NeverAsk, AlwaysAsk, ConfidenceThreshold,
+                                     ConventionalVoI, TrustedOnly, SecureVoI, MAIN_POLICIES)
 from secure_clarify.runner import run_episode, run_grid, summarize
 from secure_clarify.schema import Condition, Channel, load_task
 import json
@@ -150,6 +151,44 @@ def test_caching_agent_memoizes():
     print(f"[ok] CachingAgent memoizes repeated calls, cache_sizes={agent.cache_sizes()}")
 
 
+def test_pilot_policies_unchanged():
+    """Regression guard: adding AlwaysAsk/ConfidenceThreshold must not alter
+    the original 4-policy pilot set anything downstream (run_pilot.py,
+    docs/03_gonogo_memo.md's numbers) depends on."""
+    from secure_clarify.policies import PILOT_POLICIES
+    assert [p.name for p in PILOT_POLICIES] == [
+        "never_ask", "conventional_voi", "trusted_only", "secure_voi"]
+    assert [p.name for p in MAIN_POLICIES] == [
+        "never_ask", "always_ask", "confidence_threshold",
+        "conventional_voi", "trusted_only", "secure_voi"]
+    print("[ok] PILOT_POLICIES unchanged (4); MAIN_POLICIES adds the plan's other 2 (6 total)")
+
+
+def test_always_ask_always_asks():
+    tasks = build_pilot(5)
+    agent = ScriptedAgent()
+    policy = AlwaysAsk()
+    for t in tasks:
+        dec = policy.decide(t, agent)
+        assert dec.ask, (t.task_id, dec.rationale)
+    print("[ok] AlwaysAsk asks on every task, ignoring cost/risk")
+
+
+def test_confidence_threshold_boundary():
+    tasks = build_pilot(3)
+    agent = ScriptedAgent()
+    # threshold below any possible agreement (agreement is always >= 1/k > 0)
+    # -> never triggers "low confidence" -> never asks.
+    never = ConfidenceThreshold(threshold=0.0)
+    for t in tasks:
+        assert not never.decide(t, agent).ask
+    # threshold above 1.0 -> agreement can never clear it -> always asks.
+    always = ConfidenceThreshold(threshold=1.01)
+    for t in tasks:
+        assert always.decide(t, agent).ask
+    print("[ok] ConfidenceThreshold respects its threshold at both extremes")
+
+
 if __name__ == "__main__":
     test_all_tasks_validate()
     test_roundtrip()
@@ -162,4 +201,7 @@ if __name__ == "__main__":
     test_open_model_agent_classify_malice()
     test_open_model_agent_act()
     test_caching_agent_memoizes()
+    test_pilot_policies_unchanged()
+    test_always_ask_always_asks()
+    test_confidence_threshold_boundary()
     print("\nALL SMOKE TESTS PASSED")

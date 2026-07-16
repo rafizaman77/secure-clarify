@@ -18,7 +18,8 @@ from typing import Optional
 
 from .schema import (Task, Question, Channel, Condition, QFormat,
                      CHANNEL_TRUST)
-from .estimators import estimate_info_gain, estimate_pre_risk, response_risk
+from .estimators import (estimate_info_gain, estimate_pre_risk, response_risk,
+                         _canonical_action)
 
 
 @dataclass
@@ -44,6 +45,74 @@ class NeverAsk:
 
     def decide(self, task: Task, agent) -> Decision:
         return Decision(ask=False, rationale="acts from initial request")
+
+
+class AlwaysAsk:
+    """Plan section 10: 'Query the nominally most informative available
+    source.' Always asks -- ignores interaction cost and channel risk
+    entirely when picking (question, channel), and accepts whatever comes
+    back (no stage-2 gate). The opposite extreme from NeverAsk; contrasts
+    with ConventionalVoI, which is cost-aware but still risk-blind."""
+    name = "always_ask"
+
+    def decide(self, task: Task, agent) -> Decision:
+        cands = _available_qc(task)
+        if not cands:
+            return Decision(ask=False, rationale="no candidate question/channel available")
+        best, best_val = cands[0], -1.0
+        for q, c in cands:
+            ig = estimate_info_gain(task, q, agent, channel=c)
+            if ig > best_val:
+                best, best_val = (q, c), ig
+        q, c = best
+        return Decision(ask=True, question=q, channel=c, accept_response=True,
+                        rationale=f"always-ask: highest nominal info gain={best_val:.3f} (cost/risk ignored)")
+
+
+class ConfidenceThreshold:
+    """Plan section 10: 'Ask when sampled action agreement falls below dev
+    threshold.' Confidence here is the agent's OWN agreement across sampled
+    intents (1 - the same disagreement proxy estimate_info_gain uses), not a
+    VoI or risk computation. Below the dev-calibrated threshold it asks the
+    (question, channel) with highest nominal info gain -- like AlwaysAsk,
+    with no channel-risk term -- and accepts whatever comes back; at or above
+    threshold it acts on the single best guess without asking.
+
+    `threshold` must be set on the dev split (see scripts/tune_dev.py's
+    confidence-threshold calibration), exactly like SecureVoI's lambda --
+    never fit on test."""
+    name = "confidence_threshold"
+
+    def __init__(self, threshold: float = 0.5, k: int = 5):
+        self.threshold = threshold
+        self.k = k
+
+    def _agreement(self, task: Task, agent) -> float:
+        intents = agent.sample_intents(task, self.k)
+        actions = [_canonical_action(i) for i in intents]
+        if not actions:
+            return 1.0
+        modal = max(set(actions), key=actions.count)
+        return actions.count(modal) / len(actions)
+
+    def decide(self, task: Task, agent) -> Decision:
+        agreement = self._agreement(task, agent)
+        if agreement >= self.threshold:
+            return Decision(ask=False,
+                            rationale=f"confident (agreement={agreement:.2f} >= {self.threshold})")
+        cands = _available_qc(task)
+        if not cands:
+            return Decision(ask=False, rationale="low confidence but no channel available")
+        best, best_val = cands[0], -1.0
+        for q, c in cands:
+            ig = estimate_info_gain(task, q, agent, channel=c)
+            if ig > best_val:
+                best, best_val = (q, c), ig
+        q, c = best
+        return Decision(
+            ask=True, question=q, channel=c, accept_response=True,
+            rationale=f"low confidence (agreement={agreement:.2f} < {self.threshold}), "
+                     f"asking highest-IG source")
 
 
 class ConventionalVoI:
@@ -123,3 +192,9 @@ class SecureVoI:
 
 
 PILOT_POLICIES = [NeverAsk, ConventionalVoI, TrustedOnly, SecureVoI]
+
+# Plan section 10's full six-policy main-experiment set (Jul 22-23). Post-hoc
+# guardrail is explicitly marked "Optional" in the plan and is scope-cut #2 if
+# behind schedule -- it is deliberately NOT in this list.
+MAIN_POLICIES = [NeverAsk, AlwaysAsk, ConfidenceThreshold, ConventionalVoI,
+                 TrustedOnly, SecureVoI]

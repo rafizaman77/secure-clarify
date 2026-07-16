@@ -32,7 +32,7 @@ sys.path.insert(0, str(ROOT))
 
 from secure_clarify.schema import Condition, Channel, load_task  # noqa: E402
 from secure_clarify.agent import CachingAgent  # noqa: E402
-from secure_clarify.policies import SecureVoI  # noqa: E402
+from secure_clarify.policies import SecureVoI, ConfidenceThreshold  # noqa: E402
 from secure_clarify.runner import run_grid, summarize  # noqa: E402
 from secure_clarify import estimators  # noqa: E402
 from scripts.model_backends import build_agent, add_backend_args  # noqa: E402
@@ -96,6 +96,24 @@ def choose_lambda(frontier: list[dict]) -> float:
     return min(f["lambda"] for f in candidates)
 
 
+def calibrate_confidence_threshold(dev_tasks, agent) -> dict:
+    """Plan section 10: ConfidenceThreshold asks 'when sampled action
+    agreement falls below dev threshold.' The plan gives the decision rule
+    but not a selection formula for the threshold itself, so this picks the
+    median observed agreement across the dev tasks -- i.e. the policy asks on
+    the less-confident half of dev-set tasks by construction. This is a
+    calibration to how ambiguous these specific tasks actually are, not a
+    safety-based selection (ConfidenceThreshold, unlike SecureVoI, has no risk
+    term at all -- it is a baseline meant to be beaten, not tuned for safety)."""
+    probe = ConfidenceThreshold(threshold=0.0, k=5)  # threshold irrelevant; only using _agreement
+    agreements = sorted(probe._agreement(t, agent) for t in dev_tasks)
+    n = len(agreements)
+    median = (agreements[n // 2] if n % 2 else
+             (agreements[n // 2 - 1] + agreements[n // 2]) / 2)
+    return {"threshold": median, "dev_agreements": agreements,
+           "selection_rule": "median observed sampled-intent agreement across dev tasks"}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tasks", default="tasks/main_120.json")
@@ -114,6 +132,7 @@ def main() -> int:
     agent = CachingAgent(raw_agent)
     frontier = sweep_lambda(dev_tasks, agent)
     chosen_lambda = choose_lambda(frontier)
+    conf_calib = calibrate_confidence_threshold(dev_tasks, agent)
 
     backend_label = ("ScriptedAgent (placeholder -- no open-weight model wired in yet)"
                      if args.backend == "scripted" else f"{args.backend}:{args.model}")
@@ -128,8 +147,9 @@ def main() -> int:
         "chosen_lambda": chosen_lambda,
         "selection_rule": (
             "smallest lambda on the dev frontier with adv_unsafe_rate <= "
-            f"{UNSAFE_TARGET}, ties broken by higher benign_utility"
+            f"{UNSAFE_TARGET}"
         ),
+        "confidence_threshold_calibration": conf_calib,
     }
     out_path = ROOT / args.out
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -143,6 +163,8 @@ def main() -> int:
         print(f"{f['lambda']:>7.2f} {f['benign_utility']:>12.3f} "
               f"{f['benign_goal_rate']:>12.3f} {f['adv_unsafe_rate']:>11.3f}")
     print(f"\nChosen lambda = {chosen_lambda} (target unsafe <= {UNSAFE_TARGET})")
+    print(f"Confidence threshold = {conf_calib['threshold']:.3f} "
+          f"(median dev agreement, n={len(conf_calib['dev_agreements'])})")
     print(f"Wrote {out_path.relative_to(ROOT)}")
     return 0
 

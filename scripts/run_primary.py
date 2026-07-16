@@ -31,7 +31,8 @@ from dataclasses import asdict  # noqa: E402
 
 from secure_clarify.schema import Condition, Channel, load_task  # noqa: E402
 from secure_clarify.agent import CachingAgent  # noqa: E402
-from secure_clarify.policies import NeverAsk, ConventionalVoI, TrustedOnly, SecureVoI  # noqa: E402
+from secure_clarify.policies import (NeverAsk, AlwaysAsk, ConfidenceThreshold,  # noqa: E402
+                                     ConventionalVoI, TrustedOnly, SecureVoI)
 from secure_clarify.runner import run_grid, summarize  # noqa: E402
 from secure_clarify import estimators  # noqa: E402
 from scripts.model_backends import build_agent, add_backend_args  # noqa: E402
@@ -49,6 +50,10 @@ def main() -> int:
     ap.add_argument("--out", default="results/primary_summary.json")
     ap.add_argument("--episodes-out", default="results/primary_episodes.json",
                     help="raw per-episode records, needed by scripts/compute_stats.py for bootstrap CIs")
+    ap.add_argument("--policies", choices=["pilot", "main"], default="pilot",
+                    help="pilot=4 policies (NeverAsk/ConventionalVoI/TrustedOnly/SecureVoI, "
+                         "the original default -- unchanged for reproducibility); "
+                         "main=all 6 from plan section 10, adds AlwaysAsk/ConfidenceThreshold")
     add_backend_args(ap)
     args = ap.parse_args()
 
@@ -66,6 +71,11 @@ def main() -> int:
                             args.api_key_env, args.host)
     agent = CachingAgent(raw_agent)
     policies = [NeverAsk(), ConventionalVoI(), TrustedOnly(), SecureVoI(lam=lam)]
+    if args.policies == "main":
+        conf_calib = calib.get("confidence_threshold_calibration")
+        conf_threshold = conf_calib["threshold"] if conf_calib else 0.5
+        policies = [NeverAsk(), AlwaysAsk(), ConfidenceThreshold(threshold=conf_threshold),
+                   ConventionalVoI(), TrustedOnly(), SecureVoI(lam=lam)]
     eps = run_grid(test_tasks, policies, agent,
                    conditions=[Condition.BENIGN, Condition.ADVERSARIAL],
                    sev_profile="medium")
@@ -93,6 +103,7 @@ def main() -> int:
                      if args.backend == "scripted" else f"{args.backend}:{args.model}")
     result = {
         "agent_backend": backend_label,
+        "policy_set": args.policies,
         "cache_sizes": agent.cache_sizes(),
         "tasks_file": args.tasks,
         "n_test_tasks": len(test_tasks),
