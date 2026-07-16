@@ -224,14 +224,18 @@ def _make_json_complete_stopping_criteria(tok, prompt_len: int):
     return StoppingCriteriaList([_JSONComplete()])
 
 
-def hf_local_generate_fn(model_id: str, max_new_tokens: int = 200):
-    """Local transformers inference, greedy/deterministic. Loads once per
-    process (module-level cache) since a real model load takes real time.
-    Keep model_id small (e.g. 'Qwen/Qwen2.5-0.5B-Instruct',
-    'HuggingFaceTB/SmolLM2-360M-Instruct') -- this is CPU-only. Stops as soon
-    as a complete JSON value has been emitted (see
-    _make_json_complete_stopping_criteria) rather than always burning the
-    full max_new_tokens budget."""
+def hf_local_generate_fn(model_id: str, max_new_tokens: int = 200, temperature: float = 0.0):
+    """Local transformers inference. Loads once per process (module-level
+    cache) since a real model load takes real time. Keep model_id small (e.g.
+    'Qwen/Qwen2.5-0.5B-Instruct', 'HuggingFaceTB/SmolLM2-360M-Instruct') --
+    this is CPU-only. Stops as soon as a complete JSON value has been emitted
+    (see _make_json_complete_stopping_criteria) rather than always burning
+    the full max_new_tokens budget.
+
+    temperature=0.0 (the default, used for every main run) is greedy/
+    deterministic. temperature>0 enables sampling -- ONLY for
+    scripts/robustness_subset.py's stochastic-repetition check (plan section
+    11); every dev-calibration and primary test-split run must stay at 0."""
 
     def _load():
         if model_id not in _hf_cache:
@@ -251,11 +255,14 @@ def hf_local_generate_fn(model_id: str, max_new_tokens: int = 200):
         inputs = tok(chat_prompt, return_tensors="pt")
         prompt_len = inputs["input_ids"].shape[1]
         stopping = _make_json_complete_stopping_criteria(tok, prompt_len)
+        gen_kwargs = dict(max_new_tokens=max_new_tokens, pad_token_id=tok.eos_token_id,
+                          stopping_criteria=stopping)
+        if temperature > 0:
+            gen_kwargs.update(do_sample=True, temperature=temperature, top_p=0.95)
+        else:
+            gen_kwargs.update(do_sample=False, temperature=None, top_p=None)
         with torch.no_grad():
-            out = model.generate(**inputs, max_new_tokens=max_new_tokens,
-                                 do_sample=False, temperature=None, top_p=None,
-                                 pad_token_id=tok.eos_token_id,
-                                 stopping_criteria=stopping)
+            out = model.generate(**inputs, **gen_kwargs)
         new_tokens = out[0][prompt_len:]
         return tok.decode(new_tokens, skip_special_tokens=True)
 
@@ -263,9 +270,14 @@ def hf_local_generate_fn(model_id: str, max_new_tokens: int = 200):
 
 
 def build_agent(backend: str, model: str, base_url: str = "", api_key_env: str = "",
-                host: str = "http://localhost:11434"):
+                host: str = "http://localhost:11434", temperature: float = 0.0):
     """Shared factory used by smoke_real_model.py / tune_dev.py / run_primary.py
-    so all three scripts accept the same --backend/--model/... flags."""
+    so all three scripts accept the same --backend/--model/... flags.
+
+    temperature=0.0 (default) is deterministic/greedy -- required for every
+    dev-calibration and primary test-split run. Only
+    scripts/robustness_subset.py's stochastic-repetition check (plan section
+    11) should ever pass temperature>0."""
     import os
     from secure_clarify.agent import OpenModelAgent, ScriptedAgent
 
@@ -282,11 +294,12 @@ def build_agent(backend: str, model: str, base_url: str = "", api_key_env: str =
         # unset (0) for a one-off smoke call.
         min_interval = float(os.environ.get("GEN_MIN_INTERVAL", "0"))
         gen = openai_compatible_generate_fn(base_url=base_url, api_key=api_key,
-                                            model=model, min_interval=min_interval)
+                                            model=model, min_interval=min_interval,
+                                            temperature=temperature)
     elif backend == "ollama":
-        gen = ollama_generate_fn(model=model, host=host)
+        gen = ollama_generate_fn(model=model, host=host, temperature=temperature)
     elif backend == "hf_local":
-        gen = hf_local_generate_fn(model_id=model)
+        gen = hf_local_generate_fn(model_id=model, temperature=temperature)
     else:
         raise SystemExit(f"Unknown --backend {backend!r}")
     return OpenModelAgent(model_id=model, generate_fn=gen)
