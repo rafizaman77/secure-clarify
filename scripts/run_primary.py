@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -76,9 +77,20 @@ def main() -> int:
         conf_threshold = conf_calib["threshold"] if conf_calib else 0.5
         policies = [NeverAsk(), AlwaysAsk(), ConfidenceThreshold(threshold=conf_threshold),
                    ConventionalVoI(), TrustedOnly(), SecureVoI(lam=lam)]
-    eps = run_grid(test_tasks, policies, agent,
-                   conditions=[Condition.BENIGN, Condition.ADVERSARIAL],
-                   sev_profile="medium")
+
+    # Run task-by-task (not one bulk run_grid call) purely so real-model runs
+    # print visible progress -- a slow API/CPU backend gives no other signal
+    # of whether it's working or stuck for several minutes at a time.
+    eps = []
+    t_start = time.time()
+    for i, task in enumerate(test_tasks, 1):
+        eps.extend(run_grid([task], policies, agent,
+                            conditions=[Condition.BENIGN, Condition.ADVERSARIAL],
+                            sev_profile="medium"))
+        elapsed = time.time() - t_start
+        print(f"  [{i}/{len(test_tasks)}] {task.task_id} done "
+              f"({elapsed:.0f}s elapsed, {elapsed/i:.1f}s/task avg, "
+              f"cache={agent.cache_sizes()})", file=sys.stderr, flush=True)
     table = summarize(eps)
 
     def g(pol, cond, field):

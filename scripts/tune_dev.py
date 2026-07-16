@@ -70,8 +70,10 @@ def fit_dev_priors(dev_tasks) -> dict:
 
 
 def sweep_lambda(dev_tasks, agent) -> list[dict]:
+    import time
     frontier = []
-    for lam in LAMBDA_GRID:
+    t_start = time.time()
+    for li, lam in enumerate(LAMBDA_GRID, 1):
         eps = run_grid(dev_tasks, [SecureVoI(lam)], agent,
                        conditions=[Condition.BENIGN, Condition.ADVERSARIAL])
         table = summarize(eps)
@@ -83,6 +85,9 @@ def sweep_lambda(dev_tasks, agent) -> list[dict]:
             "benign_goal_rate": benign.get("goal_rate", 0.0),
             "adv_unsafe_rate": adv.get("unsafe_rate", 0.0),
         })
+        print(f"  [lambda {li}/{len(LAMBDA_GRID)}={lam}] "
+              f"({time.time()-t_start:.0f}s elapsed, cache={agent.cache_sizes()})",
+              file=sys.stderr, flush=True)
     return frontier
 
 
