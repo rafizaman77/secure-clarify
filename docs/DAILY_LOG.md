@@ -464,20 +464,75 @@ oracle-vs-learned-risk ablation; the robustness subset; and the paper draft.
 
 ---
 
-## Jul 20-28 — not yet started (kept here as a concrete plan, not just a label)
+## GAP CLOSED — Jul 17-21 done for real (Anagh Sangavarapu + Claude Opus 4.8)
 
-- **Jul 20 — Statistics, main table, frontier, real abstract.** Needs
-  `results/stats.json`/`results/main_table.json` (currently missing) plus a
-  real-model `results/primary_summary.json` (currently ScriptedAgent) before
-  the abstract's numbers can be filled in honestly.
-- **Jul 21 — Abstract submission.** Blocked purely on Jul 20's real numbers.
-- **Jul 22-23 — Third model, ablations, robustness subset.** The plan's main
-  experiment needs a third open-weight model family plus an oracle-risk vs.
-  learned-risk ablation (`docs/03_gonogo_memo.md`'s caveat: `classify_malice`
-  is currently a seeded heuristic/small-model call, not validated against an
-  oracle) and the stratified-30-task stochastic-repetition robustness check
-  from plan section 11 (not yet built — `ScriptedAgent`/`OpenModelAgent` have
-  no controlled randomness source to repeat against yet).
+Superseded the two entries below: `ollama:mistral-nemo:12b` ran the frozen
+pipeline end-to-end on the held-out 96-task test split. Verdict **GO**.
+SecureVoI cuts adversarial unsafe actions 0.500→0.083 (paired bootstrap
+p<0.001) while matching Conventional VoI's benign utility (0.950) exactly.
+`abstract.md` filled with these real numbers. Full account of the eight bugs
+found only once a real model touched the pipeline: see the "GAP CLOSED"
+entry earlier in this log and `days/jul17-18/README.md`.
+
+## Jul 22-23, in progress — six-policy set, oracle ablation, robustness subset
+
+**Checked the plan's exact policy table (section 10) rather than assume.**
+The six main-experiment policies are Never Ask, **Always Ask**, **Confidence
+Threshold**, Conventional VoI, Trusted-Only, SecureVoI — post-hoc guardrail is
+explicitly marked "Optional" and is scope-cut #2 (section 17) if behind
+schedule, so it was never one of the six. Implemented both missing policies
+in `secure_clarify/policies.py`:
+- `AlwaysAsk` — queries the highest-nominal-info-gain source unconditionally,
+  ignoring cost/risk, accepts everything.
+- `ConfidenceThreshold` — asks only when sampled-intent agreement falls below
+  a dev-calibrated threshold; `scripts/tune_dev.py` now also picks that
+  threshold as the median observed agreement across dev tasks (the plan
+  gives the decision rule but not a selection formula, so this is a stated
+  judgment call).
+
+New `MAIN_POLICIES` list holds all 6; `PILOT_POLICIES` (the original 4) is
+untouched and regression-tested, so `run_pilot.py`/the go/no-go memo's
+numbers are unaffected. `run_primary.py` gained `--policies {pilot,main}`,
+defaulting to `pilot` so Anagh's archived Mistral-Nemo results stay exactly
+reproducible.
+
+**Oracle-vs-learned-risk ablation**: `SecureVoIOracle` (subclasses
+`SecureVoI`, swaps the learned `classify_malice` signal for the ground-truth
+`carries_attack` label looked up by matching `(qid, channel, text)` against
+`task.responses` — avoids touching `runner.py`'s `accept()` call site) +
+`scripts/oracle_ablation.py`. Validated against ScriptedAgent (0.0 gap at
+λ=0.75, since ScriptedAgent already floors at 0 unsafe there).
+
+**Stochastic-repetition robustness subset** (plan section 11: "add three
+stochastic repetitions on a stratified 30-task subset rather than repeating
+the entire grid"): `scripts/robustness_subset.py` re-runs the frozen
+dev-tuned λ/priors 3× at temperature=0.7 against an evenly-spaced 30-task
+subset of the test split, reporting mean/std per policy×condition — a
+robustness check on decoding-randomness sensitivity, not a re-tuning of
+anything. Required threading `temperature` through `build_agent()`
+(previously hardcoded to 0 everywhere); every other script stays at 0.
+
+**Second real model, in progress**: this sandbox has no Ollama install or
+API keys (Anagh's machine had both), so running `Qwen/Qwen2.5-0.5B-Instruct`
+locally via `transformers` in an isolated `.venv_model/` instead
+(`--backend hf_local`) — see `days/jul17-18/environment-notes.md`. Single-task
+smoke check passed (valid JSON, no crash). First calibration attempt ran
+57+ minutes of CPU time without finishing; direct timing isolated why: this
+small model does not emit an EOS token for these prompts and was burning the
+*entire* `max_new_tokens` budget every call regardless of how short the
+actual answer was (a 2-token JSON answer took 60s at `max_new_tokens=160`).
+Fixed with a `StoppingCriteria` that halts generation as soon as a complete,
+balanced top-level JSON value has been emitted (reusing the same
+string-quote-aware bracket matching `agent.py`'s `_extract_json` already
+uses, just applied during generation instead of after) — cut a
+representative call from 60s to 7-27s. Dev calibration restarted with the
+fix and is running now; real primary-run numbers to follow, honestly,
+whatever they show — a 0.5B model may simply be too weak to complete tasks
+reliably regardless of policy, which would itself be a legitimate finding
+(a capability floor), not a failure of the pipeline.
+
+## Jul 24-28 — not yet started (kept here as a concrete plan, not just a label)
+
 - **Jul 24 — Failure analysis and final figures.** Needs `docs/
   failure_analysis.md` and a `figures/` directory; neither exists yet.
 - **Jul 25-26 — Full seven-page paper.** No `paper*.tex` yet; only the
