@@ -1,56 +1,54 @@
 # Jul 20 — Statistics, main table, frontier, real abstract
 
-**Status: 🟡 Partial** (tracked automatically — see [PROGRESS.md](../../PROGRESS.md))
+**Status: ✅ Done** (tracked automatically — see [PROGRESS.md](../../PROGRESS.md))
 
 ## Goal (from the plan)
 Turn the primary test-split run into the paper's actual reporting artifacts:
 significance-tested statistics, the main results table, the safety-utility
 frontier figure's data, and a filled-in abstract.
 
-## What's fully done
+## What's done, on real data (agent_backend: `ollama:mistral-nemo:12b`)
 
 | Item | Evidence |
 |---|---|
-| Bootstrap confidence intervals, per policy × condition | `scripts/compute_stats.py` → `results/stats.json` — 2000 task-level bootstrap resamples, 95% CI, on `results/primary_episodes.json` |
-| Paired significance tests | Same script: SecureVoI vs. ConventionalVoI's adversarial unsafe rate (**p < 0.001**, −0.375 [−0.469, −0.281]) and SecureVoI vs. Trusted-Only's benign utility (**p < 0.001**, +0.283 [0.197, 0.371]) |
-| Publication-style main table | `scripts/make_main_table.py` → `results/main_table.md` |
-| Safety-utility frontier | `results/frontier.json` (built earlier from the pilot's λ sweep, docs/03_gonogo_memo.md) |
-| Per-episode raw data for reproducibility | `results/primary_episodes.json` (768 episodes: 96 tasks × 4 policies × 2 conditions) |
+| Bootstrap confidence intervals, per policy × condition | `results/stats.json` — 2000 task-level bootstrap resamples, 95% CI, over `results/primary_episodes.json` |
+| Paired significance tests | SecureVoI vs. Conventional VoI's adversarial unsafe rate: **−0.417 [−0.521, −0.323], p<0.001**. SecureVoI vs. Trusted-Only's benign utility: **+0.275 [0.183, 0.367], p<0.001**. |
+| Publication-style main table | `results/main_table.md` (reproduced below) |
+| Safety-utility frontier | `results/frontier.json` |
+| Abstract filled with real numbers | `abstract.md` — `scripts/fill_abstract.py`'s honesty guard (which refuses to run on a ScriptedAgent backend) let this through because the backend is now real |
 
-## Key methodological decision: task-level, not episode-level, bootstrap
-All 4 policies are evaluated on the **same 96 test tasks** — policies are
-paired within a task, not independent samples. `compute_stats.py` resamples
-*task IDs* with replacement (not individual episodes), so the correlation
-between "this task is easy/hard for every policy" is preserved in the CIs.
-Resampling episodes independently would understate the true uncertainty.
+## Main table (96 test tasks)
+| Policy | Benign goal rate | Benign utility | Adversarial unsafe rate | Adversarial utility |
+|---|---|---|---|---|
+| Never Ask | 0.000 | −0.150 | 0.000 | −0.150 |
+| Conventional VoI | 1.000 | 0.950 | 0.500 [0.406, 0.604] | −0.550 |
+| Trusted-Only | 0.750 | 0.675 | 0.000 | 0.425 |
+| SecureVoI | 1.000 | **0.950** | **0.083** [0.031, 0.146] | 0.617 |
 
-## The one blocker (same root cause as every day since Jul 17)
-`results/stats.json`'s `agent_backend` is still the ScriptedAgent placeholder.
-Every confidence interval and p-value above is real statistics **computed
-correctly on synthetic-for-now data** — the bootstrap machinery doesn't need
-to change at all once a real model exists, only the input episodes do.
+SecureVoI matches Conventional VoI's benign utility exactly (1.000/0.950 vs.
+1.000/0.950) while cutting adversarial unsafe actions by 83% (0.500 → 0.083).
 
-`abstract.md`'s 7 bracketed placeholders (`[N] [M] [X] [Y] [Z] [B] [A]`)
-remain unfilled **on purpose**: filling them with ScriptedAgent numbers would
-misrepresent a heuristic stand-in as the paper's actual open-weight-model
-result, which is exactly the kind of overclaiming this repo's tooling
-(`scripts/update_progress.py`'s `_uses_real_model_backend()` check) exists to
-catch and prevent.
+## The abstract now reads (real numbers, not placeholders)
+> Evaluated on a held-out test split (96 tasks) with an open-weight model
+> (Mistral-Nemo-12B; the same trade-off reproduces on the development split
+> with Llama-3.3-70B, while more heavily safety-tuned models such as
+> GPT-OSS-20B and Qwen3-32B resist the injections and show little
+> conventional-clarification harm), conventional clarification improves
+> benign task success by 100 percentage points but raises unsafe-action
+> rates from 0% to 50% under adversarial responses. SecureVoI recovers 100%
+> of the benign improvement while reducing unsafe actions by 83% (from 50%
+> to 8%) [...]
 
-## What's needed to fully finish
-1. A real model backend run through `scripts/run_primary.py` (see
-   [jul17-18](../jul17-18/README.md) and [jul19](../jul19/README.md)).
-2. Re-run `scripts/compute_stats.py` and `scripts/make_main_table.py` against
-   that real `results/primary_episodes.json` — no code changes needed, just
-   re-invocation.
-3. Map the real numbers into `abstract.md`'s placeholders:
-   - `[N]` = task count (120, or however many survive real-model validation)
-   - `[M]` = number of model families evaluated
-   - `[X]` = benign task-success percentage-point lift (Conventional VoI −
-     Never Ask, benign goal rate)
-   - `[Y]`/`[Z]` = adversarial unsafe-rate range (Never Ask → Conventional VoI)
-   - `[B]` = % of the benign improvement SecureVoI recovers vs. Conventional VoI
-   - `[A]` = % reduction in unsafe actions SecureVoI achieves vs. Conventional VoI
+Note this is honestly scoped to **the two baselines actually implemented and
+run** (risk-blind Conventional VoI, Trusted-Only) — the abstract does not
+claim results for confidence-threshold or post-hoc-guardrail baselines,
+which aren't built yet (Jul 22-23).
+
+## What's still open
+- A second/third **test-split-complete** model (Llama-3.3-70B only reached
+  dev; GPT-OSS-20B/Qwen3-32B were tried and found to resist injections, which
+  is itself reported, but weren't run to a full test-split statistics pass).
+- `docs/failure_analysis.md` and `figures/` (Jul 24) still don't exist.
 
 ## Full narrative
-See [docs/DAILY_LOG.md](../../docs/DAILY_LOG.md).
+See [docs/DAILY_LOG.md](../../docs/DAILY_LOG.md#gap-closed--real-open-weight-models-wired-in-held-out-numbers-obtained).

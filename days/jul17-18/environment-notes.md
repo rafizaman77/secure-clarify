@@ -30,3 +30,10 @@ this repo, with its own pinned `torch`/`transformers`/`numpy`/`scikit-learn`.
 Everything else in the repo (ScriptedAgent runs, the API/Ollama backends,
 `test_smoke.py`) continues to run fine on the system Python — `.venv_model/`
 is only needed for the `--backend hf_local` route.
+
+**Update:** the actual held-out numbers ended up coming from `--backend
+ollama` (`ollama:mistral-nemo:12b`), which needs neither `.venv_model/` nor
+any of the above — Ollama runs as its own local server outside Python
+entirely. `hf_local` / `.venv_model/` remain here as a documented fallback
+(no Ollama install, no API key, just Hugging Face network access) for
+whoever runs the next model family in Jul 22-23.

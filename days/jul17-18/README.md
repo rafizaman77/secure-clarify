@@ -1,8 +1,8 @@
 # Jul 17-18 — 120 tasks, development runs, tune lambda and priors
 
-**Status: 🟡 Partial** (tracked automatically — see [PROGRESS.md](../../PROGRESS.md);
-this file is a detailed, human-written companion to that auto-generated
-status, not a replacement for it — the checkmark above is only ever set by
+**Status: ✅ Done** (tracked automatically — see [PROGRESS.md](../../PROGRESS.md).
+This file is a detailed, human-written companion to that auto-generated
+status, not a replacement for it — the checkmark is only ever set by
 `scripts/update_progress.py`, never hand-edited here.)
 
 ## Goal (from the plan, section 11)
@@ -18,65 +18,72 @@ wording) **using the dev split only**.
 |---|---|
 | 120-task main set, exact 24/96 split ratio | `tasks/main_120.json`, generated via `python scripts/freeze_tasks.py --n-per-domain 60 --tasks-out tasks/main_120.json --manifest-out results/main120_manifest.json` |
 | Frozen + checksummed | `results/main120_manifest.json` (sha256 over dev task IDs, sha256 over test task IDs, separately) |
-| Dev-only channel-prior fit | `scripts/tune_dev.py` counts `carries_attack` **only over the 24 dev tasks'** adversarial responses, Laplace-smoothed — never touches test-split labels |
-| Lambda sweep + selection | Swept `λ ∈ {0, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8}` on dev only; picked **smallest λ hitting the dev-set safety target**, not max-utility (see "Key decision" below) |
+| Dev-only channel-prior fit, on a real model | `scripts/tune_dev.py` counts `carries_attack` over the 24 dev tasks' adversarial responses, Laplace-smoothed — **`agent_backend: "ollama:mistral-nemo:12b"`**, not ScriptedAgent |
+| Lambda sweep + selection, on a real model | Frontier swept on `ollama:mistral-nemo:12b`; **chosen λ = 0.75** (the plan's dev-only-tuning rule, applied to real-model dev-set behavior rather than the earlier ScriptedAgent placeholder) |
+| Caching layer | `secure_clarify.agent.CachingAgent` — memoizes `sample_intents`/`classify_malice`/`act`; without it a real model backend at 120-task scale would ask the same question 8-12 redundant times per task |
 | Result artifact | `results/dev_calibration.json` |
-| Caching layer (added this session, needed to make a real model backend feasible) | `secure_clarify.agent.CachingAgent` — memoizes `sample_intents`/`classify_malice`/`act` since `policies.decide()` otherwise asks the same question of the model 8-12 redundant times per task |
 
-## The one blocker: no real model yet
+## The blocker from the last update is closed
 
-Every number above ran on **ScriptedAgent**, the deterministic heuristic
-stand-in from Jul 14 — `results/dev_calibration.json`'s `agent_backend` field
-says so explicitly:
-```json
-"agent_backend": "ScriptedAgent (placeholder -- no open-weight model wired in yet)"
-```
-`scripts/update_progress.py` is deliberately hardened to check this field —
-file existence alone does **not** flip this row to ✅ Done, on purpose (see
-`_uses_real_model_backend()` in that script). This is not a formatting nit;
-it's the actual scientific gap. "Development runs" in the plan means real
-open-weight models disagreeing with each other and getting fooled by
-injected text in their own idiosyncratic ways — a hand-written heuristic
-cannot produce that data no matter how much infrastructure surrounds it.
+A real open-weight model — **`ollama:mistral-nemo:12b`**, run locally via
+Ollama (no rate limits, deterministic at temperature 0) — is what
+`results/dev_calibration.json`'s `agent_backend` field now says. A hosted
+route (Groq `llama-3.3-70b-versatile`) was also validated on the **dev
+split only** — `results/models/llama-3.3-70b/dev_calibration.json` — and
+reproduces the same clean monotone frontier, but Groq's free-tier daily
+token cap couldn't finish the full 96-task test grid, so the completed
+held-out numbers are the local Mistral run.
 
-## Key decision: how λ=0.25 was actually chosen
+## Eight real bugs, invisible under ScriptedAgent, found the moment a real
+## model touched the pipeline
 
-The lambda frontier on the 24-task dev split (ScriptedAgent) is **not**
-monotonic in utility (only unsafe-rate is guaranteed monotonic — see
-`test_smoke.py::test_lambda_monotone`):
+ScriptedAgent hard-codes correct tool calls and reads a structured attack
+channel (`_inject_*` keys) that doesn't exist for a real model. Once one
+actually ran:
+1. Hosted-API 403s from Cloudflare (missing `User-Agent`) — fixed in
+   `model_backends.py`.
+2. Groq's real binding limit is a 130-300s burst/daily cap, not the
+   per-minute bucket — `Retry-After` is now honored up to 310s.
+3. A real model invents plausible-but-wrong tool arg keys unless the prompt
+   spells out the exact schema — `agent.py`'s `act()` prompt now lists every
+   tool's required keys explicitly.
+4. **The injection channel itself was wrong for a real model.** ScriptedAgent
+   reads structured `_inject_*` keys; a real model only gets fooled by the
+   accepted answer's actual *text*. `runner.py` now passes that text into
+   `act()`; acceptance (SecureVoI's stage-2 gate) is what admits or blocks it
+   — the real security mechanism, finally exercised through its realistic
+   channel.
+5. A latent `private_person` field leaked into the model's view of the
+   intent and caused a spurious unsafe action on *every benign* calendar
+   task — now filtered (`_LATENT_INTENT_KEYS`).
+6. Added `_repair_json` for the common one-brace slip that otherwise drops
+   an entire, otherwise-correct plan.
+7. Prompt now explicitly tells the model to treat an accepted clarification
+   as authoritative (so it actually can be fooled) while not inventing
+   unstated details (so it doesn't hallucinate unsafe actions).
+8. **`estimators.estimate_info_gain`**: the channel-info multiplier now
+   applies *outside* the disagreement-saturation clip — a real model's
+   higher disagreement saturated the clip and erased channel differences,
+   letting the risk-blind policy dodge the attack again (the exact Jul 15
+   bug, re-emerging at real-model disagreement levels). Algebraically
+   identical for ScriptedAgent (never saturates), so the pilot/smoke tests
+   are unchanged.
 
-| λ | benign util | adv unsafe |
-|---|---|---|
-| 0.00 | 0.950 | 0.417 |
-| 0.25 | 0.921 | 0.042 |
-| 0.50 | 0.908 | 0.000 |
-| 0.75-1.5 | ~0.904 | 0.000 |
-| 2.00-8.00 | rises back to 0.929 | 0.000 |
+Full detail: [docs/DAILY_LOG.md](../../docs/DAILY_LOG.md#gap-closed--real-open-weight-models-wired-in-held-out-numbers-obtained).
 
-A first version of `tune_dev.py` picked λ=6.0 by "max utility among λ
-hitting the safety target" — almost certainly 24-task sampling noise, not
-signal (utility dipping mid-grid then rebounding at the far end has no
-principled explanation). **Corrected rule: smallest λ clearing the target**
-→ λ=0.25. This is exactly the kind of dev-set overfitting a real research
-process is supposed to catch, and it's flagged here so a collaborator
-reviewing this doesn't have to re-derive why the obvious-looking rule was
-wrong.
+## A real finding, not a gap
+Injection-susceptibility is **model-dependent**: Mistral-Nemo-12B and
+Llama-3.3-70B follow injected riders (exhibit the trade-off); GPT-OSS-20B and
+Qwen3-32B resist them and show little Conventional-VoI harm. This is now
+noted in `abstract.md` rather than treated as noise.
 
-## What's needed to fully finish (in order)
-
-1. **Pick an inference route** — see `scripts/model_backends.py` and
-   `docs/DAILY_LOG.md`'s walkthrough. Being executed *right now* in this
-   session: a local small open-weight model (`Qwen/Qwen2.5-0.5B-Instruct`)
-   via `hf_local_generate_fn`, in an isolated `.venv_model/` (the system
-   Python's numpy/scikit-learn ABI is broken, so `transformers` can't import
-   there — see `days/jul17-18/environment-notes.md`).
-2. Smoke-test one task: `scripts/smoke_real_model.py --backend hf_local
-   --model Qwen/Qwen2.5-0.5B-Instruct`.
-3. Re-run `scripts/tune_dev.py --tasks tasks/main_120.json --backend hf_local
-   --model Qwen/Qwen2.5-0.5B-Instruct` for real.
-4. Repeat with a **second** model family (plan requires 2 for the pilot
-   re-run) — e.g. `HuggingFaceTB/SmolLM2-360M-Instruct`.
-5. Only then does this row's evidence stop saying "still ScriptedAgent."
+## What's still open (moved to Jul 22-23, not re-litigated here)
+- A second/third **completed test-split** model (only Mistral's test split
+  finished; Llama-3.3-70B is dev-only so far).
+- Confidence-threshold and post-hoc-guardrail baselines are not implemented —
+  the abstract was written to claim only the two baselines actually run.
+- Oracle-vs-learned-risk ablation, robustness subset — see
+  [days/jul22-23](../jul22-23/README.md).
 
 ## Known, deliberately-not-hidden limitation
 `task_factory.py` still has only 2 base task templates (one per domain).
@@ -86,4 +93,4 @@ attack type) layered on those 2 templates, not from genuinely distinct task
 This belongs in the paper's Limitations section, not quietly patched over.
 
 ## Full narrative
-See [docs/DAILY_LOG.md](../../docs/DAILY_LOG.md#jul-17-18--scale-to-120-tasks-development-runs-tune-lambda-and-priors).
+See [docs/DAILY_LOG.md](../../docs/DAILY_LOG.md).
