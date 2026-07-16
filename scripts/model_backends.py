@@ -43,10 +43,32 @@ backend.
 """
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import time
 import urllib.error
 import urllib.request
+
+_HTTP_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="groq-http")
+
+
+def _urlopen_hard_timeout(req: urllib.request.Request, socket_timeout: float,
+                          hard_timeout: float):
+    """Run urlopen in a worker thread and enforce a HARD wall-clock timeout via
+    future.result(), instead of trusting urllib's own socket timeout alone.
+
+    Observed directly in this environment: individual Groq requests
+    occasionally hang well past the requested socket timeout (no exception,
+    no data, indefinitely) -- rare (roughly 1 in 10-20 calls) but frequent
+    enough to stall a 96-task run for many minutes with zero visible
+    progress. Python can't forcibly kill a blocked OS-level socket read from
+    the outside, so the abandoned thread may linger, but future.result(
+    timeout=...) still lets the CALLER move on and retry rather than hang
+    forever waiting for a call that urllib itself should have already timed
+    out on but didn't."""
+    future = _HTTP_EXECUTOR.submit(
+        lambda: urllib.request.urlopen(req, timeout=socket_timeout).read())
+    return future.result(timeout=hard_timeout)
 
 # Hosted providers (Groq, Together, Fireworks, OpenRouter, ...) sit behind
 # Cloudflare, whose default managed rules 403 the stock `Python-urllib/x.y`
@@ -102,9 +124,18 @@ def openai_compatible_generate_fn(base_url: str, api_key: str, model: str,
         last_err = None
         for attempt in range(max_retries):
             try:
-                with urllib.request.urlopen(req, timeout=timeout) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
+                raw = _urlopen_hard_timeout(req, socket_timeout=timeout, hard_timeout=timeout + 10)
+                data = json.loads(raw.decode("utf-8"))
                 return data["choices"][0]["message"]["content"]
+            except concurrent.futures.TimeoutError as e:
+                # urllib's own socket timeout occasionally does not fire on
+                # this platform (observed directly: calls hanging well past
+                # `timeout` seconds with no exception) -- the hard wall-clock
+                # timeout above is what actually bounds it. The abandoned
+                # worker thread is left to finish or die on its own; we just
+                # don't wait for it.
+                last_err = e
+                time.sleep(min(2 ** attempt, 8))
             except urllib.error.HTTPError as e:
                 last_err = e
                 if e.code == 429:
