@@ -10,7 +10,10 @@ made, and exactly what's left — see **[docs/DAILY_LOG.md](docs/DAILY_LOG.md)**
 For a Gantt-chart project-management view see **[docs/GANTT.md](docs/GANTT.md)**,
 and for a per-day folder with that day's own status and (where relevant)
 "what's needed to fully finish" checklist see **[days/](days/)** —
-`days/jul22-23/` is the current frontier now that Jul 17-21 are closed.
+`days/jul22-23/` is the current frontier now that Jul 17-21 are closed. For a
+**single consolidated table** — every day, specific "what we have" vs. "what
+we need," plus the model-coverage-vs-metrics breakdown — see
+**[docs/MASTER_TRACKER.md](docs/MASTER_TRACKER.md)**.
 
 ## 📅 Schedule & progress
 | Date | Deliverable | Status | Evidence |
