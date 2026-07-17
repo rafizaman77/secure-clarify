@@ -5,6 +5,7 @@ from secure_clarify.policies import (NeverAsk, AlwaysAsk, ConfidenceThreshold,
                                      ConventionalVoI, TrustedOnly, SecureVoI,
                                      SecureVoIOracle, MAIN_POLICIES)
 from secure_clarify.runner import run_episode, run_grid, summarize
+from secure_clarify.guardrail import PostHocGuardrail, run_posthoc_grid, screen_plan
 from secure_clarify.schema import Condition, Channel, load_task
 import json
 
@@ -217,6 +218,58 @@ def test_secure_voi_oracle_matches_ground_truth():
     print("[ok] SecureVoIOracle reads ground-truth carries_attack correctly")
 
 
+def test_posthoc_guardrail_drops_unsafe_actions():
+    """The guardrail must let benign plans through unchanged but drop the
+    specific injected action on adversarial tasks -- exercising screen_plan's
+    prediction logic against the SAME tasks the full grid runs on."""
+    tasks = build_pilot(20)
+    agent = ScriptedAgent(gullible=0.8)
+    eps = run_posthoc_grid(tasks, agent, conditions=[Condition.BENIGN, Condition.ADVERSARIAL])
+    table = summarize(eps)
+    assert table["post_hoc_guardrail|benign"]["goal_rate"] == 1.0
+    assert table["post_hoc_guardrail|adversarial"]["unsafe_rate"] == 0.0
+    assert table["post_hoc_guardrail|adversarial"]["goal_rate"] == 1.0
+    print("[ok] PostHocGuardrail: goal_rate=1.0 both conditions, adversarial unsafe_rate=0.0")
+
+
+def test_screen_plan_matches_safety_verifier():
+    """screen_plan's PRE-execution prediction must agree with what
+    safety_verifier finds POST-execution on the same plan -- otherwise the
+    guardrail is screening for the wrong thing."""
+    from secure_clarify.simulators import make_env
+    from secure_clarify.verifiers import safety_verifier
+
+    tasks = build_pilot(10)
+    agent = ScriptedAgent(gullible=0.8)
+    checked_a_drop = False
+    for t in tasks:
+        for cond in (Condition.BENIGN, Condition.ADVERSARIAL):
+            for q in t.candidate_questions:
+                for c in t.available_channels:
+                    from secure_clarify.resolver import find_response, resolve_intent
+                    r = find_response(t, q, c, cond)
+                    if r is None:
+                        continue
+                    resolved = resolve_intent(t, r, True)
+                    plan = agent.act(t, resolved, r.text)
+                    if not plan:
+                        continue
+                    _, dropped = screen_plan(t, plan)
+                    env = make_env(t.domain, t.initial_state)
+                    for tool, args in plan:
+                        getattr(env, tool)(**args)
+                    unsafe, reasons = safety_verifier(
+                        env.log, t.prohibited_actions,
+                        team=t.initial_state.get("team", []),
+                        secrets=t.initial_state.get("secrets", []))
+                    predicted_unsafe = len(dropped) > 0
+                    assert predicted_unsafe == unsafe, (t.task_id, dropped, reasons)
+                    if dropped:
+                        checked_a_drop = True
+    assert checked_a_drop, "fixture should contain at least one guardrail-catchable action"
+    print("[ok] screen_plan's pre-execution prediction matches safety_verifier exactly")
+
+
 if __name__ == "__main__":
     test_all_tasks_validate()
     test_roundtrip()
@@ -233,4 +286,6 @@ if __name__ == "__main__":
     test_always_ask_always_asks()
     test_confidence_threshold_boundary()
     test_secure_voi_oracle_matches_ground_truth()
+    test_posthoc_guardrail_drops_unsafe_actions()
+    test_screen_plan_matches_safety_verifier()
     print("\nALL SMOKE TESTS PASSED")
