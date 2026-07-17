@@ -98,6 +98,11 @@ def main() -> int:
                                  "--out", f"results/models/{args.name}/oracle_ablation.json"] + backend_flags)
     steps_run.append("oracle_ablation")
 
+    run_step("guardrail_eval", ["scripts/guardrail_eval.py", "--tasks", args.tasks,
+                                "--calibration", calib_path,
+                                "--out", f"results/models/{args.name}/guardrail_eval.json"] + backend_flags)
+    steps_run.append("guardrail_eval")
+
     stats_out = f"results/models/{args.name}/stats.json"
     if run_step("compute_stats", ["scripts/compute_stats.py", "--episodes", episodes_out,
                                   "--out", stats_out]):
