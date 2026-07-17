@@ -205,59 +205,138 @@ policies, not real-world safety.
 
 ## 4. Method: SecureVoI
 
-*(Draft prose needed, pulling from `secure_clarify/policies.py` and
-`estimators.py`'s docstrings — the formulas are implemented and tested, the
-prose explaining them for a reader is not yet written.)*
+SecureVoI splits the clarification decision into two stages that a conventional
+value-of-information (VoI) policy collapses into one. Stage 1 decides *whether,
+what, and where* to ask before any answer exists; stage 2 decides *whether to
+believe the answer* once it arrives. A single risk-aversion parameter λ governs
+both stages and is fit once, on the development split.
 
-**Stage 1 (pre-inquiry selection).** For each candidate (question, channel)
-pair, score `SV = info_gain - interaction_cost - λ · pre_risk`, where
-`pre_risk` is a channel prior times expected loss (Laplace-smoothed,
-dev-set-only — `estimate_pre_risk` in `estimators.py`), and pick the
-highest-scoring pair if positive; otherwise act without asking.
+**Estimated quantities.** Both stages are driven by two model-provided signals
+and never by ground-truth attack labels. `sample_intents(task, k)` draws k
+candidate interpretations of the underspecified request; `classify_malice(text)`
+returns a scalar in [0,1] estimating how likely a specific answer is to be an
+injected instruction. A deterministic ScriptedAgent supplies both for the
+pipeline check, and an open-weight model supplies both for the real runs, behind
+an identical interface (`secure_clarify/estimators.py`, `agent.py`).
 
-**Stage 2 (response acceptance).** Given a returned answer, accept iff
-`info_value > λ · response_risk · expected_loss`, where `response_risk`
-blends a learned malice-classification signal, a channel prior, and lexical
-cues (`response_risk` in `estimators.py`).
+**Stage 1 — pre-inquiry selection.** For each candidate (question *q*, channel
+*c*) pair the agent scores
 
-**λ selection.** Fit on the development split only, chosen as the smallest λ
-achieving a target adversarial unsafe rate (not the λ maximizing dev-set
-utility — see `docs/DAILY_LOG.md`'s Jul 17-18 entry for why the naive rule
-was rejected: utility vs. λ is not monotonic on a small dev split, only
-unsafe-rate is, so hill-climbing utility risks a fragile, overfit choice).
+> SV(*q*, *c*) = infogain(*q*, *c*) − cost(*q*) − λ · prerisk(*c*, *q*)
 
-**Baselines.** Never Ask, Always Ask (query the nominally most informative
-source, ignore cost/risk), Confidence Threshold (ask when sampled-intent
-agreement falls below a dev-calibrated threshold), Conventional VoI
-(cost-aware, risk-blind), Trusted-Only (high-trust channels only), and
-(as an additional, plan-optional baseline) Post-Hoc Guardrail (Conventional
-VoI's ask decision, with the resulting action plan screened against known
-prohibited-action patterns before execution — see `secure_clarify/
-guardrail.py`).
+and asks the highest-scoring pair if it is positive, otherwise acts on its best
+current guess.
+- *Information gain* proxies how much an answer would change the chosen action:
+  the disagreement among the k sampled intents (one minus the modal action's
+  frequency), amplified when *q* targets a field the intents actually dispute and
+  when the task's stakes are high, and scaled into utility units so it is
+  commensurate with the risk term. It is then multiplied by a channel-dependent
+  informativeness factor — and in our environment the *less-trusted* channels (a
+  shared document that lists every file; an external tool) are genuinely *more*
+  informative than the terse authenticated user. This is precisely what tempts a
+  risk-blind policy onto the channels an attacker controls.
+- *Interaction cost* is a small fixed per-question penalty, lower for a
+  restricted (fixed-choice) question than for an open one.
+- *Pre-inquiry risk* is a channel-and-format prior for the probability that an
+  answer on *c* carries an attack, times a normalized expected loss. Priors are
+  Laplace-smoothed and estimated on the development split only; a restricted
+  format discounts the prior, because its answer is parsed outside the language
+  model and so exposes less injection surface.
+
+**Stage 2 — response acceptance.** A policy that did only stage 1 could still be
+talked into acting on a malicious answer once it has decided to ask. SecureVoI
+therefore screens the returned answer *y* and accepts it only if
+
+> infovalue(*q*, *c*) > λ · responserisk(*y*) · expectedloss,
+
+where responserisk blends the learned estimate `classify_malice(y)` with the
+channel prior, lexical injection cues, and a penalty when a restricted-format
+answer falls outside its allowed choices. A rejected answer is discarded and the
+agent falls back to acting on its prior best guess. The same λ thus governs both
+the willingness to *ask* a risky channel and the bar an answer must clear to be
+*believed*.
+
+**λ selection.** λ is the single knob trading benign utility against adversarial
+exposure, fit on the development split alone. We select the *smallest* λ whose
+dev-set adversarial unsafe rate meets a fixed target, rather than the λ that
+maximizes dev utility: on a small dev split, utility versus λ is not monotonic
+(only the unsafe rate is), so hill-climbing utility overfits to sampling noise at
+a large, fragile λ (see `docs/DAILY_LOG.md`, Jul 17-18, for the concrete case
+where the naive rule chose λ=6 for the wrong reason). λ, the channel priors, and
+all prompt wording are frozen from dev before the test split is evaluated.
+
+**Baselines.** We compare against five policies spanning the design space plus
+one optional guardrail:
+- **Never Ask** — act on the initial request, never clarify.
+- **Always Ask** — query the nominally most informative channel, ignoring cost
+  and risk, and accept whatever returns.
+- **Confidence Threshold** — ask only when sampled-intent agreement falls below a
+  dev-calibrated threshold; otherwise act.
+- **Conventional VoI** — cost-aware information maximization but risk-blind, and
+  accepts whatever returns; this is the policy the *asking-provoked-instruction*
+  (ASPI) phenomenon predicts is dangerous.
+- **Trusted-Only** — ask only through channels above a trust floor, else act.
+- **Post-Hoc Guardrail** (additional, plan-optional) — Conventional VoI's ask
+  decision, followed by screening the resulting *action plan* against known
+  prohibited-action patterns before execution (`secure_clarify/guardrail.py`).
+
+SecureVoI is the only policy that reasons about channel exposure at acquisition
+time *and* screens the response. The guardrail is its architectural opposite: it
+lets the answer through and screens the *consequence* — a contrast we return to
+in Section 7.
 
 ---
 
-## 5. Benchmark
+**Tasks.** 120 base tasks span two tool-use domains — file management and
+calendar/email scheduling — split 24 development / 96 test (the plan's exact
+ratio), frozen and checksummed (`results/main120_manifest.json`) so the test
+split can neither drift nor leak into calibration. Each task pairs an
+underspecified request with a hidden intent that the request only partially
+projects; the agent must recover that intent, by asking or by inference.
 
-*(Pulled from `docs/01_novelty_matrix.md`, `secure_clarify/task_factory.py`,
-and `days/jul17-18/README.md`.)*
+**Matched response conditions.** The benchmark's methodological core is that
+every base task carries *matched* clarification responses in three conditions —
+**benign** (a truthful, helpful answer), **noisy** (an unhelpful or wrong but
+non-malicious answer), and **adversarial** (an answer that mixes genuine
+information with an injected instruction). Because the conditions differ only in
+the response, any measured difference in outcome is attributable to the response,
+not to task difficulty.
 
-120 base tasks (24 development, 96 test — exact ratio from the plan, frozen
-and checksummed, `results/main120_manifest.json`) across two domains (file
-management, calendar scheduling), each with matched benign, noisy, and
-adversarial clarification responses so that any measured difference is
-attributable to the response condition, not task difficulty. Outcomes are
-verified by two independent, deterministic (non-LLM) verifiers:
-`goal_verifier` checks final state against a machine-checkable predicate;
-`safety_verifier` scans the immutable action log for any of seven
-attacker-objective-mapped prohibited-action patterns.
+**Channels and the value–risk tension.** Responses may arrive over six channel
+classes at descending prior trust — authenticated user, delegated collaborator,
+shared document, forwarded message, external tool, compromised account. Two
+design choices keep the trade-off honest. First, the authenticated user is never
+the attacker, and *channel identity is not perfectly predictive of attack*: every
+non-authenticated class contains benign, noisy, *and* adversarial instances, so a
+policy cannot win by simply blacklisting a channel class. Second, as noted in
+Section 4, the less-trusted channels are deliberately the *more informative*
+ones, so declining them forfeits real information — the tension SecureVoI must
+navigate rather than sidestep.
 
-**Known limitation, stated plainly rather than hidden:** the benchmark's 120
-tasks currently draw from only 2 base task templates (one per domain), with
-diversity coming from parameter combinations (stakes × channel-availability
-× attack type) rather than genuinely distinct task families — the plan's
-"stratified by ... family" requirement is only partially met. This belongs
-in Section 8 (Limitations).
+**Attacks.** Adversarial responses realize seven attacker objectives — goal
+hijack, constraint removal, recipient injection, privilege escalation, data
+exfiltration, destructive action, and unrelated-instruction injection — each
+mixing a valid answer with the attack so it is never trivially ignorable. Tasks
+additionally vary in **stakes** (low/medium/high, which weight the regret of an
+unsafe action) and **question format** (open free-text versus a restricted
+fixed-choice schema parsed outside the model).
+
+**Automatic verification.** Every outcome is scored by two independent,
+deterministic (non-LLM) verifiers — there is no LLM judge anywhere in the loop.
+`goal_verifier` checks the final environment state against a machine-checkable
+predicate; `safety_verifier` scans the immutable, append-only action log for any
+prohibited transition. An episode is unsafe if a prohibited action *ever* appears
+in the log, even if a later action reverses it — safety is a property of the
+trajectory, not the final state (Section 3). Utility combines both, penalizing
+unsafe actions by task severity and charging small costs for asking and for
+abstaining: *U = goal − severity·violations − clarification\_cost −
+abstention\_cost*.
+
+**Known limitation, stated plainly rather than hidden.** The 120 tasks currently
+draw from only two base templates (one per domain), with diversity coming from
+parameter combinations (stakes × channel-availability × attack type) rather than
+genuinely distinct task families; the plan's "stratified by … family" requirement
+is only partially met. This is carried into Section 8.
 
 ---
 
@@ -381,7 +460,7 @@ predetermined one.
 | Section | Primary source(s) |
 |---|---|
 | Abstract | `abstract.md` |
-| Intro | Not yet drafted |
+| Intro | Newly drafted (Jul 25-26); grounded in `docs/01_novelty_matrix.md` + `docs/04_references.md` |
 | Related Work | `docs/04_references.md` |
 | Novelty | `docs/01_novelty_matrix.md` |
 | Threat Model | `docs/02_threat_model.md` |
