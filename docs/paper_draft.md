@@ -1,11 +1,13 @@
 # Ask, Act, or Verify? Security-Aware Clarification for Language-Model Agents
 
-**Status: draft skeleton (Jul 25-26 deliverable), not camera-ready.** Every
-section below is either (a) real content pulled from an existing repo
-artifact and lightly adapted for paper prose, or (b) explicitly marked
-`[TODO: ...]` where a real-model number is still in flight. Nothing here
-should be read as final — it's a structural draft to convert into the
-venue's LaTeX template once complete, per the source map in
+**Status: full first draft, not camera-ready.** Every section has real prose
+now, including Introduction and Conclusion (drafted this pass). Numbers and
+comparisons still marked `[TODO: ...]` are genuinely pending a second/third
+completed model run, not unwritten text — everything else is either adapted
+from an existing verified repo artifact or newly-drafted argumentative prose
+that should get a human editing pass (tone, length-to-page-limit, citation
+formatting) before submission. Convert to the venue's LaTeX template using
+the source map at the bottom of this file / in
 [days/jul25-26/README.md](../days/jul25-26/README.md).
 
 ---
@@ -51,13 +53,62 @@ Llama-3.3-70B and the two local Qwen runs are in flight as of this draft.)*
 
 ## 1. Introduction
 
-*(Draft prose needed — not yet written. Should motivate with: (a) the
-ask-vs-act tradeoff LLM agents already face, citing CLAM/Learning-to-Ask/
-SAGE-Agent as the trusted-answer baseline literature; (b) the security gap —
-none of that literature models an untrusted answerer, citing InjecAgent/
-AgentDojo as the security literature that in turn doesn't model the
-clarification decision; (c) the paper's actual contribution per the frozen
-novelty statement below.)*
+Language-model agents that can call tools — archiving a file, scheduling a
+meeting, sending a message — routinely receive instructions that
+underspecify some part of the intended action. A growing line of work
+teaches agents to recognize this ambiguity and ask a clarifying question
+rather than guess: CLAM (Kuhn, Gal, and Farquhar) established that a model
+should detect ambiguity and request clarification instead of committing to
+a possibly-wrong interpretation; SAGE-Agent (Suri et al.) formalizes which
+question to ask by its expected value of perfect information; "Learning to
+Ask" (Wang et al.) and "Ask or Assume?" (Edwards and Schuster) extend the
+same idea to tool-calling and coding agents specifically. All of this work
+shares one assumption, usually implicit: whoever answers the question can be
+trusted. That assumption is the load-bearing one, and it is also the one
+that breaks first in a deployed system. A clarifying question does not
+necessarily go to the user who issued the original request — it may be
+routed to a shared document, a delegated collaborator, a forwarded message
+thread, an external tool, or, in the worst case, a compromised account. Each
+of these is a plausible answerer in an ordinary agentic workflow, and none
+of them is the authenticated principal the clarification-seeking literature
+implicitly assumes is on the other end.
+
+At the same time, a separate line of work has shown that tool-using agents
+are vulnerable to instructions smuggled into content they process: InjecAgent
+(Zhan et al.) benchmarks indirect prompt injection through tool outputs and
+finds that even a capable agent follows an injected instruction a
+substantial fraction of the time; AgentDojo (Debenedetti et al.) generalizes
+this into a standard security benchmark pairing benign tasks with an
+adversarial one hidden in the environment. This literature treats injected
+instructions as *ambient* — something the agent stumbles into while doing
+its job — not as something the agent's own behavior invites. Neither
+literature asks the question this paper asks: what happens when the
+mechanism that makes an agent *helpful* (asking for clarification when
+unsure) is also the mechanism an attacker can use to *reach* the agent in
+the first place? Asking a clarifying question is not a passive act. It opens
+a channel, and opening a channel is exactly how an indirect-prompt-injection
+attack gets a foothold. A policy that reasons about whether to ask only in
+terms of expected information gain and interaction cost — as every
+clarification-seeking method above does — has no way to represent that the
+same question, asked of a different channel, carries a different exposure.
+
+This gap motivates the decision problem we study: an agent should decide
+not only *whether* to ask, but *what format* to ask in and *which channel*
+to query, jointly, as a function of how informative each channel plausibly
+is, how much asking costs in interaction overhead, and how much risk each
+channel carries of returning an adversarial answer. We call this
+security-aware clarification, and we propose **SecureVoI**, a two-stage
+extension of value-of-information reasoning that (1) scores each
+candidate question–channel pair by expected information gain net of
+interaction cost *and* a channel-dependent security loss term before
+asking, and (2) screens the response that actually comes back before
+accepting it, using a learned estimate of how likely that specific answer is
+to be malicious. The two stages matter separately: a policy that only does
+stage 1 (like Conventional VoI, which we show is measurably more dangerous
+under adversarial responses than under benign ones) can still be talked into
+accepting a bad answer once it decides to ask; a policy that only does stage
+2 has no principled way to prefer a slightly-less-informative but
+lower-risk channel in the first place.
 
 **Working novelty statement** (frozen in `docs/01_novelty_matrix.md`, do not
 reword without re-checking the matrix): *"Prior work either optimizes
@@ -281,7 +332,47 @@ robustness-subset numbers — scripts exist and are validated on ScriptedAgent
 
 ## 9. Conclusion
 
-*(Draft prose needed.)*
+We argued that clarification-seeking in deployed language-model agents is
+not only a question of how uncertain the agent is, but of who is likely to
+answer. Conventional value-of-information reasoning, which decides whether
+to ask purely from expected information gain against interaction cost, is
+risk-blind by construction: our results show it improves benign task success
+substantially but, on the same tasks, more than doubles the rate of unsafe
+actions once the answering channel can be adversarial. SecureVoI closes
+most of that gap by treating the *channel* the same way it treats the
+*question* — as something to be chosen, not just consulted — and by
+screening the specific answer that comes back before letting it influence
+the agent's actions. On Mistral-Nemo-12B, this recovers the full benign
+utility of the risk-blind policy while cutting adversarial unsafe actions by
+83%, and it does so without collapsing into the trivially safe policy of
+only ever trusting the authenticated user, which we show forfeits real
+utility on tasks where that channel simply is not available.
+
+Two results outside the main comparison are worth restating because they
+complicate a simple story. First, injection-susceptibility is model-
+dependent: Mistral-Nemo-12B and Llama-3.3-70B both exhibit the trade-off
+this paper studies, while more heavily safety-tuned models we tested
+resisted the injected instructions outright and showed little conventional-
+clarification harm in the first place. A security-aware clarification
+policy is not a substitute for a model that already declines to follow
+instructions smuggled into a clarifying answer — it is a hedge for the
+(currently common) case where the underlying model does not yet do that
+reliably. Second, our post-hoc comparison between screening the *response*
+(SecureVoI) and screening the resulting *action plan* after the agent has
+already decided what to do with an accepted answer (Post-Hoc Guardrail)
+suggests these are not strictly ordered: on our scripted pipeline check,
+plan-level screening preserved more of the benign task under attack than
+response-level screening did, because it never has to reject useful
+information wholesale to stay safe. Whether that ordering holds on real
+models, where legitimate and injected actions may be harder to cleanly
+separate in a generated plan, is an open question this paper's real-model
+runs are positioned to answer but had not yet settled at the time of
+writing.
+
+`[TODO]`: once the full model roster (Section 6) is locked, replace "on our
+scripted pipeline check" above with the real-model finding, whichever
+direction it goes — the honest result either way is the contribution, not a
+predetermined one.
 
 ---
 
