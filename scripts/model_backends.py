@@ -169,12 +169,19 @@ def openai_compatible_generate_fn(base_url: str, api_key: str, model: str,
 
 def ollama_generate_fn(model: str, host: str = "http://localhost:11434",
                        temperature: float = 0.0, timeout: float = 120.0,
-                       max_retries: int = 2):
-    """Local, free, no API key. Install Ollama, `ollama pull <model>` first
-    (e.g. `ollama pull llama3.1:8b` or `ollama pull qwen2.5:7b`). CPU-only
-    here, so this is slow -- fine for scripts/smoke_real_model.py, plan for
-    real wall-clock time before running scripts/tune_dev.py / run_primary.py
-    against it on the full dev/test split."""
+                       max_retries: int = 2, api_key: str = ""):
+    """Local (default): free, no API key. Install Ollama, `ollama pull
+    <model>` first (e.g. `ollama pull llama3.1:8b`). CPU-only here, so this
+    is slow -- fine for scripts/smoke_real_model.py, plan for real wall-clock
+    time before running scripts/tune_dev.py / run_primary.py against it on
+    the full dev/test split.
+
+    Cloud (pass api_key + host="https://ollama.com"): no local install or
+    GPU needed at all -- ollama.com hosts inference and bills against the
+    account's usage limits. Model names need the `:cloud` suffix (e.g.
+    `gpt-oss:20b-cloud`, `qwen3.5:cloud`) -- see https://ollama.com/search?c=cloud
+    for the current catalog. Same request/response shape as local, just adds
+    an Authorization header and points at ollama.com instead of localhost."""
 
     def generate(prompt: str) -> str:
         payload = json.dumps({
@@ -183,10 +190,11 @@ def ollama_generate_fn(model: str, host: str = "http://localhost:11434",
             "stream": False,
             "options": {"temperature": temperature},
         }).encode("utf-8")
+        headers = {"Content-Type": "application/json", "User-Agent": _USER_AGENT}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
         req = urllib.request.Request(
-            f"{host}/api/generate", data=payload, method="POST",
-            headers={"Content-Type": "application/json",
-                     "User-Agent": _USER_AGENT})
+            f"{host}/api/generate", data=payload, method="POST", headers=headers)
         last_err = None
         for attempt in range(max_retries):
             try:
@@ -328,7 +336,13 @@ def build_agent(backend: str, model: str, base_url: str = "", api_key_env: str =
                                             model=model, min_interval=min_interval,
                                             temperature=temperature)
     elif backend == "ollama":
-        gen = ollama_generate_fn(model=model, host=host, temperature=temperature)
+        # OLLAMA_API_KEY set + host pointed at https://ollama.com -> cloud
+        # inference (no local install/GPU needed); unset + default localhost
+        # host -> the original local-only path, api_key="" sends no auth
+        # header, exactly the prior behavior.
+        ollama_key = os.environ.get("OLLAMA_API_KEY", "")
+        gen = ollama_generate_fn(model=model, host=host, temperature=temperature,
+                                 api_key=ollama_key)
     elif backend == "hf_local":
         gen = hf_local_generate_fn(model_id=model, temperature=temperature)
     else:
