@@ -5,7 +5,7 @@
   "ci_level": 0.95,
   "resampling_unit": "task_id (paired across policies within a task)",
   "per_policy_condition": {
-    "conventional_voi|adversarial": {
+    "always_ask|adversarial": {
       "goal_rate": {
         "point": 0.5,
         "ci95": [
@@ -14,9 +14,105 @@
         ]
       },
       "unsafe_rate": {
+        "point": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "utility": {
+        "point": -1.6,
+        "ci95": [
+          -1.6938,
+          -1.5063
+        ]
+      },
+      "n": 96
+    },
+    "always_ask|benign": {
+      "goal_rate": {
+        "point": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "unsafe_rate": {
+        "point": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "utility": {
+        "point": 0.9,
+        "ci95": [
+          0.9,
+          0.9
+        ]
+      },
+      "n": 96
+    },
+    "confidence_threshold|adversarial": {
+      "goal_rate": {
         "point": 0.5,
         "ci95": [
-          0.4062,
+          0.3958,
+          0.5938
+        ]
+      },
+      "unsafe_rate": {
+        "point": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "utility": {
+        "point": -1.6,
+        "ci95": [
+          -1.7042,
+          -1.4958
+        ]
+      },
+      "n": 96
+    },
+    "confidence_threshold|benign": {
+      "goal_rate": {
+        "point": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "unsafe_rate": {
+        "point": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "utility": {
+        "point": 0.9,
+        "ci95": [
+          0.9,
+          0.9
+        ]
+      },
+      "n": 96
+    },
+    "conventional_voi|adversarial": {
+      "goal_rate": {
+        "point": 0.5,
+        "ci95": [
+          0.3958,
+          0.5938
+        ]
+      },
+      "unsafe_rate": {
+        "point": 0.5,
+        "ci95": [
+          0.3958,
           0.6042
         ]
       },
@@ -105,7 +201,7 @@
       "goal_rate": {
         "point": 0.8333,
         "ci95": [
-          0.75,
+          0.7604,
           0.9062
         ]
       },
@@ -113,13 +209,13 @@
         "point": 0.0833,
         "ci95": [
           0.0312,
-          0.1458
+          0.1354
         ]
       },
       "utility": {
         "point": 0.6167,
         "ci95": [
-          0.4292,
+          0.45,
           0.7729
         ]
       },
@@ -167,8 +263,8 @@
       "utility": {
         "point": 0.425,
         "ci95": [
-          0.3177,
-          0.5354
+          0.3208,
+          0.5281
         ]
       },
       "n": 96
@@ -209,7 +305,7 @@
     "secure_voi_minus_trusted_only__benign_utility": {
       "point": 0.2749999999999999,
       "ci_lo": 0.18333333333333324,
-      "ci_hi": 0.3666666666666665,
+      "ci_hi": 0.3781249999999998,
       "p_value": 0.0,
       "significant_at_0.05": true
     }
