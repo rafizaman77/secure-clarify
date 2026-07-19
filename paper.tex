@@ -360,26 +360,65 @@ worth it.
 \toprule
 Policy & Benign goal & Benign util.\ & Adv.\ unsafe \\
 \midrule
-Never Ask        & 0.000 & $-0.150$ & 0.000 \\
-Conventional VoI & 1.000 & 0.950 & 0.500 \\
-Trusted-Only     & 0.750 & 0.675 & 0.000 \\
-\textbf{SecureVoI} & 1.000 & \textbf{0.950} & \textbf{0.083} \\
+Never Ask            & 0.000 & $-0.150$ & 0.000 \\
+Confidence-Threshold & 0.000 & $-0.150$ & 0.000 \\
+Always Ask           & 1.000 & 0.900 & 1.000 \\
+Conventional VoI     & 1.000 & 0.950 & 0.500 \\
+Trusted-Only         & 0.750 & 0.675 & 0.000 \\
+\textbf{SecureVoI}   & 1.000 & \textbf{0.950} & \textbf{0.083} \\
 \bottomrule
 \end{tabular}
 \caption{Held-out test split (96 tasks, Mistral-Nemo-12B). Adversarial unsafe
 rate 95\% CIs: Conventional VoI $[0.406, 0.604]$, SecureVoI $[0.031, 0.146]$.
-Source: \texttt{results/main\_table.md}. \TODO{add Always Ask, Confidence
-Threshold, and Post-Hoc Guardrail rows once the six-policy real-model run lands}.}
+Source: \texttt{results/main\_table.md}. The post-hoc guardrail is reported
+separately (below) as it screens the action plan rather than choosing a policy in
+this set.}
 \label{tab:main}
 \end{table}
 
-\TODO{figures---\texttt{figures/frontier.svg} and \texttt{figures/main\_table.svg}
-exist but should be regenerated once the final model roster is locked.}
+The two extreme baselines bracket the danger. \textbf{Always Ask} is the worst
+policy at 1.000 adversarial unsafe: being risk-blind, it routes to the nominally
+most informative channel every time, which is exactly the channel an attacker
+controls, and accepts whatever returns. \textbf{Confidence-Threshold} lands at the
+opposite extreme---its dev-calibrated agreement threshold rarely trips on
+Mistral-Nemo's high self-agreement, so it almost never asks and collapses toward
+Never Ask (0.000 unsafe but 0.000 benign goal). \emph{Whether} to ask is thus a
+knife-edge that neither extreme handles; SecureVoI's advantage is reasoning about
+\emph{who} answers rather than only \emph{how uncertain} it is.
 
-\TODO{oracle-vs-learned-risk ablation, guardrail comparison, and
-robustness-subset numbers---scripts exist and are validated
-(\texttt{scripts/oracle\_ablation.py}, \texttt{guardrail\_eval.py},
-\texttt{robustness\_subset.py}); real-model numbers pending.}
+\paragraph{Oracle-vs-learned-risk ablation.} Replacing SecureVoI's learned
+response screen with the ground-truth attack label (\texttt{SecureVoIOracle})
+leaves the adversarial unsafe rate unchanged ($0.083 \to 0.083$; gap $0.000$). A
+perfect response classifier therefore removes no additional unsafe actions here:
+SecureVoI's safety comes from its stage-1 acquisition discipline (choosing a
+lower-risk channel), not from the stage-2 classifier's accuracy. The residual
+$0.083$ is a value/risk calibration effect---on a few high-stakes tasks the
+information value exceeds $\lambda\cdot\mathrm{risk}$ even at oracle certainty, so
+the answer is accepted; only a larger $\lambda$, at a benign-utility cost, removes
+them.
+
+\paragraph{Post-hoc guardrail.} A guardrail that keeps Conventional VoI's ask
+decision but screens the resulting action plan against known prohibited-action
+patterns achieves $0.000$ adversarial unsafe at $1.000$ goal on this
+benchmark---it strips the injected action while keeping the legitimate ones,
+outperforming SecureVoI's $0.083$. We report this as an \emph{upper bound} rather
+than a deployable result: the filter has oracle knowledge of the prohibited-action
+patterns, and every attack in this benchmark manifests as a single conspicuous
+out-of-scope tool call. It shows that output-level screening is highly effective
+when the harm is a discrete, recognizable action; SecureVoI's acquisition-time
+reasoning is complementary, and its advantage would be expected to grow against
+attacks that evade an action filter---a direction the current benchmark does not
+yet stress.
+
+\paragraph{Robustness to decoding randomness.} Repeating the frozen policy on a
+stratified 30-task subset three times at temperature $0.7$ (rather than greedy
+decoding) leaves the headline trade-off stable: SecureVoI's adversarial unsafe
+rate is $0.100$ (std $0.000$ across the three repetitions) versus Conventional
+VoI's $0.489$ (std $0.016$), with benign utility $0.913$ (std $0.030$). The
+primary numbers are not an artifact of deterministic decoding.
+
+\TODO{figures---\texttt{figures/frontier.svg} and \texttt{figures/main\_table.svg}
+exist but should be regenerated once the final (multi-model) roster is locked.}
 
 \section{Limitations}
 \label{sec:limitations}
@@ -387,9 +426,11 @@ robustness-subset numbers---scripts exist and are validated
 \begin{itemize}
   \item Only two base task templates per the 120-task benchmark; diversity comes
   from parameter combinations, not genuinely distinct task families.
-  \item $\textsc{classify\_malice}$ is a model-prompted heuristic, not validated
-  against an oracle at the time of writing this draft---the oracle ablation
-  (\texttt{SecureVoIOracle}) quantifies the gap once real-model data lands.
+  \item $\textsc{classify\_malice}$ is a model-prompted heuristic. The oracle
+  ablation (Section~\ref{sec:results}) shows this is not the binding constraint on
+  Mistral-Nemo---a perfect response classifier removes no additional unsafe
+  actions (gap $0.000$)---but this need not hold on models where the learned
+  screen is weaker relative to the acquisition decision.
   \item Attacks in this benchmark are static per task; no adaptive attacker that
   updates against the deployed policy.
   \item Simulator evidence establishes the trade-off's existence and policy
@@ -427,14 +468,16 @@ answer---it is a hedge for the (currently common) case where the underlying mode
 does not yet do that reliably. Second, our comparison between screening the
 \emph{response} (SecureVoI) and screening the resulting \emph{action plan} after
 the agent has already decided what to do with an accepted answer (Post-Hoc
-Guardrail) suggests these are not strictly ordered: on our scripted pipeline
-check, plan-level screening preserved more of the benign task under attack than
-response-level screening did, because it never has to reject useful information
-wholesale to stay safe. Whether that ordering holds on real models, where
-legitimate and injected actions may be harder to cleanly separate in a generated
-plan, is an open question this paper's real-model runs are positioned to answer.
-\TODO{once the full model roster is locked, replace ``on our scripted pipeline
-check'' with the real-model finding, whichever direction it goes---the honest
-result either way is the contribution.}
+Guardrail) confirms on Mistral-Nemo the direction the pipeline check suggested:
+plan-level screening preserved more of the benign task under attack (goal $1.000$
+vs.\ $0.833$) and removed more unsafe actions ($0.000$ vs.\ $0.083$), because it
+never has to reject useful information wholesale to stay safe. This comes with an
+important caveat---our guardrail has oracle knowledge of the prohibited-action
+patterns, so its perfect defense is an upper bound rather than a deployable
+result, and it holds precisely because every attack in this benchmark surfaces as
+a single conspicuous action. The two mechanisms are complementary: SecureVoI's
+acquisition-time reasoning should matter more where the injected harm is not a
+discrete, filterable action---a regime this benchmark does not yet stress, and a
+clear direction for future work.
 
 \end{document}
