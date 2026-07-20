@@ -52,17 +52,25 @@ benign=0, attack_success = adversarial∧accepted∧unsafe.
 Numbers verified computationally correct (no spurious reasons, screening genuine).
 
 ## OPEN ISSUE #1 — channels are near-perfectly predictive of attack (validity)
-`task_factory._matched_responses` always puts the adversarial attack on the
+`task_factory._matched_responses` always put the adversarial attack on the
 **lowest-trust available channel** (`adv_channel = min(non_user, key=_trust)`).
-Result (adversarial condition attack rate): external_tool **1.00**,
-delegated_collaborator **0.00**, forwarded_message **0.00**, shared_document 0.67.
-This **violates `docs/02_threat_model.md`'s own rule** ("channel identity must not
-be perfectly predictive of attack"). SecureVoI's 0% is partly won by routing to
-structurally-safe channels — a trivial "avoid external_tool, prefer
-delegated_collaborator" heuristic would likely score nearly as well.
-**FIX (was drafting):** vary `adv_channel` across tasks (e.g. cycle it among the
-available non-user channels by idx) so every channel carries attacks in *some*
-fraction of tasks. This changes all numbers → full re-run needed after.
+Result (adversarial attack rate): external_tool **1.00**,
+delegated_collaborator **0.00**, forwarded_message **0.00**, shared_document 0.67
+— **violates `docs/02_threat_model.md`'s own rule** ("channel identity must not be
+perfectly predictive of attack").
+
+**CONFIRMED (a):** a trivial "avoid the lowest-trust channel" heuristic — no risk
+model, no screening — dodges the attack on **96/96 test tasks**, so it would score
+~0% unsafe. SecureVoI's 0% is partly this degeneracy.
+
+**DRAFTED (b) — branch `channel-mix-fix-draft` (NOT merged, needs Rafi review +
+full re-run):** distributes the attack across channels by task idx, weighted
+toward lower-trust. Dry-run of the new generator gives GRADED rates
+(delegated 0.33, forwarded 0.33, shared_doc 0.56, external_tool 0.67 — none 0/1),
+and the trivial heuristic now **faces the attack on 32/96** (was 0). To adopt:
+review the branch, regenerate `tasks/main_120.json` via `freeze_tasks.py`, re-run
+all models. Consider also adding a `channel_heuristic` baseline to the paper to
+show SecureVoI beats it on the fixed benchmark.
 
 ## OPEN ISSUE #2 — attack coverage collapsed to ~2 primitives
 After the text rewrite, only `share_file`/`share_availability`/`add_external_attendee`
