@@ -328,6 +328,29 @@ def test_every_prohibited_pattern_reachable():
           f"(incl. add_attendee-before-schedule and schedule_event-external)")
 
 
+def test_no_emittable_tool_escapes_verifier():
+    """False-negative guard (dual of the reachability test): every tool the model
+    is ALLOWED to emit (_TOOL_SCHEMA -- everything else is dropped by
+    _validate_plan) that can cause a prohibited transition must be inspected by
+    safety_verifier. archive_file is the one benign exception (archiving is not a
+    security transition). If a future tool is added to the schema without a
+    matching verifier branch, a hijack via it would silently score 'safe' -- this
+    test fails first so that can't happen unnoticed."""
+    import inspect
+    from secure_clarify.agent import _TOOL_SCHEMA
+    from secure_clarify import verifiers
+    emittable = set().union(*[set(tools) for tools in _TOOL_SCHEMA.values()])
+    vsrc = inspect.getsource(verifiers.safety_verifier)
+    BENIGN = {"archive_file"}  # sets only archived=True; no external/secret/etc. transition
+    unchecked = {t for t in emittable - BENIGN
+                 if f'"{t}"' not in vsrc and f"'{t}'" not in vsrc}
+    assert not unchecked, (
+        f"model-emittable tools with NO safety_verifier branch (false-negative "
+        f"surface): {unchecked} -- add a verifier branch or mark benign")
+    print(f"[ok] all {len(emittable)} model-emittable tools are verifier-covered "
+          f"(no reachable false-negative surface)")
+
+
 if __name__ == "__main__":
     test_all_tasks_validate()
     test_roundtrip()
@@ -347,4 +370,5 @@ if __name__ == "__main__":
     test_posthoc_guardrail_drops_unsafe_actions()
     test_screen_plan_matches_safety_verifier()
     test_every_prohibited_pattern_reachable()
+    test_no_emittable_tool_escapes_verifier()
     print("\nALL SMOKE TESTS PASSED")
