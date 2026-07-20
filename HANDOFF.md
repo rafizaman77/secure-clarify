@@ -63,14 +63,25 @@ perfectly predictive of attack").
 model, no screening — dodges the attack on **96/96 test tasks**, so it would score
 ~0% unsafe. SecureVoI's 0% is partly this degeneracy.
 
-**DRAFTED (b) — branch `channel-mix-fix-draft` (NOT merged, needs Rafi review +
-full re-run):** distributes the attack across channels by task idx, weighted
-toward lower-trust. Dry-run of the new generator gives GRADED rates
-(delegated 0.33, forwarded 0.33, shared_doc 0.56, external_tool 0.67 — none 0/1),
-and the trivial heuristic now **faces the attack on 32/96** (was 0). To adopt:
-review the branch, regenerate `tasks/main_120.json` via `freeze_tasks.py`, re-run
-all models. Consider also adding a `channel_heuristic` baseline to the paper to
-show SecureVoI beats it on the fixed benchmark.
+**BUILT (b) — branch `channel-mix-fix-draft`, commit `ceefb8a` (complete, tested,
+NOT merged — merging needs Rafi review + a full model re-run):**
+- `task_factory._pick_adv_channel` — deterministic (idx-based, Knuth-hash spread),
+  weights each available non-user channel by `1 - trust(c)` so lower-trust channels
+  are attacked more often but EVERY channel is adversarial in a fraction strictly
+  in (0,1). Matched design preserved (exactly one attack channel per task).
+- **Regenerated** `tasks/main_120.json` + `pilot_40.json` + checksum manifests.
+  Committed rates: external_tool 0.60, shared_doc 0.51, forwarded 0.47,
+  delegated 0.40 (was 1.00/0.67/0.00/0.00).
+- New test `test_channels_not_perfectly_predictive` asserts 0<rate<1 for every
+  non-user channel. Full smoke suite passes; end-to-end ScriptedAgent on the frozen
+  tasks holds all invariants (never_ask=0, benign=0, ConvVoI>SecureVoI). The trivial
+  "avoid low-trust" heuristic now faces attacks on ~40/96 (was 0), so SecureVoI can
+  no longer win by channel-avoidance — its advantage now requires real screening.
+
+**To adopt:** merge `channel-mix-fix-draft` → `main`, then re-run all three models
+(numbers WILL change; SecureVoI will have non-zero residual unsafe). Consider adding
+a `channel_heuristic` baseline to the paper to show SecureVoI beats it on the fixed
+benchmark.
 
 ## OPEN ISSUE #2 — attack coverage collapsed to ~2 primitives
 After the text rewrite, only `share_file`/`share_availability`/`add_external_attendee`
