@@ -34,7 +34,7 @@ from secure_clarify.schema import Condition, Channel, load_task  # noqa: E402
 from secure_clarify.agent import CachingAgent  # noqa: E402
 from secure_clarify.policies import (NeverAsk, AlwaysAsk, ConfidenceThreshold,  # noqa: E402
                                      ConventionalVoI, TrustedOnly, SecureVoI)
-from secure_clarify.runner import run_grid, summarize  # noqa: E402
+from secure_clarify.runner import run_grid, summarize, Episode  # noqa: E402
 from secure_clarify import estimators  # noqa: E402
 from scripts.model_backends import build_agent, add_backend_args  # noqa: E402
 
@@ -57,6 +57,11 @@ def main() -> int:
                          "main=all 6 from plan section 10, adds AlwaysAsk/ConfidenceThreshold")
     ap.add_argument("--limit", type=int, default=None,
                     help="only evaluate the first N test tasks -- for fast diagnostics, not for real results")
+    ap.add_argument("--resume", action="store_true",
+                    help="load --episodes-out if it exists and skip task_ids already present -- "
+                         "a real-model run over 96 tasks can take an hour+; without this, a crash "
+                         "or interrupted session (sleep, session teardown) loses ALL progress since "
+                         "results were previously only written at the very end")
     add_backend_args(ap)
     args = ap.parse_args()
 
@@ -82,19 +87,41 @@ def main() -> int:
         policies = [NeverAsk(), AlwaysAsk(), ConfidenceThreshold(threshold=conf_threshold),
                    ConventionalVoI(), TrustedOnly(), SecureVoI(lam=lam)]
 
-    # Run task-by-task (not one bulk run_grid call) purely so real-model runs
-    # print visible progress -- a slow API/CPU backend gives no other signal
-    # of whether it's working or stuck for several minutes at a time.
-    eps = []
+    # Run task-by-task (not one bulk run_grid call), both for visible progress
+    # AND to checkpoint eps to disk after every task -- a real-model run over
+    # 96 tasks can take an hour+, and this repo has twice now lost an entire
+    # run's progress (machine sleep, session teardown killing the background
+    # process) because results were only ever written at the very end.
+    # --resume loads whatever's already on disk and skips those task_ids.
+    episodes_path = ROOT / args.episodes_out
+    episodes_path.parent.mkdir(parents=True, exist_ok=True)
+    eps_dicts: list[dict] = []
+    done_task_ids: set[str] = set()
+    if args.resume and episodes_path.exists():
+        try:
+            eps_dicts = json.loads(episodes_path.read_text(encoding="utf-8"))
+            done_task_ids = {e["task_id"] for e in eps_dicts}
+            print(f"--resume: {len(done_task_ids)} tasks already completed in "
+                  f"{episodes_path.relative_to(ROOT)}, skipping those", file=sys.stderr, flush=True)
+        except (json.JSONDecodeError, KeyError):
+            print(f"--resume: {episodes_path.relative_to(ROOT)} unreadable, starting fresh",
+                  file=sys.stderr, flush=True)
+            eps_dicts, done_task_ids = [], set()
+
     t_start = time.time()
-    for i, task in enumerate(test_tasks, 1):
-        eps.extend(run_grid([task], policies, agent,
-                            conditions=[Condition.BENIGN, Condition.ADVERSARIAL],
-                            sev_profile="medium"))
+    remaining = [t for t in test_tasks if t.task_id not in done_task_ids]
+    for i, task in enumerate(remaining, 1):
+        new_eps = run_grid([task], policies, agent,
+                           conditions=[Condition.BENIGN, Condition.ADVERSARIAL],
+                           sev_profile="medium")
+        eps_dicts.extend(asdict(e) for e in new_eps)
+        episodes_path.write_text(json.dumps(eps_dicts, indent=2) + "\n", encoding="utf-8")
         elapsed = time.time() - t_start
-        print(f"  [{i}/{len(test_tasks)}] {task.task_id} done "
-              f"({elapsed:.0f}s elapsed, {elapsed/i:.1f}s/task avg, "
+        print(f"  [{i}/{len(remaining)} remaining, {len(eps_dicts)//len(policies)//2}/{len(test_tasks)} total] "
+              f"{task.task_id} done ({elapsed:.0f}s elapsed, {elapsed/i:.1f}s/task avg, "
               f"cache={agent.cache_sizes()})", file=sys.stderr, flush=True)
+
+    eps = [Episode(**d) for d in eps_dicts]  # summarize() needs attribute access, not dict access
     table = summarize(eps)
 
     def g(pol, cond, field):
@@ -132,10 +159,7 @@ def main() -> int:
     out_path = ROOT / args.out
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-
-    episodes_path = ROOT / args.episodes_out
-    episodes_path.write_text(
-        json.dumps([asdict(e) for e in eps], indent=2) + "\n", encoding="utf-8")
+    # episodes_path was already written incrementally, after every task above.
 
     print(f"\n{'policy|condition':32s} {'goal':>6} {'unsafe':>7} {'atk':>6} {'util':>7} {'n':>4}")
     print("-" * 70)

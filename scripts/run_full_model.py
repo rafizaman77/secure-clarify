@@ -85,7 +85,7 @@ def main() -> int:
     episodes_out = f"results/models/{args.name}/primary_episodes.json"
     ok = run_step("run_primary", ["scripts/run_primary.py", "--tasks", args.tasks,
                                   "--calibration", calib_path, "--out", primary_out,
-                                  "--episodes-out", episodes_out,
+                                  "--episodes-out", episodes_out, "--resume",
                                   "--policies", "main"] + backend_flags)
     if not ok:
         print("Primary run failed -- aborting rest of pipeline (dev calibration is preserved).",
