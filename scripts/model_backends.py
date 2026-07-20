@@ -169,7 +169,7 @@ def openai_compatible_generate_fn(base_url: str, api_key: str, model: str,
 
 def ollama_generate_fn(model: str, host: str = "http://localhost:11434",
                        temperature: float = 0.0, timeout: float = 120.0,
-                       max_retries: int = 2, api_key: str = ""):
+                       max_retries: int = 8, api_key: str = "", min_interval: float = 0.0):
     """Local (default): free, no API key. Install Ollama, `ollama pull
     <model>` first (e.g. `ollama pull llama3.1:8b`). CPU-only here, so this
     is slow -- fine for scripts/smoke_real_model.py, plan for real wall-clock
@@ -178,10 +178,23 @@ def ollama_generate_fn(model: str, host: str = "http://localhost:11434",
 
     Cloud (pass api_key + host="https://ollama.com"): no local install or
     GPU needed at all -- ollama.com hosts inference and bills against the
-    account's usage limits. Model names need the `:cloud` suffix (e.g.
+    account's session/weekly usage limits (visible on the ollama.com
+    dashboard). Model names need the `:cloud` suffix (e.g.
     `gpt-oss:20b-cloud`, `qwen3.5:cloud`) -- see https://ollama.com/search?c=cloud
     for the current catalog. Same request/response shape as local, just adds
-    an Authorization header and points at ollama.com instead of localhost."""
+    an Authorization header and points at ollama.com instead of localhost.
+
+    Learned directly running this: a run spanning multiple full 96-task
+    pipelines (dev calibration + primary + oracle ablation + guardrail eval,
+    x2 models) hit HTTP 429 partway through -- the original max_retries=2
+    with a flat 2s sleep (fine for a flaky local server) gave up almost
+    immediately on a real rate limit instead of honoring the dashboard's
+    stated reset window. Now mirrors openai_compatible_generate_fn's 429
+    handling: read Retry-After (seconds) off the response if present, wait
+    that long (capped at 310s) before the next attempt, and use more retries
+    by default since a rate-limit reset can legitimately take a while."""
+
+    last_call = [0.0]
 
     def generate(prompt: str) -> str:
         payload = json.dumps({
@@ -195,18 +208,35 @@ def ollama_generate_fn(model: str, host: str = "http://localhost:11434",
             headers["Authorization"] = f"Bearer {api_key}"
         req = urllib.request.Request(
             f"{host}/api/generate", data=payload, method="POST", headers=headers)
+        if min_interval > 0:
+            gap = min_interval - (time.time() - last_call[0])
+            if gap > 0:
+                time.sleep(gap)
+        last_call[0] = time.time()
         last_err = None
         for attempt in range(max_retries):
             try:
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                 return data["response"]
-            except (urllib.error.URLError, urllib.error.HTTPError, KeyError, TimeoutError) as e:
+            except urllib.error.HTTPError as e:
                 last_err = e
-                time.sleep(2)
+                if e.code == 429:
+                    retry_after = e.headers.get("Retry-After") if e.headers else None
+                    try:
+                        wait = float(retry_after) if retry_after else 30.0 * (attempt + 1)
+                    except (TypeError, ValueError):
+                        wait = 30.0 * (attempt + 1)
+                    time.sleep(min(wait + 2.0, 310.0))
+                else:
+                    time.sleep(min(2 ** attempt, 8))
+            except (urllib.error.URLError, KeyError, TimeoutError) as e:
+                last_err = e
+                time.sleep(min(2 ** attempt, 8))
         raise RuntimeError(
             f"ollama generate_fn failed after {max_retries} attempts (is `ollama serve` "
-            f"running and is '{model}' pulled?): {last_err}")
+            f"running and is '{model}' pulled? or has the ollama.com usage limit been hit -- "
+            f"check the dashboard's session/weekly reset window): {last_err}")
 
     return generate
 
@@ -341,8 +371,9 @@ def build_agent(backend: str, model: str, base_url: str = "", api_key_env: str =
         # host -> the original local-only path, api_key="" sends no auth
         # header, exactly the prior behavior.
         ollama_key = os.environ.get("OLLAMA_API_KEY", "")
+        ollama_min_interval = float(os.environ.get("GEN_MIN_INTERVAL", "0"))
         gen = ollama_generate_fn(model=model, host=host, temperature=temperature,
-                                 api_key=ollama_key)
+                                 api_key=ollama_key, min_interval=ollama_min_interval)
     elif backend == "hf_local":
         gen = hf_local_generate_fn(model_id=model, temperature=temperature)
     else:

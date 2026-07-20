@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Jul 20 deliverable: render results/stats.json as the paper's main table
+"""Jul 20 deliverable: render a stats.json as the paper's main table
 (markdown, ready to paste into the seven-page draft once results are final).
 
 Usage:
   python scripts/make_main_table.py
+  python scripts/make_main_table.py --stats results/models/<name>/stats.json --out results/models/<name>/main_table.md
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -19,11 +21,14 @@ sys.path.insert(0, str(ROOT))
 
 POLICY_LABEL = {
     "never_ask": "Never Ask",
+    "always_ask": "Always Ask",
+    "confidence_threshold": "Confidence Threshold",
     "conventional_voi": "Conventional VoI",
     "trusted_only": "Trusted-Only",
     "secure_voi": "SecureVoI",
 }
-ROW_ORDER = ["never_ask", "conventional_voi", "trusted_only", "secure_voi"]
+ROW_ORDER = ["never_ask", "always_ask", "confidence_threshold",
+            "conventional_voi", "trusted_only", "secure_voi"]
 
 
 def fmt(d: dict) -> str:
@@ -32,16 +37,21 @@ def fmt(d: dict) -> str:
 
 
 def main() -> int:
-    stats_path = ROOT / "results" / "stats.json"
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--stats", default="results/stats.json")
+    ap.add_argument("--out", default="results/main_table.md")
+    args = ap.parse_args()
+
+    stats_path = ROOT / args.stats
     if not stats_path.exists():
-        raise SystemExit("results/stats.json not found -- run scripts/compute_stats.py first.")
+        raise SystemExit(f"{args.stats} not found -- run scripts/compute_stats.py first.")
     stats = json.loads(stats_path.read_text(encoding="utf-8"))
     pp = stats["per_policy_condition"]
 
     lines = [
         "# Main results table",
         "",
-        f"_Generated from `results/stats.json` -- {stats['n_tasks']} test tasks, "
+        f"_Generated from `{args.stats}` -- {stats['n_tasks']} test tasks, "
         f"{stats['n_bootstrap']} bootstrap resamples, {int(stats['ci_level']*100)}% CI. "
         f"Agent backend: **{stats['agent_backend']}**._",
         "",
@@ -74,7 +84,7 @@ def main() -> int:
             "before using these numbers in the paper.",
         ]
 
-    out_path = ROOT / "results" / "main_table.md"
+    out_path = ROOT / args.out
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
     print(f"\nWrote {out_path.relative_to(ROOT)}")

@@ -107,7 +107,8 @@ def main() -> int:
     if run_step("compute_stats", ["scripts/compute_stats.py", "--episodes", episodes_out,
                                   "--out", stats_out]):
         steps_run.append("compute_stats")
-        run_step("make_main_table", ["scripts/make_main_table.py"])
+        run_step("make_main_table", ["scripts/make_main_table.py", "--stats", stats_out,
+                                     "--out", f"results/models/{args.name}/main_table.md"])
         steps_run.append("make_main_table")
 
     run_step("failure_analysis", ["scripts/failure_analysis.py", "--episodes", episodes_out,
