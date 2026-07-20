@@ -7,34 +7,34 @@
   "per_policy_condition": {
     "always_ask|adversarial": {
       "goal_rate": {
-        "point": 0.0,
+        "point": 0.375,
         "ci95": [
-          0.0,
-          0.0
+          0.2812,
+          0.4688
         ]
       },
       "unsafe_rate": {
-        "point": 1.0,
+        "point": 0.625,
         "ci95": [
-          1.0,
-          1.0
+          0.5312,
+          0.7188
         ]
       },
       "utility": {
-        "point": -2.1,
+        "point": -0.975,
         "ci95": [
-          -2.1,
-          -2.1
+          -1.2562,
+          -0.6937
         ]
       },
       "n": 96
     },
     "always_ask|benign": {
       "goal_rate": {
-        "point": 0.5,
+        "point": 0.5833,
         "ci95": [
-          0.3958,
-          0.6042
+          0.4792,
+          0.6875
         ]
       },
       "unsafe_rate": {
@@ -45,10 +45,10 @@
         ]
       },
       "utility": {
-        "point": 0.4,
+        "point": 0.4833,
         "ci95": [
-          0.3062,
-          0.5042
+          0.3896,
+          0.5771
         ]
       },
       "n": 96
@@ -110,40 +110,40 @@
         ]
       },
       "unsafe_rate": {
-        "point": 1.0,
+        "point": 0.5,
         "ci95": [
-          1.0,
-          1.0
+          0.3958,
+          0.6042
         ]
       },
       "utility": {
-        "point": -2.05,
+        "point": -1.05,
         "ci95": [
-          -2.05,
-          -2.05
+          -1.2375,
+          -0.8625
         ]
       },
       "n": 96
     },
     "conventional_voi|benign": {
       "goal_rate": {
-        "point": 0.5625,
+        "point": 0.5729,
         "ci95": [
-          0.4688,
-          0.6562
+          0.4792,
+          0.6771
         ]
       },
       "unsafe_rate": {
-        "point": 0.0,
+        "point": 0.0104,
         "ci95": [
           0.0,
-          0.0
+          0.0312
         ]
       },
       "utility": {
-        "point": 0.5125,
+        "point": 0.5021,
         "ci95": [
-          0.4083,
+          0.3979,
           0.6063
         ]
       },
@@ -199,47 +199,47 @@
     },
     "secure_voi|adversarial": {
       "goal_rate": {
-        "point": 0.4688,
+        "point": 0.4375,
         "ci95": [
-          0.375,
-          0.5729
+          0.3333,
+          0.5312
         ]
       },
       "unsafe_rate": {
-        "point": 0.0,
+        "point": 0.0938,
         "ci95": [
-          0.0,
-          0.0
+          0.0417,
+          0.1562
         ]
       },
       "utility": {
-        "point": 0.4188,
+        "point": 0.2,
         "ci95": [
-          0.325,
-          0.5229
+          0.0333,
+          0.3667
         ]
       },
       "n": 96
     },
     "secure_voi|benign": {
       "goal_rate": {
-        "point": 0.5625,
+        "point": 0.5729,
         "ci95": [
           0.4688,
-          0.6562
+          0.6667
         ]
       },
       "unsafe_rate": {
-        "point": 0.0,
+        "point": 0.0104,
         "ci95": [
           0.0,
-          0.0
+          0.0312
         ]
       },
       "utility": {
-        "point": 0.5125,
+        "point": 0.5021,
         "ci95": [
-          0.4188,
+          0.3979,
           0.6063
         ]
       },
@@ -247,10 +247,10 @@
     },
     "trusted_only|adversarial": {
       "goal_rate": {
-        "point": 0.3021,
+        "point": 0.2812,
         "ci95": [
-          0.2188,
-          0.3958
+          0.1979,
+          0.375
         ]
       },
       "unsafe_rate": {
@@ -261,34 +261,34 @@
         ]
       },
       "utility": {
-        "point": 0.2271,
+        "point": 0.2062,
         "ci95": [
-          0.1365,
-          0.325
+          0.1167,
+          0.3021
         ]
       },
       "n": 96
     },
     "trusted_only|benign": {
       "goal_rate": {
-        "point": 0.4375,
+        "point": 0.4167,
         "ci95": [
-          0.3333,
-          0.5417
+          0.3125,
+          0.5104
         ]
       },
       "unsafe_rate": {
-        "point": 0.0,
+        "point": 0.0104,
         "ci95": [
           0.0,
-          0.0
+          0.0312
         ]
       },
       "utility": {
-        "point": 0.3625,
+        "point": 0.3208,
         "ci95": [
-          0.2615,
-          0.4688
+          0.2146,
+          0.4271
         ]
       },
       "n": 96
@@ -296,16 +296,16 @@
   },
   "comparisons": {
     "secure_voi_minus_conventional_voi__adversarial_unsafe_rate": {
-      "point": -1.0,
-      "ci_lo": -1.0,
-      "ci_hi": -1.0,
+      "point": -0.40625,
+      "ci_lo": -0.5104166666666667,
+      "ci_hi": -0.30208333333333337,
       "p_value": 0.0,
       "significant_at_0.05": true
     },
     "secure_voi_minus_trusted_only__benign_utility": {
-      "point": 0.15000000000000036,
-      "ci_lo": 0.0854166666666672,
-      "ci_hi": 0.2281250000000008,
+      "point": 0.18125000000000058,
+      "ci_lo": 0.11041666666666716,
+      "ci_hi": 0.2697916666666675,
       "p_value": 0.0,
       "significant_at_0.05": true
     }

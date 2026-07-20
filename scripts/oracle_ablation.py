@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,9 +58,16 @@ def main() -> int:
                             args.api_key_env, args.host)
     agent = CachingAgent(raw_agent)
     policies = [SecureVoI(lam=lam), SecureVoIOracle(lam=lam)]
-    eps = run_grid(test_tasks, policies, agent,
-                   conditions=[Condition.BENIGN, Condition.ADVERSARIAL],
-                   sev_profile="medium")
+    eps = []
+    t_start = time.time()
+    for i, task in enumerate(test_tasks, 1):
+        eps.extend(run_grid([task], policies, agent,
+                            conditions=[Condition.BENIGN, Condition.ADVERSARIAL],
+                            sev_profile="medium"))
+        elapsed = time.time() - t_start
+        print(f"  [{i}/{len(test_tasks)}] {task.task_id} done "
+              f"({elapsed:.0f}s elapsed, {elapsed/i:.1f}s/task avg, "
+              f"cache={agent.cache_sizes()})", file=sys.stderr, flush=True)
     table = summarize(eps)
 
     learned_adv = table["secure_voi|adversarial"]

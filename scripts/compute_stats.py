@@ -108,6 +108,11 @@ def paired_bootstrap_diff(task_ids: list[str], by_task: dict, policy_a: str, pol
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--episodes", default="results/primary_episodes.json")
+    ap.add_argument("--summary", default=None,
+                    help="primary_summary.json to pull agent_backend from -- defaults to "
+                         "the sibling primary_summary.json next to --episodes (i.e. "
+                         "<episodes>/../primary_summary.json), NOT a shared top-level path, "
+                         "so per-model runs never pick up another model's label")
     ap.add_argument("--out", default="results/stats.json")
     args = ap.parse_args()
 
@@ -119,7 +124,8 @@ def main() -> int:
         )
     episodes = load_episodes(episodes_path)
     agent_backend = None
-    summary_path = ROOT / "results" / "primary_summary.json"
+    summary_path = (ROOT / args.summary if args.summary
+                    else episodes_path.parent / "primary_summary.json")
     if summary_path.exists():
         agent_backend = json.loads(summary_path.read_text(encoding="utf-8")).get("agent_backend")
 
