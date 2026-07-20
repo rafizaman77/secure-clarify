@@ -33,7 +33,8 @@ from dataclasses import asdict  # noqa: E402
 from secure_clarify.schema import Condition, Channel, load_task  # noqa: E402
 from secure_clarify.agent import CachingAgent  # noqa: E402
 from secure_clarify.policies import (NeverAsk, AlwaysAsk, ConfidenceThreshold,  # noqa: E402
-                                     ConventionalVoI, TrustedOnly, SecureVoI)
+                                     ConventionalVoI, TrustedOnly, SecureVoI,
+                                     ChannelHeuristic)
 from secure_clarify.runner import run_grid, summarize, Episode  # noqa: E402
 from secure_clarify import estimators  # noqa: E402
 from scripts.model_backends import build_agent, add_backend_args  # noqa: E402
@@ -51,10 +52,12 @@ def main() -> int:
     ap.add_argument("--out", default="results/primary_summary.json")
     ap.add_argument("--episodes-out", default="results/primary_episodes.json",
                     help="raw per-episode records, needed by scripts/compute_stats.py for bootstrap CIs")
-    ap.add_argument("--policies", choices=["pilot", "main"], default="pilot",
+    ap.add_argument("--policies", choices=["pilot", "main", "mainplus"], default="pilot",
                     help="pilot=4 policies (NeverAsk/ConventionalVoI/TrustedOnly/SecureVoI, "
                          "the original default -- unchanged for reproducibility); "
-                         "main=all 6 from plan section 10, adds AlwaysAsk/ConfidenceThreshold")
+                         "main=all 6 from plan section 10, adds AlwaysAsk/ConfidenceThreshold; "
+                         "mainplus=main + ChannelHeuristic validity probe (the trivial "
+                         "channel-avoidance bar SecureVoI must clear on the mixed benchmark)")
     ap.add_argument("--limit", type=int, default=None,
                     help="only evaluate the first N test tasks -- for fast diagnostics, not for real results")
     ap.add_argument("--resume", action="store_true",
@@ -81,11 +84,13 @@ def main() -> int:
                             args.api_key_env, args.host)
     agent = CachingAgent(raw_agent)
     policies = [NeverAsk(), ConventionalVoI(), TrustedOnly(), SecureVoI(lam=lam)]
-    if args.policies == "main":
+    if args.policies in ("main", "mainplus"):
         conf_calib = calib.get("confidence_threshold_calibration")
         conf_threshold = conf_calib["threshold"] if conf_calib else 0.5
         policies = [NeverAsk(), AlwaysAsk(), ConfidenceThreshold(threshold=conf_threshold),
                    ConventionalVoI(), TrustedOnly(), SecureVoI(lam=lam)]
+        if args.policies == "mainplus":
+            policies.append(ChannelHeuristic())
 
     # Run task-by-task (not one bulk run_grid call), both for visible progress
     # AND to checkpoint eps to disk after every task -- a real-model run over

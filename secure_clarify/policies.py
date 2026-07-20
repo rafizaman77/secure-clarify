@@ -158,6 +158,45 @@ class TrustedOnly:
                         rationale=f"trusted VoI={best_val:.3f}")
 
 
+class ChannelHeuristic:
+    """Trivial channel-avoidance baseline (Jul 20, for the channel-mix benchmark).
+    Asks like ConventionalVoI but, in place of any risk model, simply routes the
+    question to the HIGHEST-TRUST available channel and accepts whatever comes back
+    -- no pre-inquiry risk term, no stage-2 screening, no model of the content.
+
+    Its whole point is to expose a benchmark-validity failure: on a task set where
+    the attack always sits on the lowest-trust channel, this dodges EVERY attack for
+    free -- it never even reads the attacked channel -- scoring ~0% unsafe with zero
+    security machinery. That is exactly the degeneracy docs/02_threat_model.md
+    forbids ("channel identity must not be perfectly predictive of attack"), and the
+    reason SecureVoI's 0% on such a set is not meaningful. On the channel-mixed
+    benchmark (task_factory._pick_adv_channel spreads attacks across channels with
+    graded probability) higher-trust channels also carry attacks a fraction of the
+    time, so this baseline takes real hits and SecureVoI's advantage must come from
+    screening the content, not from avoiding a channel.
+
+    Deliberately NOT in MAIN_POLICIES (the six-policy main set stays fixed for
+    reproducibility): it's a validity probe, reported alongside as the bar SecureVoI
+    must clear on the fixed benchmark. Include it via run_primary --policies mainplus."""
+    name = "channel_heuristic"
+
+    def decide(self, task: Task, agent) -> Decision:
+        cands = _available_qc(task)
+        if not cands:
+            return Decision(ask=False, rationale="no candidate question/channel available")
+        # Highest channel trust wins; tie-break by info gain minus interaction cost.
+        best, best_key = None, None
+        for q, c in cands:
+            ig = estimate_info_gain(task, q, agent, channel=c)
+            key = (CHANNEL_TRUST[c], ig - C_COST[q.qformat])
+            if best_key is None or key > best_key:
+                best, best_key = (q, c), key
+        q, c = best
+        return Decision(ask=True, question=q, channel=c, accept_response=True,
+                        rationale=f"route to highest-trust channel={c.value} "
+                                 f"(trust={CHANNEL_TRUST[c]:.2f}); risk-blind, no screening")
+
+
 class SecureVoI:
     """Two-stage. Stage 1 selects (q,h) by info gain minus interaction cost minus
     lambda * pre-inquiry attack exposure. Stage 2 gates the returned answer by its
@@ -237,3 +276,8 @@ PILOT_POLICIES = [NeverAsk, ConventionalVoI, TrustedOnly, SecureVoI]
 # behind schedule -- it is deliberately NOT in this list.
 MAIN_POLICIES = [NeverAsk, AlwaysAsk, ConfidenceThreshold, ConventionalVoI,
                  TrustedOnly, SecureVoI]
+
+# Validity probe, reported alongside the main set (NOT part of it): the trivial
+# channel-avoidance bar SecureVoI must clear on the channel-mixed benchmark.
+# run_primary --policies mainplus == MAIN_POLICIES + this.
+MAINPLUS_POLICIES = MAIN_POLICIES + [ChannelHeuristic]

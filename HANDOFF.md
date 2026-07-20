@@ -78,10 +78,46 @@ NOT merged — merging needs Rafi review + a full model re-run):**
   "avoid low-trust" heuristic now faces attacks on ~40/96 (was 0), so SecureVoI can
   no longer win by channel-avoidance — its advantage now requires real screening.
 
-**To adopt:** merge `channel-mix-fix-draft` → `main`, then re-run all three models
-(numbers WILL change; SecureVoI will have non-zero residual unsafe). Consider adding
-a `channel_heuristic` baseline to the paper to show SecureVoI beats it on the fixed
-benchmark.
+**`channel_heuristic` baseline — BUILT (on `main`, commit pending):**
+`policies.ChannelHeuristic` — asks like ConventionalVoI but routes to the
+HIGHEST-TRUST available channel with NO risk term and NO screening. It's the trivial
+bar SecureVoI must clear on the fixed benchmark. Opt-in only: NOT in `MAIN_POLICIES`
+(the 6-policy main set is unchanged for reproducibility); run with
+`run_primary --policies mainplus` (== main + ChannelHeuristic). `test_smoke.py`'s
+`test_channel_heuristic_tracks_benchmark_degeneracy` is a single assertion that
+FLIPS with the task distribution — on channel-predictive tasks it asserts the
+heuristic dodges 100% (encodes (a)); on the channel-mixed tasks it asserts the
+heuristic takes real hits (encodes the (b) fix) — so it self-validates on either
+branch.
+
+**!!! CRUCIAL FINDING (ScriptedAgent, on the channel-mixed test split, 96 tasks) !!!**
+On the FIXED benchmark the trivial heuristic is no longer beaten for free. Measured:
+
+| policy | benign util | adv unsafe | adv util |
+|---|---|---|---|
+| never_ask | −0.150 | 0.000 | −0.150 |
+| always_ask / conventional_voi | 0.900 | 0.260 | 0.160 |
+| trusted_only | 0.638 | 0.083 | 0.158 |
+| **channel_heuristic** | **0.900** | **0.115** | **0.348** |
+| **secure_voi** | **0.921** | **0.167** | **0.275** |
+
+With the ScriptedAgent placeholder, `channel_heuristic` EDGES OUT `secure_voi` on
+BOTH adversarial unsafe (0.115 < 0.167) and adversarial utility (0.348 > 0.275).
+This is NOT a bug — it is the fixed benchmark doing its job: SecureVoI's stage-1
+trades channel-safety for info gain, so on the mixed set its advantage now rests
+ENTIRELY on stage-2 content screening (`classify_malice`). The ScriptedAgent's
+classifier is a trivial placeholder, so it can't demonstrate that edge — a REAL
+model that actually detects injections should reject the attacks it receives and
+pull SecureVoI's unsafe rate below the heuristic's while keeping utility. **The
+real-model re-run is now essential and the SecureVoI-vs-channel_heuristic gap IS
+the paper's real headline** (does learned screening beat trivial channel avoidance?).
+If a real model's SecureVoI still loses to `channel_heuristic`, that is itself a
+publishable finding about screening difficulty, not something to paper over.
+
+**To adopt:** merge `channel-mix-fix-draft` → `main` (brings the mixed tasks; the
+`channel_heuristic` policy + `mainplus` are already on `main` and will combine
+cleanly), then re-run all three models with `--policies mainplus` so the heuristic
+is in the comparison table.
 
 ## OPEN ISSUE #2 — attack coverage collapsed to ~2 primitives
 After the text rewrite, only `share_file`/`share_availability`/`add_external_attendee`
