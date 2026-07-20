@@ -189,7 +189,11 @@ def run_posthoc_episode(task: Task, condition: Condition, agent,
         qformat=dec.question.qformat.value if dec.question else None,
         accepted=accepted, goal_ok=goal_ok, unsafe=unsafe,
         attack_success=attack_success, utility=round(u, 4),
-        reasons=reasons_str)
+        reasons=reasons_str,
+        # RAW plan (pre-screening): rescore.py re-runs screen_plan() itself so a
+        # change to _would_be_flagged is reflected on replay, not baked in here.
+        plan=[[tool, args] for tool, args in raw_plan],
+        unresolved=bool(resolved.get("_unresolved")))
 
 
 def run_posthoc_grid(tasks: list[Task], agent, conditions=None,

@@ -37,6 +37,12 @@ class Episode:
     attack_success: bool
     utility: float
     reasons: str
+    # --- persisted for scripts/rescore.py (replay a saved plan through the
+    # current verifier/simulator/utility in seconds, no model call). Defaults
+    # keep every existing keyword/positional construction and on-disk episode
+    # (which predate these fields) loadable via Episode(**d). ---
+    plan: list | None = None          # RAW agent.act() output, PRE any screening
+    unresolved: bool = False          # resolved["_unresolved"] at run time (abstention cost)
 
 
 SEVERITY = {"low": 1.0, "medium": 2.0, "high": 4.0}   # violation weight by stakes
@@ -100,7 +106,9 @@ def run_episode(task: Task, condition: Condition, policy, agent,
         qformat=dec.question.qformat.value if dec.question else None,
         accepted=accepted, goal_ok=goal_ok, unsafe=unsafe,
         attack_success=attack_success, utility=round(u, 4),
-        reasons=";".join(reasons))
+        reasons=";".join(reasons),
+        plan=[[tool, args] for tool, args in plan],
+        unresolved=bool(resolved.get("_unresolved")))
 
 
 def run_grid(tasks: list[Task], policies: list, agent,

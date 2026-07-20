@@ -96,20 +96,44 @@ before any cross-model claim. Needs `OLLAMA_API_KEY` (ollama.com/settings/keys �
 user's personal key, keep out of git). Budget was ample (~few % weekly). Pre-fix
 snapshots archived under `results/models/_pre_domain_bugfix_2026-07-20/`.
 
-## RECOMMENDED INFRASTRUCTURE (would have avoided 3 model re-runs)
+## RE-SCORE / INVARIANT INFRASTRUCTURE — BUILT (on `main`)
 Verifier/simulator bugs don't need model re-runs to catch/fix — only task-text
-changes do. Build: (1) **persist the model's `plan`** in each Episode →
-`scripts/rescore.py` replays saved plans through the current verifier in seconds;
-(2) an **invariant script** (never_ask≈0, benign≈0, attack_success identity,
-no-100/0-split) that would have flagged `never_ask=0.5` instantly. Do this BEFORE
-the cloud re-runs so those are protected from future re-scoring.
+changes do. Now in place so the cloud re-runs are protected from any future
+re-scoring:
+
+1. **`scripts/check_invariants.py`** — asserts, in seconds with no model call:
+   never_ask adversarial-unsafe≈0 AND condition-invariant, benign-unsafe==0,
+   `attack_success == adversarial∧accepted∧unsafe`, no unsafe reason outside the
+   task's prohibited set (the hallucinated-attendee FP class), no risk-blind
+   policy concentrated 100/0 by domain, and no non-user channel perfectly
+   predictive of attack. Exit 1 on any failure. VALIDATED: passes every
+   correctness invariant on the corrected mistral run and correctly FAILS
+   invariant 6 on current `main` tasks (the still-open channel flaw); flips to
+   full PASS on the `channel-mix-fix-draft` tasks.
+   `python scripts/check_invariants.py --episodes <eps> --tasks tasks/main_120.json`
+
+2. **Plan persistence + `scripts/rescore.py`** — `runner.Episode` now persists
+   the RAW `plan` + `unresolved` flag (defaults keep old on-disk episodes
+   loadable); `guardrail.py` persists its pre-screening raw plan. `rescore.py`
+   replays each saved plan through the CURRENT verifier/simulator/utility (re-running
+   `screen_plan` for guardrail episodes), and reports exactly which verdicts changed
+   — a verifier fix is re-validated in seconds instead of a multi-hour model re-run.
+   Exit 1 if any verdict changed. VALIDATED: 0 changes on a faithful replay,
+   correctly catches a corrupted verdict `(F,F,F)→(F,T,T)`. `test_smoke.py`'s new
+   `test_rescore_reproduces_run_episode` locks rescore↔runner scoring parity (112
+   episodes, direct + guardrail paths) so the replay can't silently drift.
+   `python scripts/rescore.py --episodes <eps> --tasks tasks/main_120.json [--write]`
+
+   NOTE: the four already-on-disk `primary_episodes.json` runs predate persistence
+   (no saved `plan`) → not rescorable; the NEXT run of each model is protected.
 
 ## Immediate next steps (in order)
-1. Confirm the channel-predictiveness fix direction with Rafi; implement the
-   `task_factory` `adv_channel` variation.
-2. Add plan-persistence + `rescore.py` + invariant checks.
+1. Confirm the channel-predictiveness fix direction with Rafi; merge
+   `channel-mix-fix-draft` → `main`.
+2. ~~Add plan-persistence + `rescore.py` + invariant checks.~~ **DONE** (above).
 3. Re-run all 3 models (mistral local + 2 GPT-OSS cloud) on the fully-fixed
-   benchmark, once, with the infrastructure in place.
+   benchmark, once, now that the infrastructure protects them. Run
+   `scripts/check_invariants.py` on each new run before trusting numbers.
 4. Update `abstract.md` / `paper.tex` numbers (ConvVoI 50→100%, SecureVoI 8→0%;
    will change again after the channel fix).
 

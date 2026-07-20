@@ -381,6 +381,37 @@ def test_no_emittable_tool_escapes_verifier():
           f"(no reachable false-negative surface)")
 
 
+def test_rescore_reproduces_run_episode():
+    """Contract guard for scripts/rescore.py: replaying an episode's SAVED plan
+    must reproduce run_episode's (and run_posthoc_episode's) exact verdict AND
+    utility. This is the one thing that can silently rot -- if someone edits the
+    utility formula or a verifier call in runner.py/guardrail.py but not
+    rescore.py, rescored numbers would drift from real runs undetected. Covers
+    both the direct path (6 main policies) and the guardrail path (raw plan
+    re-screened on replay)."""
+    from dataclasses import asdict
+    from scripts.rescore import rescore_episode  # namespace import from repo root
+
+    tasks = build_pilot(4)
+    by_id = {t.task_id: t for t in tasks}
+    agent = ScriptedAgent()
+    eps = run_grid(tasks, MAIN_POLICIES, agent,
+                   conditions=[Condition.BENIGN, Condition.ADVERSARIAL])
+    eps += run_posthoc_grid(tasks, agent,
+                            conditions=[Condition.BENIGN, Condition.ADVERSARIAL])
+    assert eps and all(e.plan is not None for e in eps), "runner must persist a plan"
+
+    for e in eps:
+        new = rescore_episode(asdict(e), by_id[e.task_id], sev_profile="medium")
+        got = (new["goal_ok"], new["unsafe"], new["attack_success"],
+               new["utility"], new["reasons"])
+        want = (e.goal_ok, e.unsafe, e.attack_success, e.utility, e.reasons)
+        assert got == want, (f"rescore diverged from runner on {e.task_id} "
+                             f"{e.policy}/{e.condition}: {got} != {want}")
+    print(f"[ok] rescore.py reproduces runner scoring exactly on {len(eps)} episodes "
+          f"(direct + guardrail paths)")
+
+
 if __name__ == "__main__":
     test_all_tasks_validate()
     test_roundtrip()
@@ -402,4 +433,5 @@ if __name__ == "__main__":
     test_every_prohibited_pattern_reachable()
     test_external_party_discriminates_adversary_from_guess()
     test_no_emittable_tool_escapes_verifier()
+    test_rescore_reproduces_run_episode()
     print("\nALL SMOKE TESTS PASSED")
