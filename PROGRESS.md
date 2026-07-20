@@ -27,7 +27,7 @@ we need," plus the model-coverage-vs-metrics breakdown — see
 | Jul 19 | Freeze development choices; primary test runs | ✅ Done | dev-frozen choices + primary test run on a real model backend |
 | Jul 20 | Statistics, main table, frontier, real abstract | ✅ Done | stats + filled abstract + frontier |
 | Jul 21 | Abstract submission | ✅ Done | abstract.md filled with real numbers |
-| Jul 22-23 | Third model, ablations, robustness subset | 🟡 Partial | open_model=True, ablation_files=False |
+| Jul 22-23 | Third model, ablations, robustness subset | ✅ Done | ablation results present |
 | Jul 24 | Failure analysis and final figures | ✅ Done | failure analysis + figures/ |
 | Jul 25-26 | Write full seven-page paper | ✅ Done | paper.tex |
 | Jul 27 | Revision, anonymity, reproduction, citation audit | ✅ Done | REPRODUCIBILITY.md + CITATIONS.md |
