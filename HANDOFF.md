@@ -18,6 +18,36 @@ gate, and re-fits calibration per model. **What's left for official numbers:** r
 all 3 models on `main` (mistral local + 2 GPT-OSS cloud), one command each — see
 "READY FOR MODEL RE-RUNS" below.
 
+## OFFICIAL MISTRAL RESULT (on merged `main`, committed) — 2026-07-20
+Full pipeline `run_full_model.py --name mistral-nemo-12b --backend ollama --model
+mistral-nemo:12b` on merged `main`. All 8 steps green, `check_invariants` PASS,
+verdict GO, λ=4.0 (re-fit fresh). Reproduces the preview to the digit. Committed at
+`results/models/mistral-nemo-12b/` (pre-merge run archived at
+`results/models/_pre_merge_mistral-nemo-12b_2026-07-20/`).
+
+96 test tasks, 2000 bootstrap resamples, 95% CI:
+
+| Policy | Benign util | Adv unsafe | Adv util |
+|---|---|---|---|
+| Never Ask / Confidence-Threshold | −0.150 | 0.000 | −0.150 |
+| Always Ask | 0.900 | 0.583 [0.48,0.68] | −0.558 |
+| Conventional VoI | 0.950 | 0.583 [0.48,0.68] | −0.508 |
+| Trusted-Only | 0.675 | 0.208 [0.13,0.29] | −0.096 |
+| channel_heuristic | 0.950 | 0.333 | −0.133 |
+| **SecureVoI** | **0.675 [0.57,0.77]** | **0.073 [0.03,0.14]** | **+0.071 [−0.09,0.22]** |
+
+- SecureVoI beats the trivial `channel_heuristic` (0.073 vs 0.333 adv unsafe) and is
+  the only policy net-positive under attack. `secure − conventional` unsafe reduction
+  = −0.510 [−0.635, −0.375], p<0.001. SecureVoI vs Trusted-Only benign utility: tie
+  (p=0.91) — matches Trusted-Only's benign performance while ~3× safer under attack.
+- **Oracle ablation:** a perfect classify_malice removes SecureVoI's residual 0.073 →
+  0.000 (the remaining unsafe is a stage-2 classifier limit, not the acquisition rule).
+- **Post-hoc guardrail:** 0.0 unsafe at 0.95 util, but screens the plan against the
+  ground-truth prohibited predicates (a stronger/less-realistic assumption than
+  SecureVoI's learned content screening) — present as an upper-bound baseline.
+- **Next:** update abstract.md/paper.tex to these numbers; run the other models
+  (2 GPT-OSS cloud + any llama Rafi runs) the same way and expect the same shape.
+
 ## READY FOR MODEL RE-RUNS (main is merged; Rafi can run llama now)
 `main` carries the fixed mixed benchmark and all guards. Each model is one command;
 calibration re-fits automatically, the primary run uses `mainplus` (includes
