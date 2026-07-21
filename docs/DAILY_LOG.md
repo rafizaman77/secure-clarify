@@ -550,3 +550,34 @@ comes from parameter combinations (stakes × channel-availability × attack
 type) layered on those 2 templates, not from genuinely distinct task
 *families* as plan section 11 ("stratified by ... family") technically calls
 for.
+
+## Jul 20 (later) — re-score/invariant infra, channel_heuristic baseline, real-model preview
+
+Three things landed, all driven by the benchmark-correctness audit.
+
+- **Re-score + invariant infrastructure (on `main`, pushed `4adbcdf`).**
+  `scripts/check_invariants.py` (never_ask≈0 & condition-invariant, benign==0,
+  attack_success identity, no stray reasons, no 100/0 domain split, no perfectly-
+  predictive channel — seconds, no model). Plan persistence in `runner.Episode`
+  (`plan`/`unresolved`, defaulted so old episodes still load) + `guardrail.py`, plus
+  `scripts/rescore.py` to replay saved plans through the current verifier in seconds.
+  `test_rescore_reproduces_run_episode` locks rescore↔runner parity (112 episodes).
+  This is the "catch bugs without a model re-run" tooling the audit kept wanting.
+
+- **`channel_heuristic` validity-probe baseline (on `main`, pushed `e761982`).**
+  `policies.ChannelHeuristic` = route to highest-trust channel, no screening — the
+  trivial dodge that finding (a) showed beats the flawed benchmark 96/96. Opt-in via
+  `run_primary --policies mainplus` (MAIN_POLICIES unchanged). Its smoke test flips
+  with the distribution: dodges on predictive tasks (a), takes hits on mixed tasks (b).
+
+- **Real-model PREVIEW on the fixed benchmark (mistral, not merged).** Throwaway
+  worktree = main code + branch mixed tasks, calibration re-fit on the mixed dev split
+  (λ 1.0→4.0). 96 test tasks, mainplus. All 8 invariants pass, verdict GO. **SecureVoI
+  0.073 adv-unsafe vs channel_heuristic 0.333, and SecureVoI is the only policy net-
+  positive under attack (+0.071 util).** This REVERSES the ScriptedAgent result (there
+  the heuristic won, because the placeholder can't screen) — real stage-2 screening is
+  what wins, exactly what the fixed benchmark tests. Cost: benign util 0.675 vs 0.95
+  (λ=4.0 risk-averse) — a real security/utility tradeoff, state it plainly. Artifacts:
+  `results/experiments/mainplus_mixed_mistral_PREVIEW/`. See HANDOFF.md for the table +
+  reproduction recipe. To make official: merge `channel-mix-fix-draft` (Rafi), then
+  re-run all 3 models with `--policies mainplus`.

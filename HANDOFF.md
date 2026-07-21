@@ -6,10 +6,40 @@ found, fixed, and what's still open. For the running narrative see
 
 ## TL;DR
 The 3-model results were distorted by benchmark bugs. Several are now fixed and
-guarded; the corrected **local mistral** re-run is clean (verdict GO). **Two
-things still block trustworthy paper numbers**: (1) the two GPT-OSS cloud models
-must be re-run on the combined-fix benchmark, and (2) a newly-found
-**channel-predictiveness** validity flaw in the task generator needs a decision.
+guarded; the corrected **local mistral** re-run is clean (verdict GO). The
+**channel-predictiveness** validity flaw is now fixed on branch `channel-mix-fix-draft`
+(b), and a `channel_heuristic` baseline + re-score/invariant infrastructure are on
+`main`. **NEW (real-model preview, mistral on the fixed benchmark): SecureVoI clearly
+beats the trivial channel heuristic** — 0.073 vs 0.333 adversarial unsafe, and it's
+the only policy net-positive under attack — REVERSING the ScriptedAgent result. See
+"REAL-MODEL PREVIEW" below. **What still blocks official paper numbers:** (1) merge
+`channel-mix-fix-draft` → main (needs Rafi), then (2) re-run all 3 models with
+`--policies mainplus` on the merged benchmark.
+
+## REAL-MODEL PREVIEW — SecureVoI beats the trivial heuristic on the fixed benchmark
+Run 2026-07-20 in a throwaway worktree = `main` code + the UNMERGED branch's mixed
+tasks, calibration RE-FIT on the mixed dev split (λ=4.0). mistral-nemo:12b, 96 test
+tasks, `--policies mainplus`. All 8 invariants pass (`check_invariants.py`, exit 0);
+primary verdict GO. **Preview only** (unmerged state) — artifacts (uncommitted-then-
+committed here) at `results/experiments/mainplus_mixed_mistral_PREVIEW/`.
+
+| policy | benign util | adv unsafe | adv util |
+|---|---|---|---|
+| never_ask / confidence_threshold | −0.150 | 0.000 | −0.150 |
+| always_ask | 0.900 | 0.583 | −0.558 |
+| conventional_voi | 0.950 | 0.583 | −0.508 |
+| trusted_only | 0.675 | 0.208 | −0.096 |
+| channel_heuristic | 0.950 | 0.333 | −0.133 |
+| **secure_voi** | **0.675** | **0.073** | **+0.071** |
+
+SecureVoI is ~4.5× safer than `channel_heuristic` (0.073 vs 0.333 adv unsafe) and the
+ONLY policy net-positive under attack (+0.071 util; all others go negative). This
+REVERSES the ScriptedAgent result (there the heuristic won, 0.115 vs 0.167) because
+the placeholder can't screen — real mistral stage-2 screening is what closes the gap,
+exactly the property the fixed benchmark is meant to test. **Honest caveat:** the win
+costs benign utility (0.675 vs 0.95 for risk-blind policies; λ=4.0 is risk-averse) — a
+genuine security/utility tradeoff, not a free lunch. Frame as "SecureVoI is the only
+method net-positive under attack, at a bounded benign-utility cost."
 
 ## What was fixed this session (all on `main`, pushed)
 
@@ -165,16 +195,32 @@ re-scoring:
 
 ## Immediate next steps (in order)
 1. Confirm the channel-predictiveness fix direction with Rafi; merge
-   `channel-mix-fix-draft` → `main`.
-2. ~~Add plan-persistence + `rescore.py` + invariant checks.~~ **DONE** (above).
-3. Re-run all 3 models (mistral local + 2 GPT-OSS cloud) on the fully-fixed
-   benchmark, once, now that the infrastructure protects them. Run
-   `scripts/check_invariants.py` on each new run before trusting numbers.
-4. Update `abstract.md` / `paper.tex` numbers (ConvVoI 50→100%, SecureVoI 8→0%;
-   will change again after the channel fix).
+   `channel-mix-fix-draft` → `main`. The real-model PREVIEW above already validates
+   the approach end-to-end (SecureVoI beats the trivial heuristic, invariants clean),
+   so this is a coordination step, not an open research risk.
+2. ~~Add plan-persistence + `rescore.py` + invariant checks.~~ **DONE**.
+3. ~~Add `channel_heuristic` baseline; confirm the fixed benchmark is non-trivial.~~
+   **DONE** — real-model preview confirms it (see above).
+4. Re-run all 3 models (mistral local + 2 GPT-OSS cloud) on the merged benchmark with
+   `--policies mainplus`, RE-FITTING calibration on the mixed dev split first
+   (`tune_dev` — the old priors were fit on the flawed distribution; λ moved 1.0→4.0).
+   Run `scripts/check_invariants.py` on each new run before trusting numbers.
+5. Update `abstract.md` / `paper.tex` with the mainplus numbers. The headline is now
+   "SecureVoI is the only method net-positive under attack, beating a trivial
+   channel-avoidance baseline that risk-blind methods cannot," at a bounded benign-
+   utility cost.
 
-## Current running state at handoff
-Local mistral re-run (`scratchpad/rerun_mistral.sh`) is past HEADLINE_DONE and
-finishing oracle_ablation/guardrail_eval/robustness (~2 hr). `caffeinate` holding
-the Mac awake. It writes to `results/models/mistral-nemo-12b/` + top-level
-`results/`.
+## How to reproduce the preview (throwaway worktree, nothing merged)
+    git worktree add -b exp <path> main
+    cd <path>
+    git checkout channel-mix-fix-draft -- tasks/main_120.json tasks/pilot_40.json \
+        results/split_manifest.json results/main120_manifest.json secure_clarify/task_factory.py
+    python3 scripts/tune_dev.py --tasks tasks/main_120.json --out results/dev_calibration_mixed.json \
+        --backend ollama --model mistral-nemo:12b
+    python3 scripts/run_primary.py --tasks tasks/main_120.json \
+        --calibration results/dev_calibration_mixed.json --policies mainplus \
+        --backend ollama --model mistral-nemo:12b --resume \
+        --episodes-out results/primary_episodes_mixed_mainplus.json \
+        --out results/primary_summary_mixed_mainplus.json
+    python3 scripts/check_invariants.py --episodes results/primary_episodes_mixed_mainplus.json \
+        --tasks tasks/main_120.json
