@@ -7,14 +7,35 @@ found, fixed, and what's still open. For the running narrative see
 ## TL;DR
 The 3-model results were distorted by benchmark bugs. Several are now fixed and
 guarded; the corrected **local mistral** re-run is clean (verdict GO). The
-**channel-predictiveness** validity flaw is now fixed on branch `channel-mix-fix-draft`
-(b), and a `channel_heuristic` baseline + re-score/invariant infrastructure are on
-`main`. **NEW (real-model preview, mistral on the fixed benchmark): SecureVoI clearly
+**channel-predictiveness** validity flaw is now FIXED AND MERGED into `main` (b,
+commit `01eee3c`), together with a `channel_heuristic` baseline + re-score/invariant
+infrastructure. **NEW (real-model preview, mistral on the fixed benchmark): SecureVoI clearly
 beats the trivial channel heuristic** — 0.073 vs 0.333 adversarial unsafe, and it's
 the only policy net-positive under attack — REVERSING the ScriptedAgent result. See
-"REAL-MODEL PREVIEW" below. **What still blocks official paper numbers:** (1) merge
-`channel-mix-fix-draft` → main (needs Rafi), then (2) re-run all 3 models with
-`--policies mainplus` on the merged benchmark.
+"REAL-MODEL PREVIEW" below. **`main` is now MERGED and ready for model re-runs**:
+`run_full_model.py` defaults to `--policies mainplus` + a `check_invariants` trust
+gate, and re-fits calibration per model. **What's left for official numbers:** re-run
+all 3 models on `main` (mistral local + 2 GPT-OSS cloud), one command each — see
+"READY FOR MODEL RE-RUNS" below.
+
+## READY FOR MODEL RE-RUNS (main is merged; Rafi can run llama now)
+`main` carries the fixed mixed benchmark and all guards. Each model is one command;
+calibration re-fits automatically, the primary run uses `mainplus` (includes
+`channel_heuristic`), and `check_invariants` gates trust (fails loudly if a run is
+degenerate). Local:
+
+    python scripts/run_full_model.py --name llama-3.1-8b --backend ollama --model llama3.1:8b
+
+Hosted (e.g. llama-3.3-70b via Groq — needs GROQ_API_KEY at runtime, never committed):
+
+    python scripts/run_full_model.py --name llama-3.3-70b --backend openai \
+        --base-url https://api.groq.com/openai/v1/chat/completions \
+        --api-key-env GROQ_API_KEY --model llama-3.3-70b-versatile
+
+Results land in `results/models/<name>/`. Check the run printed
+`[check_invariants]` PASS before trusting the numbers. The mistral PREVIEW above is
+the expected shape (SecureVoI beats `channel_heuristic`); the official mistral run is
+just `run_full_model.py --name mistral-nemo-12b --backend ollama --model mistral-nemo:12b`.
 
 ## REAL-MODEL PREVIEW — SecureVoI beats the trivial heuristic on the fixed benchmark
 Run 2026-07-20 in a throwaway worktree = `main` code + the UNMERGED branch's mixed

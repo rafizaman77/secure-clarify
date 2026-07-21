@@ -7,9 +7,12 @@ mismatch between steps (e.g. pointing compute_stats.py at the wrong
 episodes file), which has been the actual source of wasted time this
 session, not the underlying pipeline.
 
-Steps: tune_dev -> run_primary (--policies main) -> oracle_ablation ->
-compute_stats -> make_main_table -> failure_analysis (--append) ->
-[optional] robustness_subset (slow -- off by default).
+Steps: tune_dev -> run_primary (--policies mainplus) -> check_invariants ->
+oracle_ablation -> guardrail_eval -> compute_stats -> make_main_table ->
+failure_analysis (--append) -> [optional] robustness_subset (slow -- off by default).
+
+check_invariants gates trust: if it fails, the model's numbers are NOT trustworthy
+(degenerate benchmark or a scoring bug) and the pipeline says so loudly.
 
 Usage:
   python scripts/run_full_model.py --name mistral-nemo-12b --backend ollama --model mistral-nemo:12b
@@ -57,6 +60,11 @@ def main() -> int:
                     help="reuse an existing results/models/<name>/dev_calibration.json instead of re-fitting")
     ap.add_argument("--with-robustness-subset", action="store_true",
                     help="also run the (slow -- 30 tasks x 3 reps) stochastic robustness check")
+    ap.add_argument("--policies", choices=["main", "mainplus"], default="mainplus",
+                    help="primary-run policy set. mainplus (default) adds the "
+                         "channel_heuristic validity-probe baseline (the trivial bar "
+                         "SecureVoI must clear on the fixed benchmark); main is the "
+                         "original 6-policy set.")
     args = ap.parse_args()
 
     out_dir = ROOT / "results" / "models" / args.name
@@ -86,12 +94,25 @@ def main() -> int:
     ok = run_step("run_primary", ["scripts/run_primary.py", "--tasks", args.tasks,
                                   "--calibration", calib_path, "--out", primary_out,
                                   "--episodes-out", episodes_out, "--resume",
-                                  "--policies", "main"] + backend_flags)
+                                  "--policies", args.policies] + backend_flags)
     if not ok:
         print("Primary run failed -- aborting rest of pipeline (dev calibration is preserved).",
               flush=True)
         return 1
     steps_run.append("run_primary")
+
+    # Trust gate: replay-free invariant check on the episodes just produced. Not
+    # fatal (the run's artifacts are still worth keeping for inspection), but a
+    # failure means the numbers are NOT trustworthy -- say so unmissably.
+    if run_step("check_invariants", ["scripts/check_invariants.py",
+                                     "--episodes", episodes_out, "--tasks", args.tasks]):
+        steps_run.append("check_invariants")
+    else:
+        print("\n" + "!" * 70 + "\n!! INVARIANT CHECK FAILED for "
+              f"{args.name} -- these numbers are NOT trustworthy (degenerate\n"
+              "!! benchmark or a scoring bug). Inspect before using anything below.\n"
+              + "!" * 70, flush=True)
+        steps_run.append("check_invariants[FAILED]")
 
     run_step("oracle_ablation", ["scripts/oracle_ablation.py", "--tasks", args.tasks,
                                  "--calibration", calib_path,
