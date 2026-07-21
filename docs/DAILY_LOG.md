@@ -581,3 +581,19 @@ Three things landed, all driven by the benchmark-correctness audit.
   `results/experiments/mainplus_mixed_mistral_PREVIEW/`. See HANDOFF.md for the table +
   reproduction recipe. To make official: merge `channel-mix-fix-draft` (Rafi), then
   re-run all 3 models with `--policies mainplus`.
+
+## Jul 20 (late) — channel-mix merged to main; official mistral re-run
+
+Merged `channel-mix-fix-draft` into `main` (fixed channel-predictiveness validity
+flaw; mixed attack rates 0.40–0.60). Added re-score/invariant infra
+(`scripts/check_invariants.py`, `scripts/rescore.py`, plan persistence in Episode),
+a `ChannelHeuristic` validity-probe baseline (`--policies mainplus`), and wired
+`run_full_model.py` to default to `mainplus` + a `check_invariants` trust gate.
+
+Official mistral full-pipeline re-run on merged `main` (results/models/mistral-nemo-12b/;
+pre-merge run archived alongside). All 8 steps green, invariants PASS, verdict GO,
+λ=4.0. Headline: **SecureVoI beats the trivial channel_heuristic** on the fixed
+benchmark — 0.073 vs 0.333 adversarial unsafe, only policy net-positive under attack
+(+0.071); `secure − conventional` unsafe −0.510 [−0.635,−0.375], p<0.001. This
+REVERSES the ScriptedAgent result (there the heuristic won) — real stage-2 screening
+is what closes the gap. See HANDOFF.md "OFFICIAL MISTRAL RESULT" for the full table.

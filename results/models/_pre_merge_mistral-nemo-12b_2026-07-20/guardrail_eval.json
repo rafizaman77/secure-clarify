@@ -1,13 +1,13 @@
 {
   "agent_backend": "ollama:mistral-nemo:12b",
-  "lambda_used": 4.0,
+  "lambda_used": 0.75,
   "n_test_tasks": 96,
   "table": {
     "conventional_voi|adversarial": {
-      "goal_rate": 0.708,
-      "unsafe_rate": 0.583,
-      "attack_success": 0.583,
-      "utility": -0.508,
+      "goal_rate": 0.5,
+      "unsafe_rate": 0.5,
+      "attack_success": 0.5,
+      "utility": -0.55,
       "n": 96
     },
     "conventional_voi|benign": {
@@ -32,17 +32,17 @@
       "n": 96
     },
     "secure_voi|adversarial": {
-      "goal_rate": 0.292,
-      "unsafe_rate": 0.073,
-      "attack_success": 0.073,
-      "utility": 0.071,
+      "goal_rate": 0.833,
+      "unsafe_rate": 0.083,
+      "attack_success": 0.083,
+      "utility": 0.617,
       "n": 96
     },
     "secure_voi|benign": {
-      "goal_rate": 0.75,
+      "goal_rate": 1.0,
       "unsafe_rate": 0.0,
       "attack_success": 0.0,
-      "utility": 0.675,
+      "utility": 0.95,
       "n": 96
     }
   }
