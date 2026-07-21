@@ -20,13 +20,26 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
+import os
 import sys
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+# Per-task wall-clock cap, independent of model_backends.py's own per-call
+# retry/timeout budget. Observed directly (OPEN ISSUE #4 in HANDOFF.md): a
+# real hosted backend can occasionally get stuck on the FIRST call after a
+# --resume, in a way that never raises (no exception, no HTTP error) and so
+# never trips the generate_fn-level retry logic either -- confirmed via a
+# live stack sample showing the call genuinely blocked, not just slow. A
+# single such task must not block the other ~90 that are fine. On timeout,
+# skip the task (it stays "not done" in the episodes file, so a subsequent
+# --resume retries it) rather than losing the whole run's progress.
+PER_TASK_TIMEOUT = float(os.environ.get("PER_TASK_TIMEOUT", "600"))
 
 from dataclasses import asdict  # noqa: E402
 
@@ -115,16 +128,42 @@ def main() -> int:
 
     t_start = time.time()
     remaining = [t for t in test_tasks if t.task_id not in done_task_ids]
+    timed_out_task_ids: list[str] = []
     for i, task in enumerate(remaining, 1):
-        new_eps = run_grid([task], policies, agent,
-                           conditions=[Condition.BENIGN, Condition.ADVERSARIAL],
-                           sev_profile="medium")
+        # Fresh single-use executor per task rather than a shared pool: if
+        # this task's call genuinely never returns, its worker thread is
+        # abandoned (same tradeoff model_backends.py already makes at the
+        # HTTP layer) -- reusing one pool across tasks would let a single
+        # stuck thread permanently block every task submitted after it.
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(run_grid, [task], policies, agent,
+                                 conditions=[Condition.BENIGN, Condition.ADVERSARIAL],
+                                 sev_profile="medium")
+        try:
+            new_eps = future.result(timeout=PER_TASK_TIMEOUT)
+        except concurrent.futures.TimeoutError:
+            executor.shutdown(wait=False, cancel_futures=True)
+            timed_out_task_ids.append(task.task_id)
+            elapsed = time.time() - t_start
+            print(f"  [{i}/{len(remaining)} remaining, {len(eps_dicts)//len(policies)//2}/{len(test_tasks)} total] "
+                  f"{task.task_id} TIMED OUT after {PER_TASK_TIMEOUT:.0f}s -- skipping "
+                  f"({elapsed:.0f}s elapsed). Re-run with --resume to retry it.",
+                  file=sys.stderr, flush=True)
+            continue
+        executor.shutdown(wait=False)
         eps_dicts.extend(asdict(e) for e in new_eps)
         episodes_path.write_text(json.dumps(eps_dicts, indent=2) + "\n", encoding="utf-8")
         elapsed = time.time() - t_start
         print(f"  [{i}/{len(remaining)} remaining, {len(eps_dicts)//len(policies)//2}/{len(test_tasks)} total] "
               f"{task.task_id} done ({elapsed:.0f}s elapsed, {elapsed/i:.1f}s/task avg, "
               f"cache={agent.cache_sizes()})", file=sys.stderr, flush=True)
+
+    if timed_out_task_ids:
+        print(f"\nWARNING: {len(timed_out_task_ids)} task(s) timed out and were skipped "
+              f"(not recorded as done): {timed_out_task_ids}. These are NOT in the episodes "
+              f"file, so check_invariants/compute_stats will run on the remaining tasks only "
+              f"-- re-run this script with --resume before trusting a partial-coverage result.",
+              file=sys.stderr, flush=True)
 
     eps = [Episode(**d) for d in eps_dicts]  # summarize() needs attribute access, not dict access
     table = summarize(eps)
@@ -180,6 +219,13 @@ def main() -> int:
     print(f"Wrote {out_path.relative_to(ROOT)}")
     print(f"Wrote {episodes_path.relative_to(ROOT)} ({len(eps)} episodes, "
           f"for scripts/compute_stats.py)")
+    if timed_out_task_ids:
+        # Nonzero so run_full_model.py's run_step treats this as failed and
+        # skips oracle_ablation/guardrail_eval/compute_stats rather than
+        # silently computing "final" numbers over < n_test_tasks coverage --
+        # a caller doing its own retry loop on --resume should treat this as
+        # "not done yet," not as a real pipeline failure.
+        return 1
     return 0
 
 
