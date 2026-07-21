@@ -49,8 +49,6 @@ import time
 import urllib.error
 import urllib.request
 
-_HTTP_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="groq-http")
-
 
 def _urlopen_hard_timeout(req: urllib.request.Request, socket_timeout: float,
                           hard_timeout: float):
@@ -65,10 +63,28 @@ def _urlopen_hard_timeout(req: urllib.request.Request, socket_timeout: float,
     the outside, so the abandoned thread may linger, but future.result(
     timeout=...) still lets the CALLER move on and retry rather than hang
     forever waiting for a call that urllib itself should have already timed
-    out on but didn't."""
-    future = _HTTP_EXECUTOR.submit(
+    out on but didn't.
+
+    A FRESH single-use executor per call (not a shared module-level pool) is
+    deliberate: confirmed directly (a 9h47m guardrail_eval.py hang, live
+    `lsof` showing 19 leaked CLOSE_WAIT sockets and 0 active connections) that
+    a shared pool degrades over a long run -- each permanently-stuck call
+    consumes one of its worker threads forever, and once enough of those
+    accumulate every subsequent call queues behind dead workers and never
+    even starts, regardless of how the retry loop above it behaves. A
+    throwaway executor means a stuck call only ever strands its own thread,
+    never blocks unrelated future calls."""
+    # No `with` here -- ThreadPoolExecutor.__exit__ calls shutdown(wait=True),
+    # which would block on exactly the stuck thread this function exists to
+    # not wait for. shutdown(wait=False) lets a stuck worker be abandoned
+    # (leaked, not blocking) instead of hanging the caller.
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(
         lambda: urllib.request.urlopen(req, timeout=socket_timeout).read())
-    return future.result(timeout=hard_timeout)
+    try:
+        return future.result(timeout=hard_timeout)
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
 
 # Hosted providers (Groq, Together, Fireworks, OpenRouter, ...) sit behind
 # Cloudflare, whose default managed rules 403 the stock `Python-urllib/x.y`

@@ -2,9 +2,9 @@
   "agent_backend": "openai:llama-3.3-70b-versatile",
   "policy_set": "mainplus",
   "cache_sizes": {
-    "sample_intents": 6,
-    "classify_malice": 3,
-    "act": 26
+    "sample_intents": 0,
+    "classify_malice": 0,
+    "act": 0
   },
   "tasks_file": "tasks/main_120.json",
   "n_test_tasks": 96,
