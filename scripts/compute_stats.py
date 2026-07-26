@@ -98,9 +98,17 @@ def paired_bootstrap_diff(task_ids: list[str], by_task: dict, policy_a: str, pol
     boots.sort()
     lo = boots[int((1 - CI) / 2 * N_BOOTSTRAP)]
     hi = boots[int((1 + CI) / 2 * N_BOOTSTRAP) - 1]
-    # two-sided bootstrap p-value: fraction crossing zero, mirrored
-    n_cross = sum(1 for b in boots if (b >= 0) != (point >= 0))
-    p_value = min(1.0, 2 * n_cross / N_BOOTSTRAP)
+    # Two-sided bootstrap p = 2 * min(P(b<=0), P(b>=0)), clipped to 1.
+    # The older "fraction whose sign disagrees with the point estimate" form is
+    # degenerate for an exactly-zero effect: if both policies sit at 0.000 every
+    # resample is 0.0, nothing disagrees, and it reports p = 0.000 -- reading as
+    # maximally significant for the total ABSENCE of an effect. No currently
+    # published comparison hits that case (verified: the ties give 0.718-0.908
+    # under both forms, the large effects give 0.000 under both), but an
+    # all-zero-vs-all-zero comparison is routine once policies saturate at 0.000.
+    n_le = sum(1 for b in boots if b <= 0)
+    n_ge = sum(1 for b in boots if b >= 0)
+    p_value = min(1.0, 2.0 * min(n_le, n_ge) / N_BOOTSTRAP)
     return {"point": point, "ci_lo": lo, "ci_hi": hi, "p_value": p_value,
            "significant_at_0.05": bool(not (lo <= 0 <= hi))}
 
