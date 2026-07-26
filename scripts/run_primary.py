@@ -92,6 +92,12 @@ def main() -> int:
                          "compute reproducing numbers already published.")
     ap.add_argument("--limit", type=int, default=None,
                     help="only evaluate the first N test tasks -- for fast diagnostics, not for real results")
+    ap.add_argument("--skip-task-ids", default="",
+                    help="comma-separated task_ids to exclude entirely (not attempted, not counted "
+                         "as coverage) -- for a task that reproducibly fails against one backend's "
+                         "infrastructure specifically (confirmed by succeeding on other backends), "
+                         "so it stops consuming retry budget on every subsequent --resume. Document "
+                         "any use of this in the run's writeup; it is a coverage gap, not a fix.")
     ap.add_argument("--resume", action="store_true",
                     help="load --episodes-out if it exists and skip task_ids already present -- "
                          "a real-model run over 96 tasks can take an hour+; without this, a crash "
@@ -115,6 +121,11 @@ def main() -> int:
 
     all_tasks = load_tasks(ROOT / args.tasks)
     test_tasks = [t for t in all_tasks if t.split == "test"]
+    skip_ids = {s.strip() for s in args.skip_task_ids.split(",") if s.strip()}
+    if skip_ids:
+        test_tasks = [t for t in test_tasks if t.task_id not in skip_ids]
+        print(f"--skip-task-ids: excluding {sorted(skip_ids)} -- "
+              f"{len(test_tasks)} test tasks remain", file=sys.stderr, flush=True)
     if args.limit:
         test_tasks = test_tasks[:args.limit]
     if not test_tasks:
