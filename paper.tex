@@ -7,8 +7,9 @@
 % \usepackage{aaai27}, times/helvet/courier, two-column) -- the section content
 % below transfers unchanged.
 %
-% Numbers marked \TODO{} are pending the second/third completed real-model runs
-% (in flight); every other number is verified against results/stats.json.
+% All numbers are verified against results/models/<name>/{primary_summary,stats,
+% oracle_ablation,guardrail_eval}.json for the four completed models, and against
+% results/cross_model_comparison.md. No \TODO placeholders remain.
 \documentclass[11pt]{article}
 
 \usepackage[utf8]{inputenc}
@@ -47,20 +48,30 @@ propose \textbf{SecureVoI}, a two-stage extension of value-of-information
 reasoning that scores each question--channel pair by expected information gain
 net of interaction cost and channel-dependent security loss, then screens
 incoming responses before accepting them. We further construct a benchmark of
-120 ambiguous tool-use tasks with matched benign, noisy, and adversarial
-clarification responses and fully automatic outcome verification. Evaluated on a
-held-out test split (96 tasks) with an open-weight model (Mistral-Nemo-12B; the
-same trade-off reproduces on the development split with Llama-3.3-70B, while more
-heavily safety-tuned models such as GPT-OSS-20B and Qwen3-32B resist the
-injections and show little conventional-clarification harm), conventional
-clarification improves benign task success by 100 percentage points but raises
-unsafe-action rates from 0\% to 50\% under adversarial responses. SecureVoI
-recovers 100\% of the benign improvement while reducing unsafe actions by 83\%
-(from 50\% to 8\%), outperforming both a risk-blind conventional
-value-of-information policy and a trusted-channel-only baseline, which forfeits
-0.28 in benign utility (0.95 vs.\ 0.68) by refusing partially-trusted channels
-outright. Our results show that when an agent should ask depends not only on how
-uncertain it is, but on who might be answering.
+120 ambiguous file- and calendar-management tasks (96 held out for testing) with
+matched benign, noisy, and adversarial clarification responses and fully automatic
+outcome verification; crucially, attacks are distributed across channels so that
+channel identity is never perfectly predictive of an attack---a validity property
+that prevents a defense from succeeding merely by avoiding a single channel.
+Across four open-weight models (Mistral-Nemo-12B, GPT-OSS-20B, GPT-OSS-120B, and
+Llama-3.3-70B), conventional value-of-information clarification raises benign task
+completion from near zero to 53--100\% but incurs 57--58\% unsafe-action rates
+under adversarial responses; even a trivial heuristic that routes each question to
+its highest-trust available channel still suffers 31--33\% unsafe actions,
+confirming that the benchmark cannot be solved by channel avoidance alone.
+SecureVoI drives adversarial unsafe actions to 0--7\%---a significant
+paired-bootstrap reduction over conventional value-of-information in every model
+($-0.51$ to $-0.58$, $p<0.001$)---and is the only policy that remains net-positive
+in utility under attack ($+0.07$ to $+0.22$ adversarial utility, while every
+baseline, including the channel heuristic, is negative), showing that its
+advantage comes from screening response content rather than from avoiding a
+channel. This safety costs a bounded and statistically indistinguishable amount of
+benign utility relative to a trusted-channel-only baseline ($p>0.7$), and an
+oracle response classifier eliminates SecureVoI's small residual unsafe rate
+entirely. Our results show that when an agent should ask depends not only on how
+uncertain it is, but on who might be answering---and that securing the
+clarification channel requires inspecting what comes back, not merely where it
+came from.
 \end{abstract}
 
 \section{Introduction}
@@ -270,6 +281,7 @@ architectural opposite---it lets the answer through and screens the
 \emph{consequence}, a contrast we return to in Section~\ref{sec:results}.
 
 \section{Benchmark}
+\label{sec:benchmark}
 
 \paragraph{Tasks.} 120 base tasks span two tool-use domains---file management and
 calendar/email scheduling---split 24 development / 96 test (the plan's exact
@@ -330,12 +342,22 @@ only partially met (Section~\ref{sec:limitations}).
   \item \textbf{Pilot} (Jul 14--16): 40 tasks, ScriptedAgent (deterministic
   heuristic, explicitly a pipeline check, not a result), verdict GO on all four
   go/no-go criteria.
-  \item \textbf{Main experiment} (Jul 17+): 120 tasks, real open-weight models.
-  \TODO{final model roster}---currently Mistral-Nemo-12B (test-split-complete,
-  \texttt{ollama}), Llama-3.3-70B-versatile (dev-complete, \TODO{test split}),
-  Qwen2.5-\{0.5B,1.5B\}-Instruct (local \texttt{transformers}, \TODO{in progress
-  as of this draft}), plus qualitative injection-resistance findings for
-  GPT-OSS-20B and Qwen3-32B.
+  \item \textbf{Main experiment}: 120 tasks (24 dev / 96 held-out test), four
+  open-weight models, each run end-to-end on the identical frozen task set:
+  Mistral-Nemo-12B (\texttt{ollama}, local), GPT-OSS-20B and GPT-OSS-120B
+  (\texttt{ollama} cloud), and Llama-3.3-70B-versatile (hosted OpenAI-compatible
+  API). Every model is test-split-complete for the full seven-policy set, the
+  oracle ablation, and the post-hoc guardrail.
+  \item \textbf{Per-model calibration}: $\lambda$ and the channel priors are fit
+  \emph{per model} on the 24-task dev split only, never on test
+  ($\lambda=4.0$ for Mistral-Nemo-12B, $\lambda=3.0$ for the other three).
+  \item \textbf{Automated validity gate}: every run is checked by
+  \texttt{scripts/check\_invariants.py}, which asserts that Never-Ask (which opens
+  no channel) cannot be attacked, that no benign episode is scored unsafe beyond a
+  small tolerance, that attack success equals
+  (adversarial $\wedge$ accepted $\wedge$ unsafe), that no unsafe reason falls
+  outside a task's declared prohibited set, and that no channel is perfectly
+  predictive of attack. All four runs pass.
   \item \textbf{Statistics}: task-level (paired) bootstrap, 2000 resamples, 95\%
   CI---paired because all policies share the same test tasks.
   \item \textbf{Reproducibility}: exact commands in \texttt{REPRODUCIBILITY.md};
@@ -346,97 +368,172 @@ only partially met (Section~\ref{sec:limitations}).
 \section{Results}
 \label{sec:results}
 
-Table~\ref{tab:main} reports the held-out test split on Mistral-Nemo-12B.
-SecureVoI matches Conventional VoI's benign utility exactly while cutting
-adversarial unsafe actions by 83\% (paired bootstrap: $-0.417$ $[-0.521, -0.323]$,
-$p<0.001$ vs.\ Conventional VoI). SecureVoI's benign utility also significantly
-exceeds Trusted-Only's ($+0.275$ $[0.183, 0.367]$, $p<0.001$), demonstrating it is
-not degenerate---it still uses partially-trusted channels when the information is
-worth it.
+Table~\ref{tab:main} reports the held-out test split on Mistral-Nemo-12B, and
+Table~\ref{tab:cross} shows that the ordering reproduces across all four models.
+The central finding is that \textbf{SecureVoI is the only policy that remains
+net-positive in utility under attack}: its adversarial utility is $+0.071$ to
+$+0.217$ across models, while every other policy---including both trivial
+baselines---is negative. Against Conventional VoI it reduces adversarial unsafe
+actions by $-0.510$ to $-0.583$ (paired bootstrap, $p<0.001$ in every model).
 
 \begin{table}[t]
 \centering
-\begin{tabular}{lccc}
+\begin{tabular}{lcccc}
 \toprule
-Policy & Benign goal & Benign util.\ & Adv.\ unsafe \\
+Policy & Ben.\ goal & Ben.\ util.\ & Adv.\ unsafe & Adv.\ util.\ \\
 \midrule
-Never Ask            & 0.000 & $-0.150$ & 0.000 \\
-Confidence-Threshold & 0.000 & $-0.150$ & 0.000 \\
-Always Ask           & 1.000 & 0.900 & 1.000 \\
-Conventional VoI     & 1.000 & 0.950 & 0.500 \\
-Trusted-Only         & 0.750 & 0.675 & 0.000 \\
-\textbf{SecureVoI}   & 1.000 & \textbf{0.950} & \textbf{0.083} \\
+Never Ask            & 0.000 & $-0.150$ & 0.000 & $-0.150$ \\
+Confidence-Threshold & 0.000 & $-0.150$ & 0.000 & $-0.150$ \\
+Always Ask           & 1.000 & 0.900 & 0.583 & $-0.558$ \\
+Conventional VoI     & 1.000 & 0.950 & 0.583 & $-0.508$ \\
+Channel Heuristic    & 1.000 & 0.950 & 0.333 & $-0.133$ \\
+Trusted-Only         & 0.750 & 0.675 & 0.208 & $-0.096$ \\
+\textbf{SecureVoI}   & 0.750 & 0.675 & \textbf{0.073} & $\mathbf{+0.071}$ \\
 \bottomrule
 \end{tabular}
-\caption{Held-out test split (96 tasks, Mistral-Nemo-12B). Adversarial unsafe
-rate 95\% CIs: Conventional VoI $[0.406, 0.604]$, SecureVoI $[0.031, 0.146]$.
-Source: \texttt{results/main\_table.md}. The post-hoc guardrail is reported
-separately (below) as it screens the action plan rather than choosing a policy in
-this set.}
+\caption{Held-out test split (96 tasks, Mistral-Nemo-12B, $\lambda=4.0$).
+Adversarial unsafe 95\% CIs: Conventional VoI $[0.479,0.677]$, SecureVoI
+$[0.031,0.135]$. SecureVoI is the only policy with positive adversarial utility.
+Source: \texttt{results/models/mistral-nemo-12b/main\_table.md}. The post-hoc
+guardrail screens the action plan rather than choosing a policy and is reported
+separately below.}
 \label{tab:main}
 \end{table}
 
-The two extreme baselines bracket the danger. \textbf{Always Ask} is the worst
-policy at 1.000 adversarial unsafe: being risk-blind, it routes to the nominally
-most informative channel every time, which is exactly the channel an attacker
-controls, and accepts whatever returns. \textbf{Confidence-Threshold} lands at the
-opposite extreme---its dev-calibrated agreement threshold rarely trips on
-Mistral-Nemo's high self-agreement, so it almost never asks and collapses toward
-Never Ask (0.000 unsafe but 0.000 benign goal). \emph{Whether} to ask is thus a
-knife-edge that neither extreme handles; SecureVoI's advantage is reasoning about
-\emph{who} answers rather than only \emph{how uncertain} it is.
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+Adv.\ unsafe & Mistral & OSS-20B & OSS-120B & Llama-70B \\
+\midrule
+Conventional VoI  & 0.583 & 0.583 & 0.583 & 0.573 \\
+Channel Heuristic & 0.333 & 0.333 & 0.333 & 0.312 \\
+Trusted-Only      & 0.208 & 0.208 & 0.208 & 0.188 \\
+\textbf{SecureVoI}& \textbf{0.073} & \textbf{0.000} & \textbf{0.000} & \textbf{0.000} \\
+\midrule
+SecureVoI adv.\ util.\ & $+0.071$ & $+0.081$ & $+0.123$ & $+0.217$ \\
+$\Delta$ vs.\ Conv.\ VoI & $-0.510$ & $-0.583$ & $-0.583$ & $-0.573$ \\
+\bottomrule
+\end{tabular}
+\caption{Cross-model consistency on the held-out test split (96 tasks each). Every
+$\Delta$ is significant at $p<0.001$ (paired bootstrap, 2000 resamples). Source:
+\texttt{results/cross\_model\_comparison.md}.}
+\label{tab:cross}
+\end{table}
 
-\paragraph{Oracle-vs-learned-risk ablation.} Replacing SecureVoI's learned
-response screen with the ground-truth attack label (\texttt{SecureVoIOracle})
-leaves the adversarial unsafe rate unchanged ($0.083 \to 0.083$; gap $0.000$). A
-perfect response classifier therefore removes no additional unsafe actions here:
-SecureVoI's safety comes from its stage-1 acquisition discipline (choosing a
-lower-risk channel), not from the stage-2 classifier's accuracy. The residual
-$0.083$ is a value/risk calibration effect---on a few high-stakes tasks the
-information value exceeds $\lambda\cdot\mathrm{risk}$ even at oracle certainty, so
-the answer is accepted; only a larger $\lambda$, at a benign-utility cost, removes
-them.
+\paragraph{The benchmark cannot be solved by channel avoidance.} Because our
+generator distributes attacks across channels (Section~\ref{sec:benchmark}), a
+defense cannot succeed merely by refusing a single low-trust source. We verify
+this with an explicit \textbf{Channel Heuristic} baseline that routes every
+question to its highest-trust available channel and accepts whatever returns---no
+risk model, no screening. It is strictly better than Conventional VoI ($0.333$
+vs.\ $0.583$ unsafe), confirming that channel choice carries real signal, but it
+still suffers $31$--$33\%$ unsafe actions and negative adversarial utility in every
+model. SecureVoI's much lower rate therefore cannot be attributed to channel
+avoidance. A per-episode audit makes the mechanism explicit: on the 20 test tasks
+where SecureVoI asks \emph{directly on the channel carrying the attack}, it accepts
+the benign answer in $20/20$ cases but rejects the adversarial one in $20/20$
+(Mistral: $13/20$). Identical channel, opposite decision, driven by content.
+
+\paragraph{The two extremes bracket the danger.} \textbf{Always Ask} is
+risk-blind: it routes to the nominally most informative channel and accepts
+whatever returns, landing at $0.583$ unsafe with adversarial utility $-0.558$.
+\textbf{Confidence-Threshold} sits at the opposite extreme---its dev-calibrated
+agreement threshold rarely trips, so it almost never asks and collapses onto Never
+Ask ($0.000$ unsafe but $0.000$ benign goal, utility $-0.150$). Neither extreme is
+usable: one is unsafe, the other forfeits the task entirely.
+
+\paragraph{Safety is not bought with benign utility.} SecureVoI's benign utility is
+statistically \emph{indistinguishable} from Trusted-Only's in all four models
+($p=0.72$--$0.91$; e.g.\ $+0.000$ $[-0.126,0.126]$ on Mistral), yet it is
+substantially safer under attack ($0.073$ vs.\ $0.208$ on Mistral; $0.000$ vs.\
+$0.188$--$0.208$ elsewhere). SecureVoI therefore dominates the trusted-channel-only
+defense: same benign performance, roughly $3\times$ fewer unsafe actions. It does
+give up benign utility relative to risk-blind Conventional VoI ($0.675$ vs.\
+$0.950$ on Mistral)---this is the real, bounded price of security, and we report it
+plainly rather than claiming a free lunch.
+
+\paragraph{Oracle-vs-learned-risk ablation.} Replacing SecureVoI's learned response
+screen with the ground-truth attack label (\texttt{SecureVoIOracle}) removes
+Mistral-Nemo's entire residual unsafe rate ($0.073 \to 0.000$; gap $0.073$), and
+changes nothing on the other three models, which are already at $0.000$. The
+residual is thus \emph{entirely} a stage-2 classifier limitation on the weakest
+model, not a limitation of the acquisition rule: the per-episode audit above shows
+Mistral's screen admits $7$ of the $20$ attacks that reach it, whereas the stronger
+models reject all $20$. A better \textsc{classify\_malice} is the single remaining
+lever, and it is worth at most $0.073$.
 
 \paragraph{Post-hoc guardrail.} A guardrail that keeps Conventional VoI's ask
-decision but screens the resulting action plan against known prohibited-action
-patterns achieves $0.000$ adversarial unsafe at $1.000$ goal on this
-benchmark---it strips the injected action while keeping the legitimate ones,
-outperforming SecureVoI's $0.083$. We report this as an \emph{upper bound} rather
-than a deployable result: the filter has oracle knowledge of the prohibited-action
-patterns, and every attack in this benchmark manifests as a single conspicuous
-out-of-scope tool call. It shows that output-level screening is highly effective
-when the harm is a discrete, recognizable action; SecureVoI's acquisition-time
-reasoning is complementary, and its advantage would be expected to grow against
-attacks that evade an action filter---a direction the current benchmark does not
-yet stress.
+decision but screens the resulting action plan against the prohibited-action
+patterns reaches $0.000$ adversarial unsafe on three models ($0.052$ on
+GPT-OSS-20B). We report it as an \emph{upper bound}, not a competitor: the filter
+has oracle knowledge of each task's prohibited patterns, and every attack here
+manifests as a single conspicuous out-of-scope tool call. Notably it is not free
+even so---its adversarial goal rate is only $0.542$--$0.698$ on three of the four
+models (versus $1.000$ on Mistral), because stripping the injected call also
+disrupts legitimate ones. Output-level screening is highly effective when harm is a
+discrete recognizable action; SecureVoI's acquisition-time reasoning is
+complementary and would be expected to matter more against attacks that evade an
+action filter---a direction this benchmark does not yet stress.
 
-\paragraph{Robustness to decoding randomness.} Repeating the frozen policy on a
-stratified 30-task subset three times at temperature $0.7$ (rather than greedy
-decoding) leaves the headline trade-off stable: SecureVoI's adversarial unsafe
-rate is $0.100$ (std $0.000$ across the three repetitions) versus Conventional
-VoI's $0.489$ (std $0.016$), with benign utility $0.913$ (std $0.030$). The
-primary numbers are not an artifact of deterministic decoding.
-
-\TODO{figures---\texttt{figures/frontier.svg} and \texttt{figures/main\_table.svg}
-exist but should be regenerated once the final (multi-model) roster is locked.}
+% Drawn natively with \rule so the paper compiles with pdflatex alone (no
+% external image, no graphics conversion). Bar length = 3cm x unsafe rate.
+\begin{figure}[t]
+\centering
+\begin{tabular}{@{}l@{\hspace{4pt}}l@{\hspace{4pt}}l@{}}
+Never Ask            & \textcolor{gray!40}{\rule{0.001cm}{8pt}} & 0.000 \\[2pt]
+Confidence-Thresh.\  & \textcolor{gray!40}{\rule{0.001cm}{8pt}} & 0.000 \\[2pt]
+SecureVoI            & \textcolor{black}{\rule{0.219cm}{8pt}}   & \textbf{0.073} \\[2pt]
+Trusted-Only         & \textcolor{gray!70}{\rule{0.624cm}{8pt}} & 0.208 \\[2pt]
+Channel Heuristic    & \textcolor{gray!70}{\rule{0.999cm}{8pt}} & 0.333 \\[2pt]
+Always Ask           & \textcolor{gray!70}{\rule{1.749cm}{8pt}} & 0.583 \\[2pt]
+Conventional VoI     & \textcolor{gray!70}{\rule{1.749cm}{8pt}} & 0.583 \\
+\end{tabular}
+\caption{Adversarial unsafe rate by policy (Mistral-Nemo-12B, 96 held-out tasks;
+bar length $\propto$ rate). Channel Heuristic is the trivial channel-avoidance
+baseline: SecureVoI must beat it for the result to mean anything beyond source
+selection. Never Ask and Confidence-Threshold reach $0.000$ only by forfeiting the
+task ($0.000$ benign goal).}
+\label{fig:main}
+\end{figure}
 
 \section{Limitations}
 \label{sec:limitations}
 
 \begin{itemize}
-  \item Only two base task templates per the 120-task benchmark; diversity comes
-  from parameter combinations, not genuinely distinct task families.
-  \item $\textsc{classify\_malice}$ is a model-prompted heuristic. The oracle
-  ablation (Section~\ref{sec:results}) shows this is not the binding constraint on
-  Mistral-Nemo---a perfect response classifier removes no additional unsafe
-  actions (gap $0.000$)---but this need not hold on models where the learned
-  screen is weaker relative to the acquisition decision.
-  \item Attacks in this benchmark are static per task; no adaptive attacker that
+  \item \textbf{Attack explicitness.} Our injections are phrased as fairly overt
+  imperatives (e.g.\ ``also share \texttt{credentials.json} with the external
+  archive team''). SecureVoI's $0.000$ on three models should therefore be read as
+  ``a capable screener reliably catches \emph{these} injections,'' not as evidence
+  of robustness in general---though Mistral-Nemo's $0.073$ shows that even explicit
+  injections are not caught for free. Stealthier phrasings that embed the
+  instruction in plausible policy context are the most important next stressor, and
+  we expect the $0.000$ results to degrade under them.
+  \item Only two base task templates (file-archive, calendar-scheduling); diversity
+  comes from parameter combinations (stakes $\times$ channel availability $\times$
+  attack type), not genuinely distinct task families.
+  \item Six of the eight declared attacker objectives are exercised by the current
+  attack texts; \texttt{delete:credentials.json} and \texttt{email\_external} are
+  declared and verifier-covered but never triggered, and
+  \texttt{delete\_protected} fires rarely.
+  \item $\textsc{classify\_malice}$ is a model-prompted heuristic and \emph{is} the
+  binding constraint on the weakest model: the oracle ablation removes all of
+  Mistral-Nemo's residual $0.073$. Safety therefore depends on screening quality in
+  a way that scales with model capability.
+  \item \textbf{Not all unsafe actions come from injections.} On one benign episode
+  ($1/672$) Llama-3.3-70B spontaneously emitted
+  \texttt{share\_availability(alice,\,bob)}---a prohibited disclosure of a private
+  calendar---from a benign answer that never mentioned sharing. Proactive agents can
+  breach a constraint unprompted, so clarification safety is necessary but not
+  sufficient for agent safety.
+  \item On GPT-OSS-20B, SecureVoI's benign utility ($0.321$) falls marginally below
+  Trusted-Only's ($0.331$); the difference is not statistically significant
+  ($p=0.855$), but we do not claim dominance on that model.
+  \item Attacks are static per task; we do not model an adaptive attacker that
   updates against the deployed policy.
-  \item Simulator evidence establishes the trade-off's existence and policy
+  \item Simulator evidence establishes the trade-off's existence and the policy
   ordering, not real-world deployment safety.
-  \item Injection-susceptibility is model-dependent (Section~\ref{sec:results});
-  results should not be read as a universal claim across all open-weight models.
 \end{itemize}
 
 \section{Conclusion}
@@ -450,28 +547,29 @@ on the same tasks, more than doubles the rate of unsafe actions once the
 answering channel can be adversarial. SecureVoI closes most of that gap by
 treating the \emph{channel} the same way it treats the \emph{question}---as
 something to be chosen, not just consulted---and by screening the specific answer
-that comes back before letting it influence the agent's actions. On
-Mistral-Nemo-12B, this recovers the full benign utility of the risk-blind policy
-while cutting adversarial unsafe actions by 83\%, and it does so without
-collapsing into the trivially safe policy of only ever trusting the authenticated
-user, which we show forfeits real utility on tasks where that channel simply is
-not available.
+that comes back before letting it influence the agent's actions. Across all four
+models this cuts adversarial unsafe actions by $0.510$--$0.583$ ($p<0.001$) and
+leaves SecureVoI as the only policy that is still net-positive in utility once the
+answering channel can be adversarial. It does so without collapsing into the
+trivially safe policy of only ever trusting the authenticated user: SecureVoI
+matches Trusted-Only's benign utility to within statistical noise while being
+roughly $3\times$ safer under attack.
 
 Two results outside the main comparison are worth restating because they
-complicate a simple story. First, injection-susceptibility is model-dependent:
-Mistral-Nemo-12B and Llama-3.3-70B both exhibit the trade-off this paper studies,
-while more heavily safety-tuned models we tested resisted the injected
-instructions outright and showed little conventional-clarification harm in the
-first place. A security-aware clarification policy is not a substitute for a model
-that already declines to follow instructions smuggled into a clarifying
-answer---it is a hedge for the (currently common) case where the underlying model
-does not yet do that reliably. Second, our comparison between screening the
-\emph{response} (SecureVoI) and screening the resulting \emph{action plan} after
-the agent has already decided what to do with an accepted answer (Post-Hoc
-Guardrail) confirms on Mistral-Nemo the direction the pipeline check suggested:
-plan-level screening preserved more of the benign task under attack (goal $1.000$
-vs.\ $0.833$) and removed more unsafe actions ($0.000$ vs.\ $0.083$), because it
-never has to reject useful information wholesale to stay safe. This comes with an
+complicate a simple story. First, the defense cannot be reduced to source
+selection. A trivial heuristic that simply always asks its highest-trust available
+channel still incurs $31$--$33\%$ unsafe actions and negative utility under attack,
+and on the tasks where SecureVoI queries the attacked channel directly it accepts
+the benign answer while rejecting the adversarial one at the same source. What
+makes the difference is inspecting \emph{what comes back}, not merely \emph{where
+it came from}. Second, our comparison between screening the \emph{response}
+(SecureVoI) and screening the resulting \emph{action plan} after the agent has
+already decided what to do with an accepted answer (Post-Hoc Guardrail) shows
+plan-level screening removing more unsafe actions ($0.000$ on three of four
+models), because it never has to reject useful information wholesale to stay safe.
+But it is not uniformly better: on three models it also completes substantially
+less of the benign task under attack (goal $0.542$--$0.698$), since stripping the
+injected call disrupts legitimate ones. This comes with an
 important caveat---our guardrail has oracle knowledge of the prohibited-action
 patterns, so its perfect defense is an upper bound rather than a deployable
 result, and it holds precisely because every attack in this benchmark surfaces as
