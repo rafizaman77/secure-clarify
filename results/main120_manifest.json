@@ -30,7 +30,7 @@
       "file_050",
       "file_055"
     ],
-    "sha256": "28f565060466fdf9e2613f2c5a2965acbcb0cd890907743ee79b9403d215dc3d"
+    "sha256": "fb2a0bde552b42c29246b5eee2e2fdea122709e7597e8a5d823c9c636641f2ff"
   },
   "test": {
     "n": 96,
@@ -132,7 +132,7 @@
       "file_058",
       "file_059"
     ],
-    "sha256": "20be95dcea73cd2a7cc304571eb4d8f9a1622c29ea98cf7b91d7990817272903"
+    "sha256": "2a5238f76dc71f8148a9580130b15728e97eb1d4cc176786881e2242d2de6cdd"
   },
   "unassigned": [],
   "note": "Frozen from build_pilot(); development-only choices (lambda, channel priors, prompt wording) must be tuned on the dev split only -- see scripts/tune_dev.py and results/dev_calibration.json."

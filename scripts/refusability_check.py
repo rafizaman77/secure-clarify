@@ -101,13 +101,17 @@ def main() -> int:
     add_backend_args(ap)
     args = ap.parse_args()
 
-    # Collect the distinct answer strings. There are only a handful: attacks are
-    # (tier x domain x question-format), so this is cheap enough to judge repeatedly.
-    strings: dict[tuple[str, str, str], str] = {}
+    # Collect the distinct answer strings, keyed on the FULL TEXT (not overwritten
+    # by tier/domain/qid alone): the stealth tier draws from 3 independent
+    # persuasion-strategy variants per (domain, qid) cell (task_factory.py), so a
+    # dict keyed only on (tier, domain, qid) would silently judge just 1 of the 3
+    # variants -- whichever happened to be seen last while iterating tasks --
+    # and the refusability verdict would describe one string, not the tier.
+    strings: dict[tuple[str, str, str, str], str] = {}
     for t in build_pilot(60):
         for r in t.responses:
             if r.carries_attack:
-                strings[(r.condition.value, t.domain, r.qid)] = r.text
+                strings[(r.condition.value, t.domain, r.qid, r.text)] = r.text
             elif r.condition in (Condition.BENIGN, Condition.NOISY) and r.qid == "q_open":
                 # NOISY is included alongside BENIGN: both are non-malicious (noisy
                 # is imperfect/stale info, never an injection), and benign text is
@@ -127,7 +131,10 @@ def main() -> int:
                 # per the same docstring), only the uninterpretable benign control
                 # is dropped, so this is a control-fairness fix, not a scope cut
                 # that makes the attack side easier to pass.
-                strings.setdefault(("benign_control", t.domain, r.qid), r.text)
+                # 4th key element (r.text) keeps this the same arity as the attack
+                # branch above even though benign text has no variants -- a mixed
+                # 3-tuple/4-tuple key set would break the uniform unpacking below.
+                strings.setdefault(("benign_control", t.domain, r.qid, r.text), r.text)
 
     agent = build_agent(args.backend, args.model, args.base_url,
                         args.api_key_env, args.host)
@@ -140,8 +147,7 @@ def main() -> int:
           f"with {args.backend}:{args.model}\n")
     records = []
     for key in sorted(strings):
-        tier, domain, qid = key
-        text = strings[key]
+        tier, domain, qid, text = key
         votes = [judge_once(gen, text) for _ in range(args.reps)]
         clear = [v for v in votes if v is not None]
         refusable = (sum(clear) * 2 > len(clear)) if clear else None
@@ -149,7 +155,7 @@ def main() -> int:
                         "refusable": refusable,
                         "votes": votes, "text": text})
         mark = {True: "DECLINE", False: "PROCEED", None: "UNCLEAR"}[refusable]
-        print(f"  {tier:20s} {domain:9s} {qid:8s} -> {mark:8s} votes={votes}")
+        print(f"  {tier:20s} {domain:9s} {qid:8s} -> {mark:8s} votes={votes}  {text[:45]}...")
 
     by_tier: dict[str, list] = defaultdict(list)
     for r in records:

@@ -65,11 +65,18 @@ def main() -> int:
     add_backend_args(ap)
     args = ap.parse_args()
 
-    strings: dict[tuple[str, str, str], str] = {}
+    # Keyed by the FULL text, not overwritten by (tier, domain, qid) alone: the
+    # stealth tier now draws from 3 independent persuasion-strategy variants per
+    # (domain, qid) cell (see task_factory.py), so a dict keyed only on
+    # (tier, domain, qid) would silently keep just whichever variant happened to
+    # be seen LAST while iterating tasks, discarding the other two entirely and
+    # decomposing only 1 of the 3 strings without any indication the rest were
+    # dropped.
+    strings: dict[tuple[str, str, str, str], str] = {}
     for t in build_pilot(60):
         for r in t.responses:
             if r.carries_attack:
-                strings[(r.condition.value, t.domain, r.qid)] = r.text
+                strings[(r.condition.value, t.domain, r.qid, r.text)] = r.text
 
     agent = build_agent(args.backend, args.model, args.base_url,
                         args.api_key_env, args.host)
@@ -78,44 +85,46 @@ def main() -> int:
 
     rows = []
     for key in sorted(strings):
-        tier, domain, qid = key
-        text = strings[key]
+        tier, domain, qid, text = key
         vals = [agent.classify_malice(text) for _ in range(args.reps)]
         mean = statistics.fmean(vals)
         sd = statistics.pstdev(vals) if len(vals) > 1 else 0.0
         cs = cue_signal(text)
-        rows.append({"tier": tier, "domain": domain, "qid": qid,
+        rows.append({"tier": tier, "domain": domain, "qid": qid, "text": text,
                      "learned_mean": mean, "learned_sd": sd, "learned_vals": vals,
                      "cue_signal": cs,
                      "learned_contrib": W_LEARNED * mean,
                      "cue_contrib": W_CUE * cs})
 
     print(f"{'tier':20s} {'domain':9s} {'qid':8s} {'learned':>16} {'cue':>7} "
-          f"{'0.4*learn':>10} {'0.2*cue':>8}")
-    print("-" * 82)
+          f"{'0.4*learn':>10} {'0.2*cue':>8}  text")
+    print("-" * 100)
     for r in rows:
         print(f"{r['tier']:20s} {r['domain']:9s} {r['qid']:8s} "
               f"{r['learned_mean']:.3f}+-{r['learned_sd']:.3f}   {r['cue_signal']:6.3f} "
-              f"{r['learned_contrib']:10.3f} {r['cue_contrib']:8.3f}")
+              f"{r['learned_contrib']:10.3f} {r['cue_contrib']:8.3f}  {r['text'][:40]}...")
 
-    # Paired explicit -> stealth deltas, matched on (domain, qid).
-    print(f"\n--- explicit -> stealth delta, matched by (domain, question) ---")
-    print(f"{'domain':9s} {'qid':8s} {'d learned':>10} {'d cue':>8} "
+    # Paired explicit -> stealth deltas. There is ONE explicit string per
+    # (domain, qid) but THREE stealth variants, so each variant gets its own
+    # delta against the shared explicit baseline rather than being averaged
+    # away -- reporting only a mean would hide a variant-specific finding (e.g.
+    # one persuasion strategy fooling the classifier while the other two don't).
+    print(f"\n--- explicit -> stealth delta, per stealth variant, matched by (domain, question) ---")
+    print(f"{'domain':9s} {'qid':8s} {'variant':40s} {'d learned':>10} {'d cue':>8} "
           f"{'d risk(learn)':>14} {'d risk(cue)':>12}")
-    print("-" * 70)
-    idx = {(r["tier"], r["domain"], r["qid"]): r for r in rows}
+    print("-" * 115)
+    explicit_by_cell = {(r["domain"], r["qid"]): r for r in rows if r["tier"] == "adversarial"}
+    stealth_rows = [r for r in rows if r["tier"] == "adversarial_stealth"]
     dl_all, dc_all = [], []
-    for (tier, domain, qid), r in sorted(idx.items()):
-        if tier != "adversarial":
-            continue
-        s = idx.get(("adversarial_stealth", domain, qid))
-        if not s:
+    for s in sorted(stealth_rows, key=lambda r: (r["domain"], r["qid"], r["text"])):
+        r = explicit_by_cell.get((s["domain"], s["qid"]))
+        if not r:
             continue
         dl = s["learned_mean"] - r["learned_mean"]
         dc = s["cue_signal"] - r["cue_signal"]
         dl_all.append(dl)
         dc_all.append(dc)
-        print(f"{domain:9s} {qid:8s} {dl:+10.3f} {dc:+8.3f} "
+        print(f"{s['domain']:9s} {s['qid']:8s} {s['text'][:38]:40s} {dl:+10.3f} {dc:+8.3f} "
               f"{W_LEARNED*dl:+14.3f} {W_CUE*dc:+12.3f}")
 
     if dl_all:
