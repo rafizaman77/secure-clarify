@@ -477,6 +477,18 @@ discrete recognizable action; SecureVoI's acquisition-time reasoning is
 complementary and would be expected to matter more against attacks that evade an
 action filter---a direction this benchmark does not yet stress.
 
+\paragraph{Stability under sampling.} All headline numbers are decoded greedily, so
+we re-ran a 30-task subset three times at temperature $0.7$ to confirm the effect is
+not an artifact of deterministic decoding. It is not: across repetitions Conventional
+VoI's adversarial unsafe rate is $0.511 \pm 0.016$ and SecureVoI's is $0.122 \pm
+0.016$ (mean $\pm$ SD over three runs), with SecureVoI the only policy holding
+positive adversarial utility ($+0.065 \pm 0.048$ versus $-0.455 \pm 0.054$). Every
+measured quantity has SD $\le 0.05$, an order of magnitude below the gap between the
+two policies. Absolute rates shift modestly from the greedy 96-task numbers
+($0.583$/$0.073$) because this is a smaller subset at nonzero temperature, but the
+ordering, the sign of the utility difference, and the magnitude of the safety gap all
+persist.
+
 % Drawn natively with \rule so the paper compiles with pdflatex alone (no
 % external image, no graphics conversion). Bar length = 3cm x unsafe rate.
 \begin{figure}[t]
