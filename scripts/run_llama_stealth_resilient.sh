@@ -36,8 +36,16 @@ EPISODES=results/stealth/llama-3.3-70b_episodes.json
 SUMMARY=results/stealth/llama-3.3-70b_summary.json
 CALIB=results/models/llama-3.3-70b/dev_calibration.json
 LOG=${LLAMA_STEALTH_LOG:-/tmp/llama_stealth_task.log}
-export PER_TASK_TIMEOUT=90
-WALL_CAP=150   # PER_TASK_TIMEOUT + slack for the timeout branch's own bookkeeping
+export PER_TASK_TIMEOUT=600   # matches model_backends' own documented worst case
+# (max_retries=8 x hard_timeout~70s + backoff ~= 600s -- this is the retry
+# logic's LEGITIMATE worst case when a task's several raw calls each hit an
+# unlucky patch, not a sign it's stuck. Verified directly: cal_039 reproduced
+# outside the wrapper with >80s and no output, then the OS-level exit note
+# below showed the underlying issue is real hangs needing genuine retries, not
+# zombie-thread accumulation from prior tasks -- a shorter wall cap here was
+# SIGKILLing the process before its own correct retry logic ever got to
+# finish, 3 times in a row on the identical task.)
+WALL_CAP=650
 
 count_done() {
   python3 -c "

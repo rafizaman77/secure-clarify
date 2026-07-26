@@ -177,6 +177,22 @@ def main() -> int:
                   f"({elapsed:.0f}s elapsed). Re-run with --resume to retry it.",
                   file=sys.stderr, flush=True)
             continue
+        except Exception as e:
+            # A backend can also fail CLEANLY rather than hang: model_backends'
+            # own retry loop gives up after max_retries and raises RuntimeError,
+            # which is NOT a concurrent.futures.TimeoutError and would otherwise
+            # propagate straight out of this loop, crashing the whole run and
+            # losing every task attempted after the stuck one -- a single flaky
+            # call would cost far more than the one task it actually failed on.
+            # Treat it exactly like a timeout: skip, record, keep going.
+            executor.shutdown(wait=False, cancel_futures=True)
+            timed_out_task_ids.append(task.task_id)
+            elapsed = time.time() - t_start
+            print(f"  [{i}/{len(remaining)} remaining, {len(eps_dicts)//len(policies)//len(conditions)}/{len(test_tasks)} total] "
+                  f"{task.task_id} FAILED ({type(e).__name__}: {e}) -- skipping "
+                  f"({elapsed:.0f}s elapsed). Re-run with --resume to retry it.",
+                  file=sys.stderr, flush=True)
+            continue
         executor.shutdown(wait=False)
         eps_dicts.extend(asdict(e) for e in new_eps)
         episodes_path.write_text(json.dumps(eps_dicts, indent=2) + "\n", encoding="utf-8")
