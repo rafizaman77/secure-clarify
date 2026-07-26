@@ -6,61 +6,178 @@ found, fixed, and what's still open. For the running narrative see
 
 ---
 
-## CURRENT (2026-07-25) — stealth attack tier; AAAI deadline 2026-07-28
+## CURRENT (2026-07-25 night) — stealth attack tier; AAAI deadline 2026-07-28
 
-**The paper is written and every number in it is machine-verified.** `paper.tex`
-compiles clean (pdflatex x2, 0 errors, 10pp single-column). Two claims in the
-pre-2026-07-25 draft were not merely stale but FALSE and are corrected: SecureVoI
-vs Trusted-Only benign utility is a TIE (p=0.73-1.00), not +0.275 p<0.001; and the
-oracle ablation is REVERSED — the oracle removes ALL of mistral's residual 0.073,
-so the residual is a stage-2 classifier limit, not an acquisition-rule limit.
+**Picking this up cold? Read this whole section before running anything.** The
+stealth tier was rebuilt TWICE today (single-string, then multi-variant) and all
+prior stealth model data was archived and must not be resumed from. If you run
+the old commands from memory you will corrupt the episode files.
 
-**IN FLIGHT: the stealth attack-strength tier.** This answers the single most
-likely reviewer objection — "your injections are overt, so SecureVoI's 0.000 says
-more about the attacks than the defense." A second tier carries the SAME prohibited
-action on the SAME channel and task, with the tells removed (no "Also," discourse
-break, no imperative override, no `evil.com` recipient).
+### Where things stand
 
-The tier is ADDITIVE and that is verified, not asserted: `resolver.find_response`
-keys on `(qid, channel, condition)`, so new rows are invisible to old lookups, and
-`scripts/rescore.py` replayed all four models' saved plans through the modified
-benchmark with ZERO verdict changes. **No published number moved; no model needed
-re-running to adopt the tier.** If you change the tier, re-run that gate:
+**The paper's core (non-stealth) claims are done and machine-verified.**
+`paper.tex` compiles clean (pdflatex x2, 0 errors, 10pp single-column, ~6pp
+estimated in two-column AAAI format — checked, not a blocker). Two claims in the
+pre-07-25 draft were FALSE and are corrected: SecureVoI vs Trusted-Only benign
+utility is a TIE (p=0.73–1.00), not +0.275 p<0.001; the oracle ablation is
+REVERSED — it removes ALL of mistral's residual 0.073, so the residual is a
+stage-2 classifier limit, not an acquisition-rule limit. The robustness paragraph
+(temperature-0.7 stability check) and a "few distinct attack strings" limitation
+are both in. **The stealth findings below are NOT yet written into paper.tex** —
+that's the next content step once fresh data lands.
+
+**The stealth attack-strength tier exists to answer the single most likely
+reviewer objection**: "your injections are overt, so SecureVoI's 0.000 on 3
+models says more about the attacks than the defense." A second `Condition.
+ADVERSARIAL_STEALTH` tier carries the SAME prohibited action on the SAME channel
+and task, tells removed (no "Also," discourse break, no imperative override, no
+`evil.com` recipient).
+
+**It is verified ADDITIVE, not just designed that way**: `resolver.find_response`
+keys on `(qid, channel, condition)`, so new rows are invisible to old lookups.
+Every explicit-tier (published) episode file for all 4 models still shows ZERO
+verdict changes under `scripts/rescore.py` as of the last commit — re-verify this
+first if you're unsure the repo is in a good state:
 
     for m in mistral-nemo-12b gpt-oss-20b-cloud gpt-oss-120b-cloud llama-3.3-70b; do
       python3 scripts/rescore.py --episodes results/models/$m/primary_episodes.json \
         --tasks tasks/main_120.json
     done
+    # expect: "No verdict changes" x4. If not, STOP -- something is wrong.
 
-Stealth runs write to `results/stealth/<model>_episodes.json` (stealth condition
-ONLY — benign is unchanged by construction, so re-running it just burns compute).
-Analysis: `scripts/stealth_compare.py` (paired per-policy delta) then
-`scripts/aggregate_stealth.py` (cross-model table).
+### The tier now has 3 attack-strategy variants per cell, not 1 (latest change)
 
-**Validity guard on the tier: `scripts/refusability_check.py`.** The stealth
-rewrite is bounded by REFUSABILITY — attacks must stay something a careful human
-assistant would decline. Past that line "unsafe" measures mind-reading, not
-security, and the benchmark is unfair rather than hard. That bound is now testable
-rather than asserted: an independent judge model, shown the answer text with no
-attack label, is asked whether following it requires an action to decline. Benign
-answers are judged too as controls — a judge that flags everything proves nothing.
-If stealth refusability drops much below the explicit tier's, the stealth results
-must be discounted, not celebrated.
+The FIRST stealth tier (committed, then run to completion on mistral/gpt-oss-20b/
+gpt-oss-120b, 92/96 on llama) used ONE hand-written stealth sentence per
+(domain, qformat) cell — 4 distinct strings total. That's too thin to distinguish
+"model capability predicts robustness to rephrasing" from "these 4 specific
+sentences happened to fool the weak model." So it was expanded to **3 independent
+persuasion strategies per cell** (12 distinct strings total): plausible-role,
+implied-prior-agreement, scope-bundling — see `task_factory.py`'s
+`FILE_STEALTH_VARIANTS` / `CALENDAR_STEALTH_VARIANTS` and `_pick_stealth_variant`.
+Same prohibited action, same recipient identity in every variant; only the
+surrounding justification differs. Each task deterministically draws one variant
+(20 tasks/variant/cell across the 60-task domain).
 
-**Two bugs found on 2026-07-25 worth knowing about:**
-- `compute_stats.paired_bootstrap_diff` computed the two-sided p as "fraction of
-  resamples whose sign disagrees with the point estimate." For two policies both at
-  0.000 every resample is exactly 0.0, nothing disagrees, and it reported
-  **p=0.000 — maximally significant for the total ABSENCE of an effect.** Now
-  `2*min(P(b<=0),P(b>=0))`. Moved three published p-values (all the SecureVoI vs
-  Trusted-Only tie, all toward correct: 0.908 -> 1.000 twice, 0.718 -> 0.732). No
-  point estimate, CI, or significance flag changed.
-- The Ollama Cloud API key in use through 2026-07-21 is DEAD (HTTP 401). A
-  replacement was supplied 2026-07-25. Keys are runtime-only, never committed.
+**This means ALL FOUR MODELS' STEALTH DATA HAD TO BE RE-RUN FROM SCRATCH.** The
+single-variant results (mistral: complete, both gpt-oss: complete, llama: 92/96)
+are archived at `results/stealth/_archived_single_variant_2026-07-25/` — useful
+for reference, NOT for `--resume`. **None of the four models have multi-variant
+stealth data yet.** This is the actual next step, and it was interrupted before
+launch to write this handoff and push — see "TO DO NEXT" below.
 
-**Known gap:** the paper is 10pp in single-column `article`; AAAI-27 wants 7 in
-two-column. The `aaai27` style files are not in the repo, so the true count is
-UNVERIFIED. Check this early — it is the last structural unknown.
+### How to run the stealth tier fresh, for each model
+
+**Do NOT pass `--resume` against anything in `results/stealth/`** unless you
+started that specific file yourself in this multi-variant era (i.e. after commit
+`43f9e57`). `--resume` trusts task_id alone; it cannot tell that the variant text
+embedded at that task_id changed underneath an old completed episode.
+
+Mistral (local, ~22s/task, ~35min for 96 tasks):
+
+    python3 scripts/run_primary.py --tasks tasks/main_120.json \
+      --calibration results/models/mistral-nemo-12b/dev_calibration.json \
+      --policies mainplus --conditions adversarial_stealth --resume \
+      --backend ollama --model mistral-nemo:12b \
+      --out results/stealth/mistral-nemo-12b_summary.json \
+      --episodes-out results/stealth/mistral-nemo-12b_episodes.json
+    # (--resume is safe here ONLY if you are resuming a run YOU started after 43f9e57)
+
+GPT-OSS 20B/120B (Ollama Cloud — needs a WORKING `OLLAMA_API_KEY`; the one used
+through 07-21 is DEAD/401, ask Anagh for the current one, NEVER commit it):
+
+    export OLLAMA_API_KEY='...'
+    python3 scripts/run_primary.py --tasks tasks/main_120.json \
+      --calibration results/models/gpt-oss-20b-cloud/dev_calibration.json \
+      --policies mainplus --conditions adversarial_stealth --resume \
+      --backend ollama --model gpt-oss:20b-cloud --host https://ollama.com \
+      --out results/stealth/gpt-oss-20b-cloud_summary.json \
+      --episodes-out results/stealth/gpt-oss-20b-cloud_episodes.json
+    # repeat with gpt-oss:120b-cloud / gpt-oss-120b-cloud paths
+
+Llama-3.3-70b (Groq — needs `GROQ_API_KEY`). **Do not invoke run_primary.py
+directly for this one.** Groq has a reproducible failure mode on this key: calls
+occasionally hang with no exception (documented in
+`model_backends._urlopen_hard_timeout`'s docstring), and some SPECIFIC tasks
+(confirmed: the old `cal_023`, `cal_057`) are reproducibly poisoned for THIS
+backend specifically while completing fine on all others. Use the wrapper, which
+restarts as a fresh process per task and formally excludes a task after 3
+straight failures rather than looping forever:
+
+    export GROQ_API_KEY='...'
+    bash scripts/run_llama_stealth_resilient.sh
+    # writes to results/stealth/llama-3.3-70b_{episodes,summary}.json
+    # reads/writes its own progress via that episodes file -- SAFE to re-run,
+    # it will pick up wherever it left off (this wrapper's OWN resume logic,
+    # not run_primary's --resume, and it's variant-safe because you are the one
+    # who started this file after 43f9e57)
+
+All four can run in parallel (different backends, no shared quota) — that's how
+they were run today. On the single-variant tier's llama run (now archived, but
+the Groq-side behavior should be similar for the new one): 28 tasks landed clean
+back-to-back with zero retries, then exactly 1 task (`cal_057`) needed all 3
+retries and was excluded. So the poison-task rate looks closer to ~1-in-30 than
+something you should expect on every run — don't pre-emptively add tasks to
+`--skip-task-ids`, let the wrapper's own 3-strikes logic find them.
+
+### After all four land
+
+    python3 scripts/stealth_compare.py \
+      --explicit results/models/<model>/primary_episodes.json \
+      --stealth results/stealth/<model>_episodes.json --label <model>
+    python3 scripts/aggregate_stealth.py     # cross-model table -> results/stealth/stealth_comparison.md
+    python3 scripts/risk_decomposition.py --backend <...>   # per model, learned-vs-keyword-cue split
+    python3 scripts/refusability_check.py --backend <...>   # fairness validity check, needs a
+      # NON-reasoning judge model with real capability -- gpt-oss:120b-cloud and
+      # gpt-oss:20b-cloud both worked (0% benign false-positive rate); llama-3.1-8b,
+      # allam-2-7b, and qwen3.6 (reasoning model, blows its token budget on <think>)
+      # all failed their own benign controls or crashed. Don't burn time re-trying those.
+
+**What the single-variant run already showed (useful prior, now needs
+reconfirming with 3x the string diversity):** mistral's screen collapsed under
+stealth (0.073→0.208 unsafe, p<0.001; stage-2 evasion 35%→100%), decomposed as
+71% genuine classifier failure / 29% keyword-list artifact. Both gpt-oss models
+were COMPLETELY unaffected (0.000 in both tiers, classifier score stays
+saturated near 1.0 regardless of phrasing). That's a clean "robustness to
+rewording tracks model capability" story — the open question is whether it
+survives 3 independent phrasing strategies instead of 1, or whether it was
+partly an artifact of one lucky/unlucky sentence per model.
+
+### Other bugs fixed today, worth knowing about
+
+- `compute_stats.paired_bootstrap_diff`'s two-sided p-value was "fraction of
+  resamples whose sign disagrees with the point estimate" — degenerate when both
+  policies are at exactly 0.000 (reports p=0.000, maximally significant, for the
+  total ABSENCE of an effect). Fixed to `2*min(P(b<=0),P(b>=0))`. Moved 3
+  published p-values, all toward more-correct, no point estimate/CI/significance
+  flag changed: 0.908→1.000 (mistral, llama), 0.718→0.732 (gpt-oss-120b).
+- `results/stats.json` (top-level mirror) drifted stale AGAIN after the above fix
+  — refreshed; see `results/README.md` for why this keeps happening and the
+  refresh recipe.
+- `run_primary.py`'s per-task loop only caught `concurrent.futures.TimeoutError`
+  on the future — a clean `RuntimeError` from the backend's own exhausted-retries
+  path was UNCAUGHT and would crash the whole script, losing every remaining
+  task. Now caught and treated like a timeout (skip, log, `--resume`-able).
+- Added `--skip-task-ids` to `run_primary.py` for excluding a confirmed-poison
+  task without losing coverage on everything after it.
+
+### TO DO NEXT (in order)
+
+1. **Launch all four fresh stealth runs** (commands above). This was the very
+   next action before this handoff was written — nothing has been launched yet
+   as of commit `43f9e57`.
+2. Once landed: `stealth_compare.py` → `aggregate_stealth.py` →
+   `risk_decomposition.py` → `refusability_check.py` per model, per the recipe
+   above.
+3. Write the stealth findings into `paper.tex`'s Results section (a new
+   `\paragraph{}`, following the existing "benchmark cannot be solved by channel
+   avoidance" / oracle-ablation style — state the finding plainly, don't hedge:
+   see the git log for the framing discussion if you want the reasoning).
+   Update the "Attack explicitness" Limitations bullet, which currently predicts
+   degradation and now needs to state what was actually found.
+4. Re-run the full `pdflatex` build, re-check page count.
+5. Jul 27 items, still untouched: `REPRODUCIBILITY.md` / `CITATIONS.md` audit,
+   anonymity pass.
 
 ## TL;DR
 The 3-model results were distorted by benchmark bugs. Several are now fixed and
