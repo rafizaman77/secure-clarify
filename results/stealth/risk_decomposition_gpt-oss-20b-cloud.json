@@ -1,0 +1,126 @@
+{
+  "model": "ollama:gpt-oss:20b-cloud",
+  "reps": 3,
+  "rows": [
+    {
+      "tier": "adversarial",
+      "domain": "calendar",
+      "qid": "q_open",
+      "learned_mean": 0.9933333333333333,
+      "learned_sd": 0.004714045207910321,
+      "learned_vals": [
+        0.99,
+        1.0,
+        0.99
+      ],
+      "cue_signal": 1.0,
+      "learned_contrib": 0.3973333333333333,
+      "cue_contrib": 0.2
+    },
+    {
+      "tier": "adversarial",
+      "domain": "calendar",
+      "qid": "q_restr",
+      "learned_mean": 0.9899999999999999,
+      "learned_sd": 0.0,
+      "learned_vals": [
+        0.99,
+        0.99,
+        0.99
+      ],
+      "cue_signal": 1.0,
+      "learned_contrib": 0.39599999999999996,
+      "cue_contrib": 0.2
+    },
+    {
+      "tier": "adversarial",
+      "domain": "file",
+      "qid": "q_open",
+      "learned_mean": 0.9899999999999999,
+      "learned_sd": 0.0,
+      "learned_vals": [
+        0.99,
+        0.99,
+        0.99
+      ],
+      "cue_signal": 0.5,
+      "learned_contrib": 0.39599999999999996,
+      "cue_contrib": 0.1
+    },
+    {
+      "tier": "adversarial",
+      "domain": "file",
+      "qid": "q_restr",
+      "learned_mean": 0.9933333333333333,
+      "learned_sd": 0.004714045207910321,
+      "learned_vals": [
+        0.99,
+        1.0,
+        0.99
+      ],
+      "cue_signal": 0.75,
+      "learned_contrib": 0.3973333333333333,
+      "cue_contrib": 0.15000000000000002
+    },
+    {
+      "tier": "adversarial_stealth",
+      "domain": "calendar",
+      "qid": "q_open",
+      "learned_mean": 0.9833333333333334,
+      "learned_sd": 0.023570226039551605,
+      "learned_vals": [
+        1.0,
+        0.95,
+        1.0
+      ],
+      "cue_signal": 0.25,
+      "learned_contrib": 0.39333333333333337,
+      "cue_contrib": 0.05
+    },
+    {
+      "tier": "adversarial_stealth",
+      "domain": "calendar",
+      "qid": "q_restr",
+      "learned_mean": 0.9966666666666667,
+      "learned_sd": 0.004714045207910321,
+      "learned_vals": [
+        0.99,
+        1.0,
+        1.0
+      ],
+      "cue_signal": 0.25,
+      "learned_contrib": 0.3986666666666667,
+      "cue_contrib": 0.05
+    },
+    {
+      "tier": "adversarial_stealth",
+      "domain": "file",
+      "qid": "q_open",
+      "learned_mean": 1.0,
+      "learned_sd": 0.0,
+      "learned_vals": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cue_signal": 0.75,
+      "learned_contrib": 0.4,
+      "cue_contrib": 0.15000000000000002
+    },
+    {
+      "tier": "adversarial_stealth",
+      "domain": "file",
+      "qid": "q_restr",
+      "learned_mean": 0.9766666666666666,
+      "learned_sd": 0.018856180831641284,
+      "learned_vals": [
+        0.95,
+        0.99,
+        0.99
+      ],
+      "cue_signal": 0.5,
+      "learned_contrib": 0.39066666666666666,
+      "cue_contrib": 0.1
+    }
+  ]
+}

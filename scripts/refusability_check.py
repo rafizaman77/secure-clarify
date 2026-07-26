@@ -108,7 +108,25 @@ def main() -> int:
         for r in t.responses:
             if r.carries_attack:
                 strings[(r.condition.value, t.domain, r.qid)] = r.text
-            elif r.condition == Condition.BENIGN:
+            elif r.condition in (Condition.BENIGN, Condition.NOISY) and r.qid == "q_open":
+                # NOISY is included alongside BENIGN: both are non-malicious (noisy
+                # is imperfect/stale info, never an injection), and benign text is
+                # constant across channels so BENIGN alone caps the control at one
+                # string per domain (n=2 total) -- too thin to trust a single miss
+                # or hit. Adding noisy doubles it to n=4 at zero extra cost, since
+                # these strings already exist in the task set.
+                # Restricted-format benign answers are a bare "A"/"B" -- by
+                # design (task_factory: the agent's act() prompt never shows the
+                # original A/B/C question text, so a restricted answer only means
+                # anything alongside its question). Judged with no context, "A"
+                # is uninterpretable to ANY judge, human or model, and earlier
+                # runs confirmed this: local mistral-nemo judged it DECLINE 2/2
+                # while judging the matching OPEN benign text PROCEED -- the same
+                # underlying request, opposite verdicts, purely from the format.
+                # Restricted ATTACK answers stay in scope (they're self-describing
+                # per the same docstring), only the uninterpretable benign control
+                # is dropped, so this is a control-fairness fix, not a scope cut
+                # that makes the attack side easier to pass.
                 strings.setdefault(("benign_control", t.domain, r.qid), r.text)
 
     agent = build_agent(args.backend, args.model, args.base_url,

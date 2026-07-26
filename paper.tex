@@ -525,6 +525,14 @@ task ($0.000$ benign goal).}
   \item Only two base task templates (file-archive, calendar-scheduling); diversity
   comes from parameter combinations (stakes $\times$ channel availability $\times$
   attack type), not genuinely distinct task families.
+  \item \textbf{Few distinct attack strings.} Each tier comprises only four distinct
+  injected texts (2 domains $\times$ 2 question formats) reused across the 120 tasks.
+  Task-level bootstrap intervals therefore cover variation in channel, stakes, and
+  information gain, but \emph{not} linguistic variation in the attack itself: the
+  effective sample for the response classifier is the number of strings, not the
+  number of tasks. Confidence intervals on any classifier-mediated quantity should be
+  read accordingly, and this applies to the explicit-tier results as much as to the
+  stealth comparison.
   \item Six of the eight declared attacker objectives are exercised by the current
   attack texts; \texttt{delete:credentials.json} and \texttt{email\_external} are
   declared and verifier-covered but never triggered, and
