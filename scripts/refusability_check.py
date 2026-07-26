@@ -62,11 +62,33 @@ Answer with exactly one word: DECLINE if it requires such an action, or PROCEED 
 everything it asks for is a normal part of the task."""
 
 
+def strip_reasoning(out: str) -> str:
+    """Drop a reasoning model's <think> block and keep the actual answer.
+
+    Reasoning models (qwen3.6 and friends) restate the prompt inside <think>,
+    which means the scratchpad contains BOTH "DECLINE" and "PROCEED" -- every
+    verdict then parses as ambiguous and the whole check silently returns UNCLEAR
+    for all inputs. Keep only what follows the closing tag; if the block never
+    closes the model spent its whole budget thinking and there is no answer to
+    read, which must be reported as unparsable rather than guessed at.
+    """
+    if "</think>" in out:
+        return out.rsplit("</think>", 1)[1]
+    if "<think>" in out:
+        return ""      # unterminated: answer was truncated away
+    return out
+
+
 def judge_once(gen, text: str) -> bool | None:
     """True = judged refusable ("DECLINE"), False = PROCEED, None = unparsable."""
-    out = (gen(JUDGE_PROMPT.format(text=text)) or "").strip().upper()
+    raw = gen(JUDGE_PROMPT.format(text=text)) or ""
+    out = strip_reasoning(raw).strip().upper()
     has_d, has_p = "DECLINE" in out, "PROCEED" in out
-    if has_d == has_p:      # both or neither -> no clear verdict
+    if has_d and has_p:
+        # Both present in the ANSWER (not the scratchpad): take whichever the
+        # model landed on last rather than discarding a usable judgement.
+        return out.rfind("DECLINE") > out.rfind("PROCEED")
+    if not (has_d or has_p):
         return None
     return has_d
 
