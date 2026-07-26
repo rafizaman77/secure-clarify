@@ -34,10 +34,41 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 
 from scripts.compute_stats import (  # noqa: E402
     N_BOOTSTRAP, CI, _seeded_rng, _rate, load_episodes)
+from secure_clarify.schema import load_task  # noqa: E402
 
 POLICY_ORDER = ["never_ask", "always_ask", "confidence_threshold",
                 "conventional_voi", "trusted_only", "channel_heuristic",
                 "secure_voi"]
+
+
+def attack_channel(task, condition: str) -> str | None:
+    """Which channel carries the attack for this task in this tier."""
+    for r in task.responses:
+        if r.condition.value == condition and r.carries_attack:
+            return r.channel.value
+    return None
+
+
+def screen_evasion(eps, tasks, condition: str, policy: str) -> dict:
+    """Stage-2 miss rate: of the attacks that actually REACHED the response
+    screen, how many did it accept?
+
+    This is the sharpest measure of the stealth effect and the one the unsafe
+    rate blurs. A policy can post a low unsafe rate by never routing to the
+    attacked channel at all (stage-1 avoidance) -- that says nothing about
+    whether its content screen works. Conditioning on "the policy asked, on the
+    channel carrying the attack" isolates stage 2: denominator = attacks the
+    screen was actually shown, numerator = attacks it waved through.
+    """
+    reached = accepted = 0
+    for e in eps:
+        if e["policy"] != policy or e["condition"] != condition or not e["asked"]:
+            continue
+        if e["channel"] == attack_channel(tasks[e["task_id"]], condition):
+            reached += 1
+            accepted += bool(e["accepted"])
+    return {"reached_screen": reached, "accepted_by_screen": accepted,
+            "evasion_rate": (accepted / reached) if reached else None}
 
 
 def paired_tier_diff(task_ids, by_task, policy, field, rng) -> dict:
@@ -84,6 +115,9 @@ def main() -> int:
     ap.add_argument("--stealth", required=True,
                     help="episodes containing the `adversarial_stealth` tier")
     ap.add_argument("--label", required=True, help="model name for the report")
+    ap.add_argument("--tasks", default="tasks/main_120.json",
+                    help="task set, needed to locate each task's attack channel "
+                         "for the stage-2 screen-evasion metric")
     ap.add_argument("--out", default=None, help="write JSON here (default: alongside --stealth)")
     ap.add_argument("--allow-cross-stack", action="store_true",
                     help="permit tiers from different episode files without a shared "
@@ -146,9 +180,17 @@ def main() -> int:
                      "explicit_goal": e_goal, "stealth_goal": s_goal,
                      "delta_unsafe": d})
 
+    tasks = {t.task_id: t for t in
+             (load_task(d) for d in json.loads(
+                 (ROOT / args.tasks).read_text(encoding="utf-8")))}
+    screen = {pol: {"explicit": screen_evasion(exp_p, tasks, "adversarial", pol),
+                    "stealth": screen_evasion(ste_p, tasks, "adversarial_stealth", pol)}
+              for pol in policies}
+
     result = {"model": args.label, "n_paired_tasks": len(task_ids),
               "dropped_task_ids": sorted(dropped),
               "n_bootstrap": N_BOOTSTRAP, "rows": rows,
+              "stage2_screen_evasion": screen,
               "explicit_source": args.explicit, "stealth_source": args.stealth}
 
     out = Path(args.out) if args.out else Path(args.stealth).with_name(
@@ -170,6 +212,19 @@ def main() -> int:
               f"{d['p_value']:7.3f}{star}")
     print("\n(delta = stealth - explicit adversarial unsafe rate; "
           "positive = stealth evades more; * = significant at 0.05)")
+
+    print(f"\n--- stage-2 screen evasion (attacks ACCEPTED / attacks the screen SAW) ---")
+    print(f"{'policy':22s} {'explicit':>16} {'stealth':>16}")
+    print("-" * 58)
+    for pol in policies:
+        s = screen[pol]
+        def cell(d):
+            if not d["reached_screen"]:
+                return "     n/a (0 seen)"
+            return f"{d['accepted_by_screen']:2d}/{d['reached_screen']:2d} = {d['evasion_rate']:5.1%}"
+        print(f"{pol:22s} {cell(s['explicit']):>16} {cell(s['stealth']):>16}")
+    print("\n(conditioned on the policy ASKING on the channel that carries the attack, "
+          "so this isolates content screening from channel avoidance)")
     print(f"\nWrote {out}")
     return 0
 

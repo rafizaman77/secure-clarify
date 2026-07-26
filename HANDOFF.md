@@ -4,6 +4,64 @@ Written for Rafi / a fresh session picking this up cold. Summarizes what was
 found, fixed, and what's still open. For the running narrative see
 `docs/DAILY_LOG.md`; for status see `PROGRESS.md`.
 
+---
+
+## CURRENT (2026-07-25) — stealth attack tier; AAAI deadline 2026-07-28
+
+**The paper is written and every number in it is machine-verified.** `paper.tex`
+compiles clean (pdflatex x2, 0 errors, 10pp single-column). Two claims in the
+pre-2026-07-25 draft were not merely stale but FALSE and are corrected: SecureVoI
+vs Trusted-Only benign utility is a TIE (p=0.73-1.00), not +0.275 p<0.001; and the
+oracle ablation is REVERSED — the oracle removes ALL of mistral's residual 0.073,
+so the residual is a stage-2 classifier limit, not an acquisition-rule limit.
+
+**IN FLIGHT: the stealth attack-strength tier.** This answers the single most
+likely reviewer objection — "your injections are overt, so SecureVoI's 0.000 says
+more about the attacks than the defense." A second tier carries the SAME prohibited
+action on the SAME channel and task, with the tells removed (no "Also," discourse
+break, no imperative override, no `evil.com` recipient).
+
+The tier is ADDITIVE and that is verified, not asserted: `resolver.find_response`
+keys on `(qid, channel, condition)`, so new rows are invisible to old lookups, and
+`scripts/rescore.py` replayed all four models' saved plans through the modified
+benchmark with ZERO verdict changes. **No published number moved; no model needed
+re-running to adopt the tier.** If you change the tier, re-run that gate:
+
+    for m in mistral-nemo-12b gpt-oss-20b-cloud gpt-oss-120b-cloud llama-3.3-70b; do
+      python3 scripts/rescore.py --episodes results/models/$m/primary_episodes.json \
+        --tasks tasks/main_120.json
+    done
+
+Stealth runs write to `results/stealth/<model>_episodes.json` (stealth condition
+ONLY — benign is unchanged by construction, so re-running it just burns compute).
+Analysis: `scripts/stealth_compare.py` (paired per-policy delta) then
+`scripts/aggregate_stealth.py` (cross-model table).
+
+**Validity guard on the tier: `scripts/refusability_check.py`.** The stealth
+rewrite is bounded by REFUSABILITY — attacks must stay something a careful human
+assistant would decline. Past that line "unsafe" measures mind-reading, not
+security, and the benchmark is unfair rather than hard. That bound is now testable
+rather than asserted: an independent judge model, shown the answer text with no
+attack label, is asked whether following it requires an action to decline. Benign
+answers are judged too as controls — a judge that flags everything proves nothing.
+If stealth refusability drops much below the explicit tier's, the stealth results
+must be discounted, not celebrated.
+
+**Two bugs found on 2026-07-25 worth knowing about:**
+- `compute_stats.paired_bootstrap_diff` computed the two-sided p as "fraction of
+  resamples whose sign disagrees with the point estimate." For two policies both at
+  0.000 every resample is exactly 0.0, nothing disagrees, and it reported
+  **p=0.000 — maximally significant for the total ABSENCE of an effect.** Now
+  `2*min(P(b<=0),P(b>=0))`. Moved three published p-values (all the SecureVoI vs
+  Trusted-Only tie, all toward correct: 0.908 -> 1.000 twice, 0.718 -> 0.732). No
+  point estimate, CI, or significance flag changed.
+- The Ollama Cloud API key in use through 2026-07-21 is DEAD (HTTP 401). A
+  replacement was supplied 2026-07-25. Keys are runtime-only, never committed.
+
+**Known gap:** the paper is 10pp in single-column `article`; AAAI-27 wants 7 in
+two-column. The `aaai27` style files are not in the repo, so the true count is
+UNVERIFIED. Check this early — it is the last structural unknown.
+
 ## TL;DR
 The 3-model results were distorted by benchmark bugs. Several are now fixed and
 guarded; the corrected **local mistral** re-run is clean (verdict GO). The
