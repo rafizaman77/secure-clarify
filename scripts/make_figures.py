@@ -90,11 +90,15 @@ def make_frontier_svg(frontier: list[dict], out_path: Path, subtitle: str = "") 
 
 def make_main_table_svg(stats: dict, out_path: Path) -> None:
     pp = stats["per_policy_condition"]
+    # channel_heuristic sits immediately before secure_voi: it is the trivial
+    # channel-avoidance baseline SecureVoI must beat on the channel-mixed benchmark,
+    # so the figure is only honest if the two appear side by side.
     policy_order = ["never_ask", "always_ask", "confidence_threshold",
-                    "conventional_voi", "trusted_only", "secure_voi"]
+                    "conventional_voi", "trusted_only", "channel_heuristic", "secure_voi"]
     labels = {"never_ask": "Never Ask", "always_ask": "Always Ask",
              "confidence_threshold": "Confidence Thresh.", "conventional_voi": "Conventional VoI",
-             "trusted_only": "Trusted-Only", "secure_voi": "SecureVoI"}
+             "trusted_only": "Trusted-Only", "channel_heuristic": "Channel Heuristic",
+             "secure_voi": "SecureVoI"}
     rows = [p for p in policy_order if f"{p}|adversarial" in pp]
 
     height = 100 + len(rows) * 46
@@ -120,22 +124,38 @@ def make_main_table_svg(stats: dict, out_path: Path) -> None:
 
 
 def main() -> int:
-    figures_dir = ROOT / "figures"
+    import argparse
+    ap = argparse.ArgumentParser()
+    # --stats MUST be explicit-able: top-level results/stats.json is whatever the
+    # last non-archived run left behind and is currently a PRE-MERGE artifact
+    # (secure_voi 0.000, no channel_heuristic). Building the paper figure from it
+    # silently publishes stale numbers -- point this at an authoritative
+    # results/models/<name>/stats.json instead.
+    ap.add_argument("--stats", default="results/models/mistral-nemo-12b/stats.json",
+                    help="stats.json to chart (default: the authoritative mistral run, "
+                         "NOT the stale top-level results/stats.json)")
+    ap.add_argument("--frontier", default="results/frontier.json")
+    ap.add_argument("--out-dir", default="figures")
+    args = ap.parse_args()
+
+    figures_dir = ROOT / args.out_dir
     figures_dir.mkdir(exist_ok=True)
 
-    frontier_path = ROOT / "results" / "frontier.json"
+    frontier_path = ROOT / args.frontier
     if frontier_path.exists():
         frontier = json.loads(frontier_path.read_text(encoding="utf-8"))
         make_frontier_svg(frontier, figures_dir / "frontier.svg",
                           subtitle="ScriptedAgent pilot sweep, 40 tasks (docs/03_gonogo_memo.md)")
         print(f"Wrote {(figures_dir / 'frontier.svg').relative_to(ROOT)}")
 
-    stats_path = ROOT / "results" / "stats.json"
+    stats_path = ROOT / args.stats
     if stats_path.exists():
         stats = json.loads(stats_path.read_text(encoding="utf-8"))
         make_main_table_svg(stats, figures_dir / "main_table.svg")
         print(f"Wrote {(figures_dir / 'main_table.svg').relative_to(ROOT)} "
-              f"(agent_backend: {stats.get('agent_backend')})")
+              f"(agent_backend: {stats.get('agent_backend')}, source: {args.stats})")
+    else:
+        print(f"NOT FOUND: {args.stats}")
 
     return 0
 

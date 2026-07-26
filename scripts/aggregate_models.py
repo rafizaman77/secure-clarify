@@ -36,11 +36,21 @@ def main() -> int:
     models_dir = ROOT / "results" / "models"
     rows = []
 
-    # Include the repo-default results/ (currently Mistral-Nemo-12B, per
-    # Anagh's run) as its own row alongside anything under results/models/.
-    candidates = [("(default) results/", ROOT / "results")]
+    # ORDER MATTERS: the first directory claiming a given agent_backend wins the
+    # dedupe below, so the AUTHORITATIVE per-model dirs must come first.
+    #   - results/models/_*/ are ARCHIVES of superseded runs (e.g.
+    #     _pre_merge_mistral-nemo-12b_2026-07-20, _pre_domain_bugfix_2026-07-20).
+    #     They are excluded outright: they share a backend label with the live run,
+    #     and `_` sorts before letters, so including them silently published the
+    #     STALE numbers (pre-merge mistral showed conv=1.000/secure=0.000 instead of
+    #     the real 0.583/0.073).
+    #   - top-level results/ is whatever the last non-archived run happened to leave
+    #     there; it is only a FALLBACK for a backend that has no results/models/ dir.
+    candidates = []
     if models_dir.exists():
-        candidates += [(d.name, d) for d in sorted(models_dir.iterdir()) if d.is_dir()]
+        candidates += [(d.name, d) for d in sorted(models_dir.iterdir())
+                       if d.is_dir() and not d.name.startswith("_")]
+    candidates.append(("(default) results/", ROOT / "results"))
 
     seen_backends = set()
     for label, d in candidates:
