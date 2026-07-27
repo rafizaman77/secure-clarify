@@ -1,33 +1,38 @@
 % Security-Aware Clarification for Language-Model Agents (AAAI-27)
 %
-% This is a LaTeX conversion of docs/paper_draft.md (Jul 25-26 deliverable).
-% It compiles standalone with pdflatex using only standard packages, so it can
-% be reviewed immediately. To submit to AAAI-27, swap the documentclass/preamble
-% for the official aaai27 style files (\documentclass[letterpaper]{article} +
-% \usepackage{aaai27}, times/helvet/courier, two-column) -- the section content
-% below transfers unchanged.
+% Anonymous submission, formatted against the official AAAI-27 Author Kit
+% (aaai2027.sty / aaai2027.bst, downloaded from aaai.org). Do not modify the
+% style file, and do not load any package/command from its disallowed list
+% (see aaai2027.sty and the Author Kit's AnonymousSubmission2027.tex).
 %
 % All numbers are verified against results/models/<name>/{primary_summary,stats,
 % oracle_ablation,guardrail_eval}.json for the four completed models, and against
 % results/cross_model_comparison.md. No \TODO placeholders remain.
-\documentclass[11pt]{article}
-
+\documentclass[letterpaper]{article} % DO NOT CHANGE THIS
+\usepackage[submission]{aaai2027} % DO NOT CHANGE THIS
+% Serif/sans-serif/monospace fonts (newtxtext, helvet, courier) and xcolor are
+% loaded automatically by aaai2027.sty -- do not usepackage them separately.
 \usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage[margin=1in]{geometry}
+\usepackage[hyphens]{url} % DO NOT CHANGE THIS
+\usepackage{graphicx} % DO NOT CHANGE THIS
+\urlstyle{rm} % DO NOT CHANGE THIS
+\def\UrlFont{\rm} % DO NOT CHANGE THIS
+\usepackage{natbib} % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
+\usepackage{caption} % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
+\frenchspacing % DO NOT CHANGE THIS
 \usepackage{amsmath}
 \usepackage{booktabs}
-\usepackage{graphicx}
-\usepackage{xcolor}
-\usepackage[hidelinks]{hyperref}
 
-% Visible placeholder for numbers pending the in-flight real-model runs.
-\newcommand{\TODO}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
+\pdfinfo{
+/TemplateVersion (2027.1)
+}
 
-\title{Ask, Act, or Verify? Security-Aware Clarification for\\
+\setcounter{secnumdepth}{0}
+
+\title{Ask, Act, or Verify? Security-Aware Clarification for
 Language-Model Agents}
 \author{Anonymous submission}
-\date{}
+\affiliations{}
 
 \begin{document}
 \maketitle

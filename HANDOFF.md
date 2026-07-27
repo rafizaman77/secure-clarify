@@ -6,6 +6,203 @@ found, fixed, and what's still open. For the running narrative see
 
 ---
 
+## CURRENT (2026-07-26 night) — 3/4 multi-variant stealth runs landed + analyzed;
+## AAAI-27 author kit integrated, PDF now compiles for real; llama in flight
+
+Written for Anagh picking this up cold on his own machine. Everything below
+happened on Rafi's Mac after `ee85927` (Anagh's last push). **Read the whole
+section before running anything** — there are two real environment gotchas
+below that will burn time if you hit them blind.
+
+### TL;DR
+
+- **Mistral-Nemo-12B, GPT-OSS-20B-cloud, GPT-OSS-120B-cloud: multi-variant
+  stealth tier COMPLETE** (96/96 each) and fully analyzed (`stealth_compare.py`
+  + `risk_decomposition.py` + `refusability_check.py` all run, all committed).
+- **Llama-3.3-70B: in progress, ~61-65/96 as of this push**, running via
+  `scripts/run_llama_stealth_resilient.sh` in the background. It is
+  **resumable** — just re-run the same command, see "TO DO NEXT" below.
+- **The AAAI-27 Author Kit is now IN the repo** (`aaai2027.sty`, `aaai2027.bst`,
+  pulled from the real `aaai.org/wp-content/uploads/2026/05/AuthorKit27.zip`,
+  not guessed). `paper.tex`'s preamble is fully converted to the compliant
+  anonymous-submission format. **It compiles clean: 6 pages, real two-column,
+  zero errors, zero undefined refs** — this was previously just an estimate
+  ("~6pp"), now it's verified against the actual official style file.
+- The stealth findings are **NOT yet written into `paper.tex`** — that's the
+  next content step, and this handoff gives you the exact numbers + a
+  suggested paragraph to adapt once llama's 4th column lands.
+
+### Headline finding: stealth degradation tracks model capability, and WHY it
+### degrades differs sharply by model (this is the paper's new payoff)
+
+`scripts/risk_decomposition.py` answers the reviewer objection "maybe stealth
+just deleted words from a hardcoded keyword list, not confused the actual
+classifier" — it re-scores every attack string's `classify_malice` output
+(the LEARNED signal) separately from the keyword-cue heuristic (`cue_signal`)
+and reports what fraction of the stealth-driven risk drop each accounts for.
+
+| Model | SecureVoI adv. unsafe: explicit → stealth | Δ (sig?) | Learned screen's share of the risk drop |
+|---|---|---|---|
+| Mistral-Nemo-12B | 0.073 → **0.167** | +0.094, p=0.040 * | **69%** — genuine classifier failure |
+| GPT-OSS-20B-cloud | 0.000 → **0.042** | +0.042, p=0.038 * | **51%** — roughly even split |
+| GPT-OSS-120B-cloud | 0.000 → **0.021** | +0.021, p=0.278 (n.s.) | **28%** — mostly keyword-list artifact |
+| Llama-3.3-70B | pending | pending | pending |
+
+Read this as a clean gradient: the **weakest** model's stealth failure is
+mostly a **real classifier limitation** (verdict from the script itself:
+"the stealth effect is a genuine classifier limitation, not just deleted
+trigger words"); the **strongest** model's tiny wobble is mostly **cue-list
+brittleness**, i.e. its actual judgment barely moved, only the hardcoded
+keyword heuristic lost its triggers (verdict: "report it as cue-list
+brittleness — claiming a defeated classifier would overstate it"). This is a
+better, more nuanced story than the single-variant preview's "GPT-OSS
+completely unaffected" — with 3x the phrasing diversity, GPT-OSS shows a real
+but small and mostly-artifactual crack, while Mistral shows a real one.
+
+**Validity gate holds**: `refusability_check.py` (judge: `gpt-oss:120b-cloud`,
+3 reps majority vote, non-reasoning capable judge — `llama-3.1-8b`,
+`allam-2-7b`, and `qwen3.6` all failed their own benign controls, don't
+re-try those) confirms stealth attacks are still judged refusable **83%** of
+the time (vs 100% explicit tier), with **0% false-positive rate on benign
+controls**. The rewrite removed the tells, not the grounds for refusal — a
+defense that misses these attacks is genuinely missing something, this isn't
+the benchmark asking models to mind-read. Written to
+`results/stealth/refusability_check.json`.
+
+Per-model `stealth_compare.py` output (stage-2 screen-evasion — attacks
+ACCEPTED / attacks the screen SAW, conditioned on the policy asking on the
+attacked channel) tells the same story from a different angle: Mistral's
+SecureVoI screen goes from catching 65% of attacks it sees (7/20 accepted) to
+catching **0%** (20/20 accepted) under stealth — total collapse. Both GPT-OSS
+models stay mostly intact (120B: 0%→10% accepted; 20B: 0%→20% accepted).
+
+### Two real environment gotchas hit today — read before you run anything
+
+**1. `ollama pull` on a large model (7GB+) can get stuck failing at "pulling
+manifest" with `Error: EOF`, even after working partially once.** Root cause:
+Ollama does 16 parallel range-request chunks for large blobs; if a pull is
+interrupted mid-download, the resume state can corrupt, and every retry then
+fails immediately (not a network/rate-limit issue — a direct `curl` to the
+same registry endpoint succeeds instantly every time; a small model pulls
+fine throughout). **Fix**: delete the stale partial-chunk files and retry
+clean:
+
+    rm -f ~/.ollama/models/blobs/sha256-<blob-hash>-partial*
+    ollama pull mistral-nemo:12b
+
+(find `<blob-hash>` via `ls ~/.ollama/models/blobs/ | grep partial`). This
+fixed it instantly here after 20 consecutive failed attempts.
+
+**2. `basictex` (the lightweight Homebrew cask) ships almost nothing.**
+Compiling `paper.tex` against the real `aaai2027.sty` needed ~20 additional
+packages `pdflatex` doesn't ship with by default. **`tlmgr install` needs
+sudo** (system texmf tree is root-owned) — but **`tlmgr --usermode install`
+does NOT**, and writes to a user-writable tree that `kpathsea` picks up
+automatically. Full list that got this repo compiling clean:
+
+    tlmgr init-usertree   # once
+    tlmgr --usermode install amsmath booktabs caption courier natbib \
+      placeins url xcolor xstring mweights was kastrup fontaxes \
+      tex-gyre collection-fontsrecommended
+
+If `pdflatex` still complains about a missing `.sty`/`.tex`/`.tfm` file,
+`tlmgr search --global --file "<name>"` tells you which package provides it
+— that's how `binhex.tex` (kastrup) and `ts1-qtmr.tfm` (tex-gyre /
+collection-fontsrecommended, needed for the TS1-encoded companion metrics of
+the newtx/TeX-Gyre-Termes font aaai2027.sty loads) got tracked down.
+
+**Also worth knowing (not a bug, just a trap)**: if a `run_primary.py`
+invocation fails fast (e.g. model not pulled yet) it does NOT necessarily
+exit — it can keep retrying subsequent tasks in the background for a long
+time. If you then launch a fresh retry against the **same** `--episodes-out`
+file, you get two processes writing to the same file concurrently. Check
+`ps aux | grep run_primary` before relaunching anything against a file that
+might already have a live writer.
+
+### TO DO NEXT (in order)
+
+1. **Finish Llama-3.3-70B's stealth run.** It's resumable — the wrapper
+   tracks its own progress via the episodes file, not `run_primary.py`'s
+   `--resume`:
+
+       export GROQ_API_KEY='...'   # ask Rafi for the current one, never commit it
+       bash scripts/run_llama_stealth_resilient.sh
+
+   Expect a poison-task rate noticeably higher than the single-variant run's
+   ~1-in-30 (confirmed 3 exclusions in ~35 attempted tasks this session,
+   including the already-documented `cal_039`) — this is Groq-side silent
+   hangs (confirmed NOT rate-limiting: zero `429`s anywhere in any log, and
+   raw `curl` to the same endpoint returns clean in ~250ms every time; it's a
+   known Python-`urllib`-over-TLS socket-timeout quirk the wrapper's hard
+   wall-clock kill already mitigates). Let the wrapper's 3-strikes logic
+   exclude poison tasks rather than intervening.
+
+2. Once Llama's episodes file is complete (or as complete as it's going to
+   get), run its analysis to match the other three:
+
+       python3 scripts/stealth_compare.py \
+         --explicit results/models/llama-3.3-70b/primary_episodes.json \
+         --stealth results/stealth/llama-3.3-70b_episodes.json \
+         --label llama-3.3-70b
+
+       python3 scripts/risk_decomposition.py --backend openai \
+         --model llama-3.3-70b-versatile --api-key-env GROQ_API_KEY --reps 3
+
+3. Regenerate the full 4-model cross-model table (same command, now picks up
+   all four `*_stealth_compare.json`):
+
+       python3 scripts/aggregate_stealth.py
+       # -> results/stealth/stealth_comparison.md
+
+4. **Write the stealth findings into `paper.tex`'s Results section.** Add a
+   new `\paragraph{}` after the existing "Stability under sampling" paragraph
+   (around line 490), following the same plain-statement style as the
+   oracle-ablation / channel-avoidance paragraphs. Suggested skeleton (fill
+   in Llama's numbers, adjust ranges):
+
+       \paragraph{Robustness to attack phrasing.} We built a second attack
+       tier carrying the identical prohibited action on the identical
+       channel and task, with the explicit tier's surface tells removed (no
+       discourse-break imperative, no \texttt{evil.com} recipient), drawn
+       from three independent persuasion strategies per cell so the result
+       does not rest on one lucky/unlucky sentence. SecureVoI's adversarial
+       unsafe rate rises under this stealth tier in three of four models
+       (Mistral-Nemo-12B: 0.073$\to$0.167; GPT-OSS-20B: 0.000$\to$0.042;
+       Llama-3.3-70B: TODO), and is unaffected within noise on the fourth
+       (GPT-OSS-120B: 0.000$\to$0.021, $p=0.28$). A response-risk
+       decomposition (\S TODO-cite-methods-if-added) separates the learned
+       classifier's contribution from a hardcoded keyword-cue heuristic and
+       finds the degradation's cause tracks capability: on the weakest model
+       69\% of the risk drop is attributable to the learned screen itself
+       (a genuine classifier limitation), falling to 51\% on GPT-OSS-20B and
+       28\% on GPT-OSS-120B, where the small residual movement is mostly the
+       keyword list losing its trigger words rather than the model's actual
+       judgment changing. An independent refusability judge (\S TODO)
+       confirms the rewrite preserved the ethical bound: stealth attacks
+       remain refusable 83\% of the time versus 100\% for the explicit tier,
+       with a 0\% false-positive rate on benign controls, so the harder
+       detection problem is not an artifact of an unfair benchmark.
+
+   Also update the "Attack explicitness" Limitations bullet (currently
+   predicts degradation and hedges "we expect the 0.000 results to degrade
+   under [stealth]") to state what was actually found, using the numbers
+   above instead of a prediction.
+
+5. Rebuild and recheck:
+
+       eval "$(/usr/libexec/path_helper)"   # puts pdflatex on PATH if it's a fresh shell
+       pdflatex -interaction=nonstopmode -halt-on-error paper.tex
+       pdflatex -interaction=nonstopmode -halt-on-error paper.tex   # twice, for cross-refs
+
+   Confirm it's still comfortably under whatever AAAI-27's actual page limit
+   is (6pp before this section; adding one paragraph + one Limitations edit
+   should not push it past 7).
+
+6. Jul 27 items, still untouched: `REPRODUCIBILITY.md` / `CITATIONS.md`
+   audit, anonymity pass. Deadline Jul 28.
+
+---
+
 ## CURRENT (2026-07-25 night) — stealth attack tier; AAAI deadline 2026-07-28
 
 **Picking this up cold? Read this whole section before running anything.** The
