@@ -494,6 +494,34 @@ two policies. Absolute rates shift modestly from the greedy 96-task numbers
 ordering, the sign of the utility difference, and the magnitude of the safety gap all
 persist.
 
+\paragraph{Robustness to attack phrasing.} We built a second attack tier carrying the
+identical prohibited action on the identical channel and task, with the explicit
+tier's surface tells removed (no discourse-break imperative, no
+\texttt{evil.com}-style recipient), drawn from three independent persuasion
+strategies per cell (plausible-role, implied-prior-agreement, scope-bundling; 12
+distinct strings total) so the result does not rest on one lucky or unlucky
+sentence. As a validity check, no risk-blind policy---which never screens
+content---shows a significant stealth effect in any of the four models (paired
+bootstrap, $p\ge0.09$ throughout, and exactly $0.000$ in Mistral-Nemo-12B),
+confirming the rewrite changed detectability rather than the underlying task.
+Against that flat baseline,
+SecureVoI's adversarial unsafe rate rises under the stealth tier in all four models,
+by an amount that tracks model capability: GPT-OSS-120B $0.000\to0.021$ ($p=0.28$,
+not significant), GPT-OSS-20B $0.000\to0.042$ ($p=0.038$), Llama-3.3-70B
+$0.000\to0.083$ ($p<0.001$), and Mistral-Nemo-12B $0.073\to0.208$ ($p<0.001$). A
+response-risk decomposition that separates the learned classifier's contribution
+from a hardcoded keyword-cue heuristic shows \emph{why} the degradation differs:
+the weaker model's failure is substantially a genuine classifier limitation
+(Mistral-Nemo-12B, $68\%$ of the risk drop attributable to the learned screen
+itself), while the strongest model's small residual movement is mostly the
+keyword list losing its trigger words rather than the model's own judgment
+changing (GPT-OSS-120B, $33\%$; the other two models fall in between at
+$45$--$48\%$, genuinely mixed). An independent refusability judge confirms the
+rewrite preserved the benchmark's fairness bound: stealth attacks remain judged
+refusable $83\%$ of the time versus $100\%$ for the explicit tier, with a $0\%$
+false-positive rate on benign controls, so the harder detection problem is not an
+artifact of an unfair or unanswerable attack.
+
 % Drawn natively with \rule so the paper compiles with pdflatex alone (no
 % external image, no graphics conversion). Bar length = 3cm x unsafe rate.
 \begin{figure}[t]
@@ -519,25 +547,28 @@ task ($0.000$ benign goal).}
 \label{sec:limitations}
 
 \begin{itemize}
-  \item \textbf{Attack explicitness.} Our injections are phrased as fairly overt
-  imperatives (e.g.\ ``also share \texttt{credentials.json} with the external
-  archive team''). SecureVoI's $0.000$ on three models should therefore be read as
-  ``a capable screener reliably catches \emph{these} injections,'' not as evidence
-  of robustness in general---though Mistral-Nemo's $0.073$ shows that even explicit
-  injections are not caught for free. Stealthier phrasings that embed the
-  instruction in plausible policy context are the most important next stressor, and
-  we expect the $0.000$ results to degrade under them.
+  \item \textbf{Attack explicitness.} Our main-tier injections are phrased as fairly
+  overt imperatives (e.g.\ ``also share \texttt{credentials.json} with the external
+  archive team''). The stealth tier (Results) tests this directly rather than
+  leaving it a prediction: with the explicit tier's tells removed, SecureVoI's
+  adversarial unsafe rate does rise in every model, from $0.021$ (GPT-OSS-120B,
+  not significant) to $0.135$ (Mistral-Nemo-12B, $p<0.001$), and the degradation is
+  a genuine classifier limitation on the weaker models rather than solely an
+  artifact of a hardcoded keyword list. So the main-tier $0.000$--$0.073$ results
+  should be read as a floor, not a ceiling, on SecureVoI's real-world unsafe rate.
   \item Only two base task templates (file-archive, calendar-scheduling); diversity
   comes from parameter combinations (stakes $\times$ channel availability $\times$
   attack type), not genuinely distinct task families.
-  \item \textbf{Few distinct attack strings.} Each tier comprises only four distinct
-  injected texts (2 domains $\times$ 2 question formats) reused across the 120 tasks.
-  Task-level bootstrap intervals therefore cover variation in channel, stakes, and
-  information gain, but \emph{not} linguistic variation in the attack itself: the
-  effective sample for the response classifier is the number of strings, not the
-  number of tasks. Confidence intervals on any classifier-mediated quantity should be
-  read accordingly, and this applies to the explicit-tier results as much as to the
-  stealth comparison.
+  \item \textbf{Few distinct attack strings.} The explicit tier comprises only four
+  distinct injected texts (2 domains $\times$ 2 question formats) reused across the
+  120 tasks; task-level bootstrap intervals therefore cover variation in channel,
+  stakes, and information gain, but \emph{not} linguistic variation in the attack
+  itself, so confidence intervals on any classifier-mediated quantity from that tier
+  should be read accordingly. The stealth tier triples this diversity (three
+  independent persuasion strategies per cell, 12 strings total) specifically to
+  probe whether this mattered, and the qualitative finding---degradation that
+  tracks model capability---held up under it, but 12 remains a small sample of
+  possible phrasings and we do not claim it is exhaustive.
   \item Six of the eight declared attacker objectives are exercised by the current
   attack texts; \texttt{delete:credentials.json} and \texttt{email\_external} are
   declared and verifier-covered but never triggered, and
