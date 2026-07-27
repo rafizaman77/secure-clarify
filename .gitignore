@@ -9,3 +9,5 @@ venv/
 *.aux
 *.log
 *.out
+*.bbl
+*.blg

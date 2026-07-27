@@ -85,11 +85,11 @@ Language-model agents that can call tools---archiving a file, scheduling a
 meeting, sending a message---routinely receive instructions that underspecify
 some part of the intended action. A growing line of work teaches agents to
 recognize this ambiguity and ask a clarifying question rather than guess: CLAM
-(Kuhn, Gal, and Farquhar) established that a model should detect ambiguity and
+\citep{kuhn2023clam} established that a model should detect ambiguity and
 request clarification instead of committing to a possibly-wrong interpretation;
-SAGE-Agent (Suri et al.) formalizes which question to ask by its expected value
-of perfect information; ``Learning to Ask'' (Wang et al.) and ``Ask or Assume?''
-(Edwards and Schuster) extend the same idea to tool-calling and coding agents
+SAGE-Agent \citep{suri2025sageagent} formalizes which question to ask by its expected value
+of perfect information; ``Learning to Ask'' \citep{wang2024learningtoask} and ``Ask or Assume?''
+\citep{edwards2026askorassume} extend the same idea to tool-calling and coding agents
 specifically. All of this work shares one assumption, usually implicit: whoever
 answers the question can be trusted. That assumption is the load-bearing one, and
 it is also the one that breaks first in a deployed system. A clarifying question
@@ -101,10 +101,9 @@ is the authenticated principal the clarification-seeking literature implicitly
 assumes is on the other end.
 
 At the same time, a separate line of work has shown that tool-using agents are
-vulnerable to instructions smuggled into content they process: InjecAgent (Zhan
-et al.) benchmarks indirect prompt injection through tool outputs and finds that
+vulnerable to instructions smuggled into content they process: InjecAgent \citep{zhan2024injecagent} benchmarks indirect prompt injection through tool outputs and finds that
 even a capable agent follows an injected instruction a substantial fraction of
-the time; AgentDojo (Debenedetti et al.) generalizes this into a standard
+the time; AgentDojo \citep{debenedetti2024agentdojo} generalizes this into a standard
 security benchmark pairing benign tasks with an adversarial one hidden in the
 environment. This literature treats injected instructions as \emph{ambient}---
 something the agent stumbles into while doing its job---not as something the
@@ -139,30 +138,30 @@ informative but lower-risk channel in the first place.
 \section{Related Work}
 
 \paragraph{Clarification-seeking under cooperative-response assumptions.}
-CLAM (Kuhn et al.) establishes the foundational ``ask only when necessary''
-lineage; SAGE-Agent (Suri et al.) extends this with an EVPI-based
+CLAM \citep{kuhn2023clam} establishes the foundational ``ask only when necessary''
+lineage; SAGE-Agent \citep{suri2025sageagent} extends this with an EVPI-based
 question-selection objective that our SecureVoI's pre-inquiry stage generalizes;
-``Ask or Assume?'' (Edwards \& Schuster) and ``Learning to Ask'' (Wang et al.)
+``Ask or Assume?'' \citep{edwards2026askorassume} and ``Learning to Ask'' \citep{wang2024learningtoask}
 both decouple ambiguity detection from execution but assume a trustworthy
 answerer throughout. None of this cluster models channel identity or adversarial
 responses.
 
 \paragraph{Prompt injection and agent security.}
-InjecAgent (Zhan et al.) is the direct precedent for our attack-success-rate
-metric and \texttt{AttackType} taxonomy; AgentDojo (Debenedetti et al.) is the
+InjecAgent \citep{zhan2024injecagent} is the direct precedent for our attack-success-rate
+metric and \texttt{AttackType} taxonomy; AgentDojo \citep{debenedetti2024agentdojo} is the
 standard tool-agent security benchmark, positioned against ours as: theirs is
 ambient injection in tool output, ours is injection the agent invites by choosing
-to ask. The Instruction Hierarchy (Wallace et al.) grounds our fixed
+to ask. The Instruction Hierarchy \citep{wallace2024instructionhierarchy} grounds our fixed
 channel-trust ranking as a training-time analog of what our policies do at
-decision-time without retraining. CaMeL (Debenedetti et al.) is our sharpest
+decision-time without retraining. CaMeL \citep{debenedetti2025camel} is our sharpest
 foil: it constrains information flow \emph{after} acquisition and never decides
 whether acquiring it was worth the exposure---the ``acquire decision'' is exactly
 our contribution's cell in the novelty matrix.
 
 \paragraph{Value of information under adversarial channels.}
-The deceptive path-planning VoI framework (Suttle et al.) is the closest formal
+The deceptive path-planning VoI framework \citep{suttle2025deceptive} is the closest formal
 precedent outside the LLM literature to ``VoI minus an adversarial-cost term'';
-the Bayesian-network adversarial risk analysis framework (Wang \& Neil) grounds
+the Bayesian-network adversarial risk analysis framework \citep{wang2021bayesianara} grounds
 our channel-prior formalism in established ARA rather than presenting it as ad
 hoc. (Full per-citation mapping and verification status:
 \texttt{docs/04\_references.md}.)
@@ -633,5 +632,7 @@ a single conspicuous action. The two mechanisms are complementary: SecureVoI's
 acquisition-time reasoning should matter more where the injected harm is not a
 discrete, filterable action---a regime this benchmark does not yet stress, and a
 clear direction for future work.
+
+\bibliography{references}
 
 \end{document}
