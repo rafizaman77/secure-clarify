@@ -6,7 +6,44 @@ found, fixed, and what's still open. For the running narrative see
 
 ---
 
-## CURRENT (2026-07-27 early AM) — Rafi runs the final pass; two real bugs found
+## CURRENT (2026-07-27, later) — final pass complete; AAAI-27 page limit verified
+
+**All 4 models' multi-variant stealth tier re-ran clean on the post-`ede89f6`
+(verb-fix) task file overnight, fully analyzed, written into `paper.tex`, and
+pushed** (`214d637`, `259c8f3`). See the "PRIOR (2026-07-27 early AM)" section
+below for the bug context; this entry is just the final-numbers + one
+resolved open question.
+
+**Final stealth numbers** (SecureVoI adversarial unsafe, explicit -> stealth,
+paired bootstrap): GPT-OSS-120B-cloud $0.000\to0.021$ ($p=0.28$, n.s.),
+GPT-OSS-20B-cloud $0.000\to0.042$ ($p=0.038$), Llama-3.3-70B
+$0.000\to0.083$ ($p<0.001$), Mistral-Nemo-12B $0.073\to0.208$ ($p<0.001$).
+Validity control: no risk-blind policy shows a significant stealth effect in
+any model ($p\ge0.09$ throughout, exactly $0.000$ in Mistral). Risk
+decomposition (learned-classifier vs.\ keyword-cue share of the degradation)
+tracks the same capability gradient: Mistral 68% genuine, Llama 48%,
+GPT-OSS-20B 45%, GPT-OSS-120B 33% (mostly keyword-list artifact there).
+Refusability validity gate unchanged post-fix: 83% stealth-refusable vs.\
+100% explicit, 0% benign false-positive. All written into `paper.tex`'s new
+"Robustness to attack phrasing" paragraph and the two Limitations bullets it
+resolves.
+
+**AAAI-27's real page limit, previously never verified** (the earlier
+"PRIOR" section below just says "confirm it's under whatever AAAI-27's
+actual page limit is" -- an open question, not a checked fact): per
+aaai.org's submission-instructions page, **the main submission PDF may be up
+to 9 pages, with pages 8-9 reserved exclusively for references -- i.e.\ up
+to 7 pages of non-reference content.** After Anagh's `0edd300` added the
+real bibliography (`references.bib`, 10 entries, wired via `\citep`), the
+compiled paper is **7 pages total** (body + references combined) --
+comfortably inside both the 9-page ceiling and the 7-page body-only cap,
+since total-7 trivially implies body-only-$\le$7. No trimming needed. Note
+this only renders correctly with a full `pdflatex -> bibtex -> pdflatex ->
+pdflatex` sequence -- a bare double `pdflatex` (what earlier "6 pages"
+counts were based on, before the bibliography existed) leaves citations as
+`[?]` and the References section empty/short, understating the true length.
+
+## PRIOR (2026-07-27 early AM) — Rafi runs the final pass; two real bugs found
 ## and fixed just before handoff, plus a full correctness audit
 
 **Anagh is stepping back from running the models further; Rafi's machine does
