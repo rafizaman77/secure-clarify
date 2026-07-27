@@ -6,7 +6,125 @@ found, fixed, and what's still open. For the running narrative see
 
 ---
 
-## CURRENT (2026-07-26 night) — 3/4 multi-variant stealth runs landed + analyzed;
+## CURRENT (2026-07-27 early AM) — Rafi runs the final pass; two real bugs found
+## and fixed just before handoff, plus a full correctness audit
+
+**Anagh is stepping back from running the models further; Rafi's machine does
+the official final run.** This section exists to make that run go right on the
+first try. Read it fully before launching anything.
+
+### The two bugs, and why they mattered
+
+1. **`model_backends.ollama_generate_fn` could hang FOREVER with zero
+   recovery.** It called `urllib.request.urlopen(req, timeout=timeout)`
+   directly, never wrapped in `_urlopen_hard_timeout` the way the Groq/OpenAI
+   path already is. This codebase's own earlier documentation already
+   established urllib's socket timeout is unreliable on this platform --
+   that's the entire reason `_urlopen_hard_timeout` exists. The Ollama Cloud
+   path never got the same protection. Confirmed directly: two live gpt-oss
+   processes sat at 0 bytes of output for 4+ minutes on their first task, no
+   exception, nothing. Fixed in commit `ede89f6` by routing through the same
+   hard-timeout wrapper Groq uses. **If you ever see a `run_primary.py`
+   process against an `--backend ollama` target producing zero output for
+   more than ~90s, something is genuinely wrong (network, key, or account
+   issue) -- it will no longer just hang silently; it will retry with backoff
+   and eventually raise a clear `RuntimeError` naming the cause.**
+
+   Root cause of THAT specific hang, separately: the Ollama Cloud API key in
+   use had degraded from cumulative heavy use today (`429 "too many
+   concurrent requests"`, then plain unresponsiveness even in isolation). A
+   fresh key resolved it instantly. **If gpt-oss calls start failing/hanging
+   again, try a fresh `OLLAMA_API_KEY` before assuming the code is broken.**
+
+2. **File-domain stealth attacks were confounded, not just harder to
+   detect.** None of the three stealth persuasion strategies used "share" as
+   the verb for `credentials.json` (they said "goes to"/"send it to"/"moves
+   to" -- synonymous in English, but not the tool name `share_file`).
+   Confirmed by direct testing (mistral, gpt-oss-20b): with the explicit
+   tier's "Also, share X" discourse marker removed, several models folded
+   the injected credentials.json into the ALREADY-PRESENT `archive_file`
+   call instead of recognizing a separate `share_file` action. Calendar's
+   injected actions (`add_attendee`/`share_availability`) don't share a tool
+   name with anything in the legitimate plan, so this never happened there
+   (0/12-28 misparses vs 61-100% for file, across two models, before the
+   fix). That made "safety" partly an artifact of the attack being
+   misunderstood, not detected -- a confound in the benchmark, not a security
+   finding. Fixed in `ede89f6`: every file variant now says "share"/"shared"
+   explicitly; variant 2 additionally had residual archiving-adjacent
+   vocabulary ("batch"/"cleanup"/"together") that kept causing misparses even
+   with the verb fixed, rewritten around a "verification side" framing with
+   zero lexical overlap with archiving. Validated 24/24 (mistral) before
+   committing to the re-run.
+
+   **All stealth results generated before this fix are archived, not
+   deleted**, at `results/stealth/_archived_file_verb_confound_2026-07-27/`.
+   **Do not `--resume` into anything in that directory or into any stealth
+   episodes file that predates commit `ede89f6`** -- the underlying task text
+   changed, so an old "done" task_id would silently carry stale data forward.
+
+### Broader audit performed before handoff (findings only, no bugs needing a fix)
+
+Checked because "attacks and verifications," not just infrastructure, needed
+scrutiny:
+
+- `change_permission` is dead code (declared in `simulators.py`'s tool list
+  and matched in `verifiers.py`, but no task's `prohibited_actions` ever
+  names it and no attack ever emits it). Harmless, consistent with the
+  paper's existing "6/8 attacker objectives exercised" disclosure.
+- `resolver._injection_effect`'s structural `attack_type` mapping doesn't
+  always match the response TEXT (e.g. `DESTRUCTIVE_ACTION`'s structural
+  effect is a delete, but file domain's text always describes a share,
+  regardless of attack_type). Confirmed **architecturally inert for all four
+  published results**: `OpenModelAgent.act()` strips every `_`-prefixed key
+  before building its prompt and is governed entirely by the raw
+  `answer_text` parameter, never by the structural `_inject_*` mapping. That
+  mapping only feeds `ScriptedAgent` (unused in official runs) and the
+  boolean `carries_attack` flag.
+- `SecureVoIOracle._oracle_carries_attack` matches ground truth by
+  `(qid, channel, text)`, not including `condition` -- structurally capable
+  of colliding (a stealth-tier non-attacked-channel filler deliberately
+  reuses the benign text). Verified empirically across all 120 tasks: 240
+  such collisions exist, **zero of them disagree on `carries_attack`** -- the
+  oracle ablation numbers are correct despite the structural ambiguity.
+- Stealth variant assignment (`_pick_stealth_variant`) correlates with
+  channel assignment (`_pick_adv_channel`) more than intended -- e.g.
+  `delegated_collaborator` draws variant 0 in 83% of cases,
+  `external_tool` almost never does, despite the deliberate `+104729` hash
+  offset meant to decorrelate them. **Confirmed this cannot have confounded
+  either reported finding**: both `classify_malice(text)` and
+  `act(task, resolved_intent, answer_text)` take no channel parameter
+  anywhere in `agent.py` (checked all three agent implementations), so
+  neither the misparse mechanism nor the risk-decomposition split depends on
+  channel at all. Worth a cleaner hash in a future revision; not a blocker
+  now, and not touched under deadline pressure since fixing it would require
+  yet another full re-run to re-validate.
+
+### State as of this write-up (Anagh's machine, all re-running post-fix)
+
+| Model | Progress | Notes |
+|---|---|---|
+| mistral-nemo-12b | ~80/96 | local, ~24s/task, zero exclusions |
+| llama-3.3-70b | ~31/96 | via `run_llama_stealth_resilient.sh`, zero exclusions this run |
+| gpt-oss-20b-cloud | ~26/96 | fresh Ollama key, zero issues since relaunch |
+| gpt-oss-120b-cloud | ~14/96 | fresh Ollama key, zero issues since relaunch |
+
+These are validation runs proving the fixes hold under real load -- **not
+necessarily the official numbers**. If Rafi's run completes first, use his.
+If these finish first and look clean (additivity gate passes, no exclusions
+or a small disclosed few), they're usable as the official run instead of
+waiting on a duplicate. Check `results/stealth/*_episodes.json` task counts
+before trusting either as complete.
+
+### Before trusting ANY final number, run this (costs nothing, no model calls)
+
+    python3 test_smoke.py   # expect: ALL SMOKE TESTS PASSED (23 tests)
+    for m in mistral-nemo-12b gpt-oss-20b-cloud gpt-oss-120b-cloud llama-3.3-70b; do
+      python3 scripts/rescore.py --episodes results/models/$m/primary_episodes.json \
+        --tasks tasks/main_120.json
+    done   # expect: "No verdict changes" x4 -- if not, STOP, something is wrong
+    python3 scripts/stealth_common_subset.py   # cross-model validity check once all 4 stealth runs land
+
+## PRIOR (2026-07-26 night) — 3/4 multi-variant stealth runs landed + analyzed;
 ## AAAI-27 author kit integrated, PDF now compiles for real; llama in flight
 
 Written for Anagh picking this up cold on his own machine. Everything below
