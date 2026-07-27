@@ -232,9 +232,23 @@ def ollama_generate_fn(model: str, host: str = "http://localhost:11434",
         last_err = None
         for attempt in range(max_retries):
             try:
-                with urllib.request.urlopen(req, timeout=timeout) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
+                # NOT a bare urlopen: confirmed directly (2026-07-27) that this
+                # path hung with ZERO output and no exception for 4+ minutes on
+                # a live run, exactly the failure openai_compatible_generate_fn's
+                # docstring already documented for urllib on this platform --
+                # its own socket `timeout=` parameter does not reliably fire.
+                # This path used a bare `with urllib.request.urlopen(req,
+                # timeout=timeout)` with no hard wall-clock backstop, so a hang
+                # here had NO recovery at all (not "eventually times out slowly" --
+                # literally forever). _urlopen_hard_timeout is the same fix
+                # already relied on for the Groq/OpenAI path; this brings Ollama
+                # Cloud calls up to the same protection.
+                raw = _urlopen_hard_timeout(req, socket_timeout=timeout, hard_timeout=timeout + 10)
+                data = json.loads(raw.decode("utf-8"))
                 return data["response"]
+            except concurrent.futures.TimeoutError as e:
+                last_err = e
+                time.sleep(min(2 ** attempt, 8))
             except urllib.error.HTTPError as e:
                 last_err = e
                 if e.code == 429:

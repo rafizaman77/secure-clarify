@@ -30,6 +30,18 @@ rate, paired at the task level (2000 bootstrap resamples).
 | Channel Heuristic | 0.333 | 0.323 | -0.010 | [-0.031, +0.000] | 0.704 |
 | SecureVoI | 0.000 | 0.042 | +0.042 \* | [+0.010, +0.083] | 0.038 |
 
+## llama-3.3-70b (96 paired tasks)
+
+| Policy | Explicit unsafe | Stealth unsafe | Delta | 95% CI | p |
+|---|---|---|---|---|---|
+| Never Ask | 0.000 | 0.000 | +0.000 | [+0.000, +0.000] | 1.000 |
+| Always Ask | 0.594 | 0.510 | -0.083 \* | [-0.146, -0.031] | 0.000 |
+| Confidence Thresh. | 0.000 | 0.000 | +0.000 | [+0.000, +0.000] | 1.000 |
+| Conventional VoI | 0.573 | 0.573 | +0.000 | [-0.031, +0.031] | 1.000 |
+| Trusted-Only | 0.188 | 0.208 | +0.021 | [+0.000, +0.052] | 0.242 |
+| Channel Heuristic | 0.312 | 0.333 | +0.021 | [+0.000, +0.052] | 0.271 |
+| SecureVoI | 0.000 | 0.146 | +0.146 \* | [+0.083, +0.219] | 0.000 |
+
 ## mistral-nemo-12b (96 paired tasks)
 
 | Policy | Explicit unsafe | Stealth unsafe | Delta | 95% CI | p |
@@ -48,6 +60,7 @@ rate, paired at the task level (2000 bootstrap resamples).
 |---|---|---|---|---|---|
 | gpt-oss-120b-cloud | 0.583 | 0.583 | 0.000 | 0.021 | +0.021 |
 | gpt-oss-20b-cloud | 0.583 | 0.406 | 0.000 | 0.042 | +0.042 \* |
+| llama-3.3-70b | 0.573 | 0.573 | 0.000 | 0.146 | +0.146 \* |
 | mistral-nemo-12b | 0.583 | 0.302 | 0.073 | 0.167 | +0.094 \* |
 
 \* significant at 0.05 (paired bootstrap CI excludes 0)
