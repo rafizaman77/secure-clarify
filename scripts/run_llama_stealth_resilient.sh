@@ -89,6 +89,7 @@ print(sum(1 for t in (load_task(d) for d in json.load(open('tasks/main_120.json'
 echo "test split has $n_test tasks"
 
 SKIP_IDS=""
+consec_excluded=0
 cur_task=""
 cur_fails=0
 
@@ -140,10 +141,32 @@ while true; do
 
   after=$(count_done)
   tail -2 "$LOG"
+
+  # CIRCUIT BREAKER 1: catches a FAST, CLEANLY-RAISED 401/403 (str(HTTPError)
+  # is "HTTP Error 403: Forbidden" -- verified directly against Python's own
+  # formatting). NOTE, checked directly against today's actual incident log:
+  # this pattern would NOT have caught it. The real incident's per-task log
+  # contained nothing but the startup lines -- the account-level block that a
+  # direct `curl` reproduced as an instant 403 did NOT surface as a clean
+  # exception inside the pipeline; it manifested as ANOTHER silent hang
+  # (wall-cap SIGKILLs were firing throughout), same signature as ordinary
+  # per-task poison. This breaker is kept as defense-in-depth for a genuinely
+  # fast/clean 401/403 if one occurs, not as the fix for what actually
+  # happened today -- circuit breaker 2 below is the one that would have.
+  if grep -qE "Access denied|HTTP Error 401|HTTP Error 403" "$LOG"; then
+    echo ""
+    echo "!!! SYSTEMIC ACCESS FAILURE DETECTED (401/403) -- stopping immediately."
+    echo "!!! This is NOT a per-task hang; retrying or excluding tasks would only"
+    echo "!!! waste real attempts on a guaranteed-fail condition. Check the API key"
+    echo "!!! / account status before re-running. done=$after/$n_test, skipped=$SKIP_IDS"
+    exit 1
+  fi
+
   if [ "$after" -gt "$done" ]; then
     echo "  -> $cur_task landed ($done -> $after)"
     cur_task=""
     cur_fails=0
+    consec_excluded=0
   else
     cur_fails=$((cur_fails + 1))
     echo "  -> $cur_task did not land (attempt $cur_fails/$MAX_RETRIES)"
@@ -152,6 +175,21 @@ while true; do
       SKIP_IDS="${SKIP_IDS:+$SKIP_IDS,}$cur_task"
       cur_task=""
       cur_fails=0
+      # CIRCUIT BREAKER 2: general safety net for any systemic failure mode
+      # NOT caught by the log-pattern check above (an unanticipated error
+      # string, a hang that never prints anything recognizable, etc). Real
+      # per-task poison is rare and should not cluster -- two DIFFERENT
+      # tasks excluded back-to-back with no successful landing between them
+      # is itself a signal something broader is wrong, independent of
+      # whatever the specific error text says.
+      consec_excluded=$((consec_excluded + 1))
+      if [ "$consec_excluded" -ge 2 ]; then
+        echo ""
+        echo "!!! $consec_excluded DIFFERENT tasks excluded back-to-back with no landing "
+        echo "!!! between them -- stopping rather than assuming this many independent "
+        echo "!!! poison tasks. Investigate before re-running. done=$after/$n_test, skipped=$SKIP_IDS"
+        exit 1
+      fi
     fi
   fi
 done
