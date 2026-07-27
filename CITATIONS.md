@@ -24,12 +24,26 @@ changes before submission.)
       does not itself claim a POMDP formulation; Ambig-DS is about
       data-science agents, not dialog systems).
 - [ ] Remaining "📄 from your list" (3) and "⚠️ check id" (2) entries fetched
-      and verified the same way.
-- [ ] BibTeX entries in `docs/04_references.md` cross-checked against the
-      final in-text citation list once `paper.tex` exists (Jul 25-26) — no
-      cited-but-not-in-bibliography or vice versa.
-- [ ] Venue-specific citation style/format applied (AAAI uses its own BibTeX
-      style file — confirm before submission).
+      and verified the same way. **Deliberately excluded from `references.bib`
+      as of 2026-07-27** rather than cited on unconfirmed grounds — none of
+      them were needed by the current in-text citation set, so this is safe
+      to leave open unless a future revision adds a claim that needs one.
+- [x] BibTeX entries cross-checked against the final in-text citation list
+      (2026-07-27, commit `0edd300`) — `references.bib` has exactly the 10
+      ✅-verified entries `paper.tex` actually cites (`\citep{}` x16, 10
+      unique keys), wired via `\bibliography{references}`. Compiled through
+      the full pdflatex→bibtex→pdflatex→pdflatex cycle: 0 errors, 0 undefined
+      citations, bibtex raised no warnings. No entry is present in the .bib
+      without being cited, and no citation in the text lacks a matching entry.
+- [x] Venue-specific citation style applied: `aaai2027.sty` auto-sets
+      `\bibliographystyle{aaai2027}` when natbib is loaded (confirmed by
+      reading the .sty source, not assumed) — `aaai2027.bst` renders all 10
+      entries correctly (author lists, titles, years, venue where noted).
+      **Still open:** AAAI-27's actual page limit is not verified anywhere in
+      this repo. Adding the bibliography moved the compiled paper from 6 to 7
+      pages (a References section is real content, not free) — check against
+      the actual AAAI-27 call for papers before submission, not assumed to
+      fit.
 
 ## Anonymity note (if double-blind)
 
