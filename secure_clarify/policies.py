@@ -269,6 +269,45 @@ class SecureVoIOracle(SecureVoI):
         return info_value > self.lam * r * expected_loss
 
 
+class ScreenedConventionalVoI(SecureVoI):
+    """Decisive ablation (Jul 27): isolates whether SecureVoI's advantage over
+    ConventionalVoI comes from stage 1 (channel-risk-aware acquisition,
+    ig - cost - lambda*pre_risk) or is fully explained by stage 2 (the
+    response screen) alone. This policy pairs ConventionalVoI's risk-blind
+    stage 1 with SecureVoI's stage 2, unchanged.
+
+    decide() is deliberately NOT super().decide() -- that would run
+    SecureVoI's risk-aware acquisition, exactly the term this ablation needs
+    to remove. It is ConventionalVoI's formula, reimplemented here rather
+    than composed by multiple inheritance, so the class stays a plain
+    SecureVoI subclass.
+
+    accept() is intentionally left un-overridden: it inherits SecureVoI's
+    stage-2 screen verbatim, so the two policies' response-acceptance
+    behavior cannot silently diverge from what SecureVoI itself does.
+
+    If this policy's attack-success/task-success numbers land close to
+    SecureVoI's, stage 1 isn't doing separable work and the paper's
+    contribution reduces to "add a response filter." If they land close to
+    ConventionalVoI's (or between the two, well short of SecureVoI), stage 1
+    is pulling real, separable weight."""
+    name = "screened_conventional_voi"
+
+    def decide(self, task: Task, agent) -> Decision:
+        best, best_val = None, 0.0
+        for q, c in _available_qc(task):
+            ig = estimate_info_gain(task, q, agent, channel=c)
+            val = ig - C_COST[q.qformat]
+            if val > best_val:
+                best, best_val = (q, c), val
+        if best is None:
+            return Decision(ask=False, rationale="no positive-VoI question")
+        q, c = best
+        return Decision(ask=True, question=q, channel=c, accept_response=True,
+                        rationale=f"VoI={best_val:.3f} (risk-blind stage 1, "
+                                 f"screened stage 2, lam={self.lam})")
+
+
 PILOT_POLICIES = [NeverAsk, ConventionalVoI, TrustedOnly, SecureVoI]
 
 # Plan section 10's full six-policy main-experiment set (Jul 22-23). Post-hoc
