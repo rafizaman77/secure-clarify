@@ -74,6 +74,23 @@ def main() -> int:
     ap.add_argument("--calibration", default="results/dev_calibration.json")
     ap.add_argument("--out", default="results/screened_ablation.json")
     ap.add_argument("--episodes-out", default="results/screened_ablation_episodes.json")
+    ap.add_argument("--conditions", default="benign,adversarial",
+                    help="comma-separated Condition values, same parsing as run_primary.py. "
+                         "Use 'adversarial_stealth' alone for the stealth-tier ablation -- "
+                         "stealth adds no benign rows by construction, so there is nothing "
+                         "to gain by re-running benign alongside it.")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="only evaluate the first N (post-skip) test tasks -- for the "
+                         "per-task-process-restart pattern a single long-lived process "
+                         "can't safely use on Groq (fd leak from hung calls compounds "
+                         "over a multi-hour run; confirmed directly: 65 CLOSE_WAIT / 37 "
+                         "ESTABLISHED simultaneously on one process after 3h with zero "
+                         "progress). Not for real results on its own.")
+    ap.add_argument("--skip-task-ids", default="",
+                    help="comma-separated task_ids to exclude entirely -- for a task that "
+                         "reproducibly fails against one backend's infrastructure specifically, "
+                         "so it stops consuming retry budget on every subsequent --resume. "
+                         "Document any use of this; it is a coverage gap, not a fix.")
     ap.add_argument("--resume", action="store_true",
                     help="load --episodes-out if it exists and skip task_ids already present")
     add_backend_args(ap)
@@ -86,6 +103,13 @@ def main() -> int:
 
     all_tasks = load_tasks(ROOT / args.tasks)
     test_tasks = [t for t in all_tasks if t.split == "test"]
+    skip_ids = {s.strip() for s in args.skip_task_ids.split(",") if s.strip()}
+    if skip_ids:
+        test_tasks = [t for t in test_tasks if t.task_id not in skip_ids]
+        print(f"--skip-task-ids: excluding {sorted(skip_ids)} -- "
+              f"{len(test_tasks)} test tasks remain", file=sys.stderr, flush=True)
+    if args.limit:
+        test_tasks = test_tasks[:args.limit]
     if not test_tasks:
         raise SystemExit(f"No test-split tasks found in {args.tasks}")
 
@@ -93,7 +117,12 @@ def main() -> int:
                             args.api_key_env, args.host)
     agent = CachingAgent(raw_agent)
     policies = [ConventionalVoI(), ScreenedConventionalVoI(lam=lam), SecureVoI(lam=lam)]
-    conditions = [Condition.BENIGN, Condition.ADVERSARIAL]
+    try:
+        conditions = [Condition(c.strip()) for c in args.conditions.split(",") if c.strip()]
+    except ValueError as exc:
+        raise SystemExit(f"--conditions: {exc}. Valid: {[c.value for c in Condition]}")
+    if not conditions:
+        raise SystemExit("--conditions must name at least one condition")
 
     episodes_path = ROOT / args.episodes_out
     episodes_path.parent.mkdir(parents=True, exist_ok=True)
@@ -155,33 +184,34 @@ def main() -> int:
     def g(pol, cond, field):
         return table[f"{pol}|{cond}"][field]
 
+    cond_values = {c.value for c in conditions}
+    # whichever adversarial-flavored condition is present (explicit or stealth) --
+    # this is what makes --conditions adversarial_stealth alone work: the ablation
+    # question ("does stage 1 add separable safety margin?") is defined per
+    # adversarial condition, benign is only needed to also report the utility cost.
+    adv_cond = next((c for c in ("adversarial_stealth", "adversarial") if c in cond_values), None)
+
     result = {
         "agent_backend": f"{args.backend}:{args.model}" if args.backend != "scripted"
                          else "ScriptedAgent (placeholder)",
         "lambda_used": lam,
         "n_test_tasks": len(test_tasks),
         "n_timed_out_or_failed": len(timed_out_task_ids),
+        "conditions": [c.value for c in conditions],
         "table": {k: table[k] for k in sorted(table)},
     }
-    if not timed_out_task_ids:
-        conv_adv_unsafe = g("conventional_voi", "adversarial", "unsafe_rate")
-        screened_adv_unsafe = g("screened_conventional_voi", "adversarial", "unsafe_rate")
-        secure_adv_unsafe = g("secure_voi", "adversarial", "unsafe_rate")
-        conv_benign_util = g("conventional_voi", "benign", "utility")
-        screened_benign_util = g("screened_conventional_voi", "benign", "utility")
-        secure_benign_util = g("secure_voi", "benign", "utility")
+    if not timed_out_task_ids and adv_cond is not None:
+        conv_adv_unsafe = g("conventional_voi", adv_cond, "unsafe_rate")
+        screened_adv_unsafe = g("screened_conventional_voi", adv_cond, "unsafe_rate")
+        secure_adv_unsafe = g("secure_voi", adv_cond, "unsafe_rate")
         gap = conv_adv_unsafe - secure_adv_unsafe
         stage1_share = ((screened_adv_unsafe - secure_adv_unsafe) / gap) if gap > 0 else None
         result.update({
+            "adversarial_condition": adv_cond,
             "adversarial_unsafe_rate": {
                 "conventional_voi": conv_adv_unsafe,
                 "screened_conventional_voi": screened_adv_unsafe,
                 "secure_voi": secure_adv_unsafe,
-            },
-            "benign_utility": {
-                "conventional_voi": conv_benign_util,
-                "screened_conventional_voi": screened_benign_util,
-                "secure_voi": secure_benign_util,
             },
             "stage1_share_of_secure_voi_gap": (
                 round(stage1_share, 4) if stage1_share is not None else None
@@ -198,6 +228,16 @@ def main() -> int:
                 "work. A value strictly between 0 and 1 means both stages contribute."
             ),
         })
+        if "benign" in cond_values:
+            result["benign_utility"] = {
+                "conventional_voi": g("conventional_voi", "benign", "utility"),
+                "screened_conventional_voi": g("screened_conventional_voi", "benign", "utility"),
+                "secure_voi": g("secure_voi", "benign", "utility"),
+            }
+    elif not timed_out_task_ids:
+        result["interpretation"] = (
+            f"No adversarial condition in {sorted(cond_values)} -- nothing to ablate "
+            f"(need 'adversarial' and/or 'adversarial_stealth').")
     else:
         result["interpretation"] = (
             f"INCOMPLETE: {len(timed_out_task_ids)} task(s) did not complete -- "
