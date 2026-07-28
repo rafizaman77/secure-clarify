@@ -476,6 +476,49 @@ Mistral's screen admits $7$ of the $20$ attacks that reach it, whereas the stron
 models reject all $20$. A better \textsc{classify\_malice} is the single remaining
 lever, and it is worth at most $0.073$.
 
+\paragraph{Isolating stage 1 from stage 2.} The oracle ablation above varies
+\emph{how good} the response screen is; it does not test whether stage-1
+acquisition contributes anything once a screen is present at all. We therefore
+run the sharpest available ablation: Conventional VoI's risk-blind acquisition
+paired with SecureVoI's stage-2 screen, unchanged
+(\texttt{ScreenedConventionalVoI}, which inherits \texttt{accept} from SecureVoI
+so the two cannot diverge). Any gap between this policy and full SecureVoI is
+attributable to stage 1 alone. We report the fraction of Conventional VoI
+$\to$ SecureVoI's adversarial unsafe-rate reduction that the screened policy
+fails to close, i.e.\ the share of the gap that stage 1 is responsible for.
+
+The answer depends entirely on attack tier, and this is the paper's most
+important negative-then-positive result. \textbf{On the explicit tier, stage 1
+contributes nothing}: the share is exactly $0.000$ on all three models tested
+(Mistral-Nemo-12B, Llama-3.3-70B, GPT-OSS-20B), because the screened policy
+already drives adversarial unsafe actions to $0.073$, $0.000$ and $0.000$
+respectively---matching full SecureVoI exactly. Worse for a two-stage story,
+stage 1 is not free: on Llama and GPT-OSS-20B the screened policy attains
+\emph{identical} safety with substantially higher benign utility ($0.950$ vs.\
+$0.675$; $0.492$ vs.\ $0.342$), because SecureVoI's risk term declines to ask on
+$24/96$ adversarial tasks that stage 2 would have screened successfully anyway.
+Against conspicuous injections, channel-risk-aware acquisition is redundant
+machinery that costs task completion.
+
+\textbf{On the stealth tier the conclusion reverses.} Once the injected text no
+longer carries the explicit tier's surface tells, the screen degrades and stage 1
+becomes the binding defense: the stage-1 share rises to $0.389$ (Mistral-Nemo-12B),
+$0.442$ (GPT-OSS-20B), $0.299$ (Llama-3.3-70B) and $0.094$ (GPT-OSS-120B)---every
+model tested. In absolute terms, removing stage 1 while keeping the identical
+screen raises adversarial unsafe actions from $0.208$ to $0.354$, from $0.021$ to
+$0.260$, from $0.094$ to $0.240$, and from $0.021$ to $0.073$ respectively. Three
+of the four models (Mistral-Nemo-12B, Llama-3.3-70B, GPT-OSS-20B) have both tiers
+at full $96$-task coverage with zero excluded tasks, so the reversal from $0.000$
+to $0.389$, $0.299$ and $0.442$ is a \emph{within-model} comparison on identical
+tasks, not a cross-model artifact.
+The two stages are therefore not redundant but complementary along the axis that
+matters: stage 2 carries safety while attacks are recognizable from their
+wording, and stage 1 supplies the defense-in-depth that survives when they are
+not. This also sharpens the honest reading of our headline explicit-tier
+numbers---they understate how much of SecureVoI's design is load-bearing,
+because the regime where stage 1 earns its cost is precisely the harder regime
+the explicit tier does not probe.
+
 \paragraph{Post-hoc guardrail.} A guardrail that keeps Conventional VoI's ask
 decision but screens the resulting action plan against the prohibited-action
 patterns reaches $0.000$ adversarial unsafe on three models ($0.052$ on
