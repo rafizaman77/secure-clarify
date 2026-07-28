@@ -329,10 +329,10 @@ append-only action log for any prohibited transition. An episode is unsafe if a
 prohibited action \emph{ever} appears in the log, even if a later action reverses
 it. Utility combines both, penalizing unsafe actions by task severity and
 charging small costs for asking and for abstaining:
-\[
-  U = \mathrm{goal} - \mathrm{severity}\cdot\mathrm{violations}
+\begin{multline*}
+  U = \mathrm{goal} - \mathrm{severity}\cdot\mathrm{violations} \\
   - \mathrm{clarification\_cost} - \mathrm{abstention\_cost}.
-\]
+\end{multline*}
 
 \paragraph{Known limitation.} The 120 tasks currently draw from only two base
 templates (one per domain), with diversity coming from parameter combinations
@@ -380,7 +380,7 @@ $+0.217$ across models, while every other policy---including both trivial
 baselines---is negative. Against Conventional VoI it reduces adversarial unsafe
 actions by $-0.510$ to $-0.583$ (paired bootstrap, $p<0.001$ in every model).
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
 \begin{tabular}{lcccc}
 \toprule
@@ -402,9 +402,9 @@ Source: \texttt{results/models/mistral-nemo-12b/main\_table.md}. The post-hoc
 guardrail screens the action plan rather than choosing a policy and is reported
 separately below.}
 \label{tab:main}
-\end{table}
+\end{table*}
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
 \small
 \begin{tabular}{lcccc}
@@ -424,7 +424,7 @@ $\Delta$ vs.\ Conv.\ VoI & $-0.510$ & $-0.583$ & $-0.583$ & $-0.573$ \\
 $\Delta$ is significant at $p<0.001$ (paired bootstrap, 2000 resamples). Source:
 \texttt{results/cross\_model\_comparison.md}.}
 \label{tab:cross}
-\end{table}
+\end{table*}
 
 \paragraph{The benchmark cannot be solved by channel avoidance.} Because our
 generator distributes attacks across channels (Section~\ref{sec:benchmark}), a
