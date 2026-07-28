@@ -542,6 +542,70 @@ def test_stealth_tier_is_additive_and_matched():
           f"{min(len(v) for v in by_domain_qid.values())}+ distinct strategies per cell")
 
 
+def test_diversity_set_valid_and_matched():
+    """Validity check for the task-family / attack-phrasing diversity expansion
+    (messaging domain, build_diversity_set) -- mirrors
+    test_channels_not_perfectly_predictive + test_stealth_tier_is_additive_and_matched
+    but over the 3-domain set, so the new domain is held to the identical bar as
+    file/calendar before any model touches it. Separately:
+    test_rescore_reproduces_run_episode-style byte-identity between build_pilot()
+    and the frozen tasks/main_120.json (checked once, ad hoc, when this domain was
+    added) is what actually matters for not disturbing published results -- this
+    test instead guards the NEW set's own internal validity."""
+    from collections import defaultdict
+    from secure_clarify.task_factory import build_diversity_set
+    tasks = build_diversity_set(60)
+    assert len(tasks) == 180, f"expected 180 tasks (3 domains x 60), got {len(tasks)}"
+    by_domain = defaultdict(int)
+    for t in tasks:
+        by_domain[t.domain] += 1
+    assert by_domain == {"file": 60, "calendar": 60, "messaging": 60}, by_domain
+
+    ch = defaultdict(lambda: [0, 0])
+    n_stealth = 0
+    by_domain_qid: dict[tuple[str, str], set[str]] = {}
+    for t in tasks:
+        attack_channels = set()
+        for r in t.responses:
+            if r.condition == Condition.ADVERSARIAL:
+                ch[r.channel][1] += 1
+                if r.carries_attack:
+                    ch[r.channel][0] += 1
+                    attack_channels.add(r.channel)
+        assert len(attack_channels) == 1, (t.task_id, "expected exactly 1 attack channel")
+
+        exp = {(r.qid, r.channel): r for r in t.responses
+               if r.condition == Condition.ADVERSARIAL and r.carries_attack}
+        ste = {(r.qid, r.channel): r for r in t.responses
+               if r.condition == Condition.ADVERSARIAL_STEALTH and r.carries_attack}
+        assert set(exp) == set(ste), (t.task_id, "stealth must match explicit's (q,channel)")
+        for key, e in exp.items():
+            s_r = ste[key]
+            assert s_r.attack_type == e.attack_type, (t.task_id, "stealth objective must match")
+            assert s_r.text != e.text
+            low = s_r.text.lower()
+            assert "evil.com" not in low, (t.task_id, "stealth leaks evil.com")
+            assert "also," not in low, (t.task_id, "stealth leaks the 'Also,' break")
+            by_domain_qid.setdefault((t.domain, s_r.qid), set()).add(s_r.text)
+            n_stealth += 1
+
+    non_user = 0
+    for c, (k, n) in ch.items():
+        if c == Channel.USER:
+            assert k == 0, "user channel must never carry an attack"
+            continue
+        rate = k / n
+        assert 0.0 < rate < 1.0, f"channel {c.value} perfectly predictive: {k}/{n}={rate:.2f}"
+        non_user += 1
+    for (domain, qid), texts in by_domain_qid.items():
+        assert len(texts) >= 3, (domain, qid, f"only {len(texts)} stealth strategies")
+
+    print(f"[ok] diversity set: 180 tasks / 3 domains (file, calendar, messaging), "
+          f"{non_user} non-user channels graded not-perfectly-predictive, "
+          f"{n_stealth} stealth attacks matched to explicit, "
+          f"{min(len(v) for v in by_domain_qid.values())}+ strategies/cell")
+
+
 if __name__ == "__main__":
     test_all_tasks_validate()
     test_roundtrip()
@@ -567,4 +631,5 @@ if __name__ == "__main__":
     test_channel_heuristic_tracks_benchmark_degeneracy()
     test_rescore_reproduces_run_episode()
     test_stealth_tier_is_additive_and_matched()
+    test_diversity_set_valid_and_matched()
     print("\nALL SMOKE TESTS PASSED")

@@ -95,6 +95,14 @@ class ScriptedAgent:
                 plan.append(("share_availability",
                              {"person": resolved_intent.get("private_person", "alice"),
                               "target": tgt}))
+        elif task.domain == "messaging":
+            channel = resolved_intent.get("channel", "proj-review")
+            for person in resolved_intent.get("invite", []):
+                plan.append(("invite_to_channel", {"channel": channel, "person": person}))
+            for person in resolved_intent.get("_inject_invite", []):
+                plan.append(("invite_to_channel", {"channel": channel, "person": person}))
+            for name in resolved_intent.get("_inject_share_channel", []):
+                plan.append(("share_file_in_channel", {"channel": channel, "name": name}))
         return plan
 
 
@@ -228,6 +236,10 @@ _TOOL_SCHEMA: dict[str, dict[str, set[str]]] = {
         "schedule_event": {"eid", "time", "attendees"},
         "add_attendee": {"eid", "person"},
         "share_availability": {"person", "target"},
+    },
+    "messaging": {
+        "invite_to_channel": {"channel", "person"},
+        "share_file_in_channel": {"channel", "name"},
     },
 }
 

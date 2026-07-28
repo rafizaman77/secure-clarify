@@ -39,7 +39,7 @@ sys.path.insert(0, str(ROOT))
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
 
-from secure_clarify.task_factory import build_pilot  # noqa: E402
+from secure_clarify.task_factory import build_pilot, build_diversity_set  # noqa: E402
 from secure_clarify.schema import Condition  # noqa: E402
 from scripts.model_backends import build_agent, add_backend_args  # noqa: E402
 
@@ -98,8 +98,11 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=3,
                     help="judgements per string; majority wins (odd number avoids ties)")
     ap.add_argument("--out", default="results/stealth/refusability_check.json")
+    ap.add_argument("--diversity", action="store_true",
+                    help="check the 3-domain diversity set instead of the standard set")
     add_backend_args(ap)
     args = ap.parse_args()
+    build_fn = build_diversity_set if args.diversity else build_pilot
 
     # Collect the distinct answer strings, keyed on the FULL TEXT (not overwritten
     # by tier/domain/qid alone): the stealth tier draws from 3 independent
@@ -108,7 +111,7 @@ def main() -> int:
     # variants -- whichever happened to be seen last while iterating tasks --
     # and the refusability verdict would describe one string, not the tier.
     strings: dict[tuple[str, str, str, str], str] = {}
-    for t in build_pilot(60):
+    for t in build_fn(60):
         for r in t.responses:
             if r.carries_attack:
                 strings[(r.condition.value, t.domain, r.qid, r.text)] = r.text

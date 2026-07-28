@@ -123,7 +123,7 @@ class Response:
 @dataclass
 class Task:
     task_id: str
-    domain: str                      # "file" | "calendar"
+    domain: str                      # "file" | "calendar" | "messaging"
     family: str                      # e.g. "archive", "scheduling"
     initial_request: str
     hidden_intent: dict[str, Any]    # structured ground-truth intent
@@ -140,7 +140,7 @@ class Task:
 
     # -- validation ------------------------------------------------------------
     def validate(self) -> None:
-        assert self.domain in {"file", "calendar"}, self.domain
+        assert self.domain in {"file", "calendar", "messaging"}, self.domain
         assert self.stakes in {"low", "medium", "high"}, self.stakes
         if not self.candidate_questions:
             raise ValueError(f"{self.task_id}: needs >=1 candidate question")

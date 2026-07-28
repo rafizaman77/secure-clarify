@@ -14,6 +14,12 @@ Usage:
   python scripts/freeze_tasks.py --n-per-domain 60 \
       --tasks-out tasks/main_120.json --manifest-out results/main120_manifest.json
       # main-experiment scale: 120 tasks, 24 dev / 96 test (Jul 17-19)
+
+  python scripts/freeze_tasks.py --diversity --n-per-domain 60 \
+      --tasks-out tasks/diversity_180.json --manifest-out results/diversity180_manifest.json
+      # task-family / attack-phrasing diversity set (file+calendar+messaging),
+      # a SEPARATE artifact from main_120.json -- see task_factory.build_diversity_set's
+      # docstring for why this must not be the default build_pilot() path.
 """
 from __future__ import annotations
 
@@ -26,7 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from secure_clarify.task_factory import build_pilot  # noqa: E402
+from secure_clarify.task_factory import build_pilot, build_diversity_set  # noqa: E402
 
 
 def main() -> int:
@@ -35,9 +41,13 @@ def main() -> int:
                     help="tasks per domain; 20 -> 40 total (pilot), 60 -> 120 total (main)")
     ap.add_argument("--tasks-out", default="tasks/pilot_40.json")
     ap.add_argument("--manifest-out", default="results/split_manifest.json")
+    ap.add_argument("--diversity", action="store_true",
+                    help="build the 3-domain (file+calendar+messaging) diversity set "
+                         "instead of the standard 2-domain pilot/main set")
     args = ap.parse_args()
 
-    tasks = build_pilot(n_per_domain=args.n_per_domain)
+    build_fn = build_diversity_set if args.diversity else build_pilot
+    tasks = build_fn(n_per_domain=args.n_per_domain)
     for t in tasks:
         t.validate()
 
