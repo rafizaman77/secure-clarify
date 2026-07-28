@@ -616,17 +616,24 @@ task ($0.000$ benign goal).}
   a genuine classifier limitation on the weaker models rather than solely an
   artifact of a hardcoded keyword list. So the main-tier $0.000$--$0.073$ results
   should be read as a floor, not a ceiling, on SecureVoI's real-world unsafe rate.
-  \item \textbf{Only two base task templates} (file-archive, calendar-scheduling);
-  diversity comes from parameter combinations (stakes $\times$ channel availability
-  $\times$ attack type), not genuinely distinct task families. This is the single
-  largest threat to external validity in this work, and we state plainly what it does
-  and does not permit: our claims are about the \emph{ordering} of policies and the
-  \emph{existence} of the acquisition-time trade-off under a channel-mixed threat
-  model, not about absolute rates transferring to a broader task distribution. Because
-  the benchmark is frozen and checksummed
-  (\texttt{results/main120\_manifest.json}), adding a task family invalidates every
-  number reported here rather than extending them, so we did not attempt a partial
-  expansion. Porting the policy interface onto an established
+  \item \textbf{The headline benchmark has only two base task templates}
+  (file-archive, calendar-scheduling); within it, diversity comes from parameter
+  combinations (stakes $\times$ channel availability $\times$ attack type), not
+  genuinely distinct task families. We state plainly what this does and does not
+  permit: the absolute rates in Table~\ref{tab:main} are claims about the
+  \emph{ordering} of policies and the \emph{existence} of the acquisition-time
+  trade-off under a channel-mixed threat model, not about absolute rates
+  transferring to a broader task distribution. Because that benchmark is frozen and
+  checksummed (\texttt{results/main120\_manifest.json}), we did not modify it;
+  instead we built a \emph{separate} $180$-task, three-domain set (adding a
+  messaging domain) so that a transfer test extends the results rather than
+  invalidating them. The stage-1/stage-2 ablation replicates there and in fact
+  strengthens (Results), which is direct evidence that our central new finding is
+  not an artifact of the two original templates. We report that set only for the
+  ablation, not as a second headline table, because it was constructed by us under
+  the same design assumptions and so tests robustness to task family without
+  testing robustness to benchmark authorship. Porting the policy interface onto an
+  established
   multi-domain agent benchmark---AgentDojo \citep{debenedetti2024agentdojo}, whose
   attack/defense harness already spans several application domains, or ASPI's
   scenario suite \citep{sehwag2026aspi}---is the correct next step and would test
