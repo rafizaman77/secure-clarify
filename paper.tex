@@ -155,16 +155,28 @@ to ask. The Instruction Hierarchy \citep{wallace2024instructionhierarchy} ground
 channel-trust ranking as a training-time analog of what our policies do at
 decision-time without retraining. CaMeL \citep{debenedetti2025camel} is our sharpest
 foil: it constrains information flow \emph{after} acquisition and never decides
-whether acquiring it was worth the exposure---the ``acquire decision'' is exactly
-our contribution's cell in the novelty matrix.
+whether acquiring it was worth the exposure---the acquire decision is exactly
+our contribution.
+
+ASPI \citep{sehwag2026aspi} is the closest prior work and the one our framing
+most directly answers. It shows that the mere state transition from executing a
+fully specified instruction to seeking clarification substantially amplifies
+prompt-injection vulnerability across ten frontier models (e.g.\ attack success
+rising from $1.8\%$ to $34.0\%$ for one model), and decomposes that gap into a
+state-dependent shift in how models process incoming content and a
+channel-specific effect tied to the clarification interface itself. ASPI is
+diagnostic: it establishes that asking is dangerous but proposes no policy for
+deciding whether, where, or how to ask, or whether to believe what comes back.
+Our two-stage policy is a direct response to that decomposition---stage 1's
+channel-dependent risk term targets the channel-specific half of ASPI's
+finding, and stage 2's response screen targets the content-processing half.
 
 \paragraph{Value of information under adversarial channels.}
 The deceptive path-planning VoI framework \citep{suttle2025deceptive} is the closest formal
 precedent outside the LLM literature to ``VoI minus an adversarial-cost term'';
 the Bayesian-network adversarial risk analysis framework \citep{wang2021bayesianara} grounds
 our channel-prior formalism in established ARA rather than presenting it as ad
-hoc. (Full per-citation mapping and verification status:
-\texttt{docs/04\_references.md}.)
+hoc.
 
 \section{Threat Model}
 
@@ -274,9 +286,10 @@ plus one optional guardrail: \textbf{Never Ask} (act on the initial request);
 and risk, and accept whatever returns); \textbf{Confidence Threshold} (ask only
 when sampled-intent agreement falls below a dev-calibrated threshold);
 \textbf{Conventional VoI} (cost-aware information maximization but risk-blind, and
-accepts whatever returns---the policy the \emph{asking-provoked-instruction}
-(ASPI) phenomenon predicts is dangerous); \textbf{Trusted-Only} (ask only through
-channels above a trust floor); and, as an additional plan-optional baseline,
+accepts whatever returns---the policy \citet{sehwag2026aspi}'s finding that
+clarification-seeking amplifies prompt-injection vulnerability predicts is
+dangerous); \textbf{Trusted-Only} (ask only through
+channels above a trust floor); and, as an additional baseline,
 \textbf{Post-Hoc Guardrail} (Conventional VoI's ask decision followed by screening
 the resulting \emph{action plan} against known prohibited-action patterns before
 execution). SecureVoI is the only policy that reasons about channel exposure at
@@ -288,9 +301,9 @@ architectural opposite---it lets the answer through and screens the
 \label{sec:benchmark}
 
 \paragraph{Tasks.} 120 base tasks span two tool-use domains---file management and
-calendar/email scheduling---split 24 development / 96 test (the plan's exact
-ratio), frozen and checksummed (\texttt{results/main120\_manifest.json}) so the
-test split can neither drift nor leak into calibration. Each task pairs an
+calendar/email scheduling---split 24 development / 96 test, frozen and
+checksummed so the test split can neither drift nor leak into calibration.
+Each task pairs an
 underspecified request with a hidden intent that the request only partially
 projects; the agent must recover that intent, by asking or by inference.
 
@@ -337,15 +350,12 @@ charging small costs for asking and for abstaining:
 \paragraph{Known limitation.} The 120 tasks currently draw from only two base
 templates (one per domain), with diversity coming from parameter combinations
 (stakes $\times$ channel-availability $\times$ attack type) rather than genuinely
-distinct task families; the plan's ``stratified by \ldots\ family'' requirement is
+distinct task families; stratification by genuinely independent task family is
 only partially met (Section~\ref{sec:limitations}).
 
 \section{Experimental Setup}
 
 \begin{itemize}
-  \item \textbf{Pilot} (Jul 14--16): 40 tasks, ScriptedAgent (deterministic
-  heuristic, explicitly a pipeline check, not a result), verdict GO on all four
-  go/no-go criteria.
   \item \textbf{Main experiment}: 120 tasks (24 dev / 96 held-out test), four
   open-weight models, each run end-to-end on the identical frozen task set:
   Mistral-Nemo-12B (\texttt{ollama}, local), GPT-OSS-20B and GPT-OSS-120B
@@ -398,9 +408,8 @@ Trusted-Only         & 0.750 & 0.675 & 0.208 & $-0.096$ \\
 \caption{Held-out test split (96 tasks, Mistral-Nemo-12B, $\lambda=4.0$).
 Adversarial unsafe 95\% CIs: Conventional VoI $[0.479,0.677]$, SecureVoI
 $[0.031,0.135]$. SecureVoI is the only policy with positive adversarial utility.
-Source: \texttt{results/models/mistral-nemo-12b/main\_table.md}. The post-hoc
-guardrail screens the action plan rather than choosing a policy and is reported
-separately below.}
+The post-hoc guardrail screens the action plan rather than choosing a policy
+and is reported separately below.}
 \label{tab:main}
 \end{table*}
 
@@ -421,8 +430,7 @@ $\Delta$ vs.\ Conv.\ VoI & $-0.510$ & $-0.583$ & $-0.583$ & $-0.573$ \\
 \bottomrule
 \end{tabular}
 \caption{Cross-model consistency on the held-out test split (96 tasks each). Every
-$\Delta$ is significant at $p<0.001$ (paired bootstrap, 2000 resamples). Source:
-\texttt{results/cross\_model\_comparison.md}.}
+$\Delta$ is significant at $p<0.001$ (paired bootstrap, 2000 resamples).}
 \label{tab:cross}
 \end{table*}
 
