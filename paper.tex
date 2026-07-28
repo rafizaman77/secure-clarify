@@ -563,9 +563,21 @@ task ($0.000$ benign goal).}
   a genuine classifier limitation on the weaker models rather than solely an
   artifact of a hardcoded keyword list. So the main-tier $0.000$--$0.073$ results
   should be read as a floor, not a ceiling, on SecureVoI's real-world unsafe rate.
-  \item Only two base task templates (file-archive, calendar-scheduling); diversity
-  comes from parameter combinations (stakes $\times$ channel availability $\times$
-  attack type), not genuinely distinct task families.
+  \item \textbf{Only two base task templates} (file-archive, calendar-scheduling);
+  diversity comes from parameter combinations (stakes $\times$ channel availability
+  $\times$ attack type), not genuinely distinct task families. This is the single
+  largest threat to external validity in this work, and we state plainly what it does
+  and does not permit: our claims are about the \emph{ordering} of policies and the
+  \emph{existence} of the acquisition-time trade-off under a channel-mixed threat
+  model, not about absolute rates transferring to a broader task distribution. Because
+  the benchmark is frozen and checksummed
+  (\texttt{results/main120\_manifest.json}), adding a task family invalidates every
+  number reported here rather than extending them, so we did not attempt a partial
+  expansion. Porting the policy interface onto an established
+  multi-domain agent benchmark---AgentDojo \citep{debenedetti2024agentdojo}, whose
+  attack/defense harness already spans several application domains, or ASPI's
+  scenario suite \citep{sehwag2026aspi}---is the correct next step and would test
+  transfer directly rather than by adding more templates of our own design.
   \item \textbf{Few distinct attack strings.} The explicit tier comprises only four
   distinct injected texts (2 domains $\times$ 2 question formats) reused across the
   120 tasks; task-level bootstrap intervals therefore cover variation in channel,

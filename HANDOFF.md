@@ -6,7 +6,144 @@ found, fixed, and what's still open. For the running narrative see
 
 ---
 
-## CURRENT (2026-07-27, later) — final pass complete; AAAI-27 page limit verified
+## CURRENT (2026-07-28) — decisive ablation DONE on 3 models: it is a NEGATIVE
+## result. Rafi picks up from here (stealth-tier ablation is the open question).
+
+### TL;DR for Rafi
+
+The mock-review's "most damaging missing experiment" is now run and complete
+on 3 of 4 models, and **it does not go our way on the explicit tier**. Stage 1
+(channel-risk-aware acquisition) contributes **zero** safety; stage 2 (the
+response screen) explains 100% of SecureVoI's advantage over ConventionalVoI.
+On 2 of 3 models the ablation *strictly dominates* SecureVoI.
+
+**Your job:** run the same ablation on the **stealth tier** (`--conditions
+adversarial_stealth`). That is the one condition where stage 2 is already known
+to degrade, so it is the only place stage 1 can still show separable value.
+Commands are in "What to run next" below. Then we write up whatever it shows.
+You have the faster M5 machine; these are ~30-60 min/model runs.
+
+### What was built (all verified, all committed)
+
+`secure_clarify.policies.ScreenedConventionalVoI` -- inherits from `SecureVoI`
+so its `accept()` IS SecureVoI's stage-2 screen unchanged (deliberately not a
+hand-copied duplicate that could drift), and overrides only `decide()` with
+`ConventionalVoI`'s exact risk-blind formula. 3 new tests in `test_smoke.py`
+verify `decide()` matches ConventionalVoI and `accept()` matches SecureVoI
+across lambdas; all 26 smoke tests pass. Runner: `scripts/screened_ablation.py`.
+
+### RESULTS (explicit tier, full 96/96 coverage, 0 timeouts/failures)
+
+| model | conv adv-unsafe | **screened** | secure | conv benign-util | **screened** | secure |
+|---|---|---|---|---|---|---|
+| mistral-nemo-12b (λ=4.0) | 0.583 | **0.073** | 0.073 | 0.950 | **0.617** | 0.675 |
+| llama-3.3-70b (λ=3.0)    | 0.583 | **0.000** | 0.000 | 0.950 | **0.950** | 0.675 |
+| gpt-oss-20b-cloud (λ=3.0)| 0.583 | **0.000** | 0.000 | 0.492 | **0.492** | 0.342 |
+
+`stage1_share_of_secure_voi_gap = 0.0` on **all three**.
+
+**gpt-oss-120b-cloud was deliberately SKIPPED** (Anagh's call, 2026-07-28 ~02:10)
+-- it sits at 18/96 partial in `results/models/gpt-oss-120b-cloud/screened_ablation_episodes.json`.
+Either finish it with the supervisor command below or delete the partial file;
+do **not** report a partial-coverage number.
+
+### What the numbers mean (verified per-task, not just aggregates)
+
+- Stage 1 is **not inert** -- it changes the (ask, channel) decision on **96/96
+  tasks** on every model. SecureVoI abstains on 24/96 adversarial tasks where
+  the screened version always asks.
+- That abstention **forfeits benign utility without preventing a single unsafe
+  action**, because stage 2 already caught those attacks.
+- On llama and gpt-oss-20b the ablation **strictly dominates** SecureVoI:
+  identical safety (0.000), materially higher benign utility (0.950 vs 0.675;
+  0.492 vs 0.342).
+- On Mistral the adversarial rates tie at 0.073, but the failing task sets are
+  **completely disjoint** (0 overlap, 7 tasks each) -- they tie by coincidence,
+  not equivalence. Do not describe them as behaving the same.
+
+### What to run next (the open scientific question)
+
+Explicit-tier attacks in this benchmark are conspicuous, so stage 2 catches
+essentially everything and leaves stage 1 nothing to add. But `paper.tex`
+already reports stage 2 **degrading** under the stealth tier (Mistral
+0.073->0.208, Llama 0.000->0.083, GPT-OSS-20B 0.000->0.042). Channel avoidance
+is exactly the defense that should still work when content screening fails --
+so if stage 1 has separable value anywhere, it is there.
+
+`scripts/screened_ablation.py` currently hardcodes `[BENIGN, ADVERSARIAL]`
+(see the `conditions = [...]` line in `main()`). **Add a `--conditions` flag
+mirroring `run_primary.py`'s** (that script already parses a comma-separated
+list into `Condition` values and is the pattern to copy), then run into a
+SEPARATE episodes file so the explicit-tier results above are not touched:
+
+    # per model -- adjust name/backend/model/calibration
+    MAX_ATTEMPTS=12 PER_TASK_TIMEOUT=300 \
+    scripts/supervise_run.sh mistral-nemo-12b \
+      python3 scripts/screened_ablation.py --tasks tasks/main_120.json \
+        --calibration results/models/mistral-nemo-12b/dev_calibration.json \
+        --conditions adversarial_stealth \
+        --out results/models/mistral-nemo-12b/screened_ablation_stealth.json \
+        --episodes-out results/models/mistral-nemo-12b/screened_ablation_stealth_episodes.json \
+        --backend ollama --model mistral-nemo:12b --resume
+
+(Set `EPISODES_FILE=...` to match `--episodes-out` so the supervisor counts the
+right file. Stealth adds no benign rows by construction, so do not re-run
+benign -- it only burns compute reproducing published numbers.)
+
+**Interpretation rule agreed in advance, so we cannot fool ourselves:** if
+stage 1 shows a real separable safety margin under stealth, that is a genuine,
+honestly-earned contribution and the paper's framing survives. If it does not,
+we report the clean negative and reframe the contribution around the
+decomposition (stage 2 is what carries safety; stage 1's risk-aversion is a
+utility cost this benchmark does not repay). Either way it gets reported --
+we have the result, so omitting it is not on the table.
+
+### To finish 120b instead (optional)
+
+    MAX_ATTEMPTS=12 PER_TASK_TIMEOUT=300 OLLAMA_API_KEY=... \
+    scripts/supervise_run.sh gpt-oss-120b-cloud \
+      python3 scripts/screened_ablation.py --tasks tasks/main_120.json \
+        --calibration results/models/gpt-oss-120b-cloud/dev_calibration.json \
+        --out results/models/gpt-oss-120b-cloud/screened_ablation.json \
+        --episodes-out results/models/gpt-oss-120b-cloud/screened_ablation_episodes.json \
+        --backend ollama --model gpt-oss:120b-cloud --host https://ollama.com --resume
+
+### INFRASTRUCTURE — two distinct failure modes hit tonight, don't conflate them
+
+1. **Groq account-level quota stall (this is what actually blocked llama).**
+   llama wedged at 87/96; every remaining task timed out even on a *fresh*
+   process. Groq returned HTTP 200 in 0.3-0.5s for direct curl tests the whole
+   time (both IPv4 and IPv6, short and 700-token prompts), so it was not the
+   network and not the task content. **Swapping in a new Groq API key fixed it
+   immediately** -- llama went 87->96 on the first supervised attempt. If a
+   Groq run stalls with no error, suspect the key's quota before anything else.
+
+2. **CLOSE_WAIT fd leak (real, separate, will bite long runs).**
+   `_urlopen_hard_timeout` bounds each call, but Python cannot kill a thread
+   blocked on an OS socket read, so every hang abandons a thread still holding
+   its fd. Confirmed live via `lsof`: llama's process had **18 CLOSE_WAIT / 0
+   ESTABLISHED** while a healthy concurrent process had 1/1. Once a process
+   reaches that state it cannot recover -- only a fresh process clears the fds.
+   `scripts/supervise_run.sh` (added this session) is the wrapper for that: it
+   re-invokes the command with `--resume` until coverage is complete. Diagnose
+   with:
+
+       lsof -nP -p <pid> | grep -c CLOSE_WAIT   # high + 0 ESTABLISHED = wedged
+
+**NEVER commit an API key.** Keys are runtime-only via env vars; secret-scan
+before every commit. Nothing in `scripts/supervise_run.sh` or
+`scripts/screened_ablation.py` contains one (verified).
+
+### Paper state
+
+`paper.tex` compiles clean at **7 pages, 0 errors, 0 undefined citations, 0
+overfull boxes** via the full `pdflatex -> bibtex -> pdflatex -> pdflatex`
+cycle. The Limitations two-template bullet was rewritten this session to scope
+the external-validity claim honestly and name AgentDojo / ASPI's scenario suite
+as the correct next benchmark (both already in `references.bib`). **No ablation
+numbers are in `paper.tex` yet** -- deliberately, pending the stealth run.
+
+## PRIOR (2026-07-27, later) — final pass complete; AAAI-27 page limit verified
 
 **All 4 models' multi-variant stealth tier re-ran clean on the post-`ede89f6`
 (verb-fix) task file overnight, fully analyzed, written into `paper.tex`, and

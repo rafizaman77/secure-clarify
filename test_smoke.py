@@ -4,7 +4,7 @@ from secure_clarify.agent import ScriptedAgent, OpenModelAgent, CachingAgent
 from secure_clarify.policies import (NeverAsk, AlwaysAsk, ConfidenceThreshold,
                                      ConventionalVoI, TrustedOnly, SecureVoI,
                                      SecureVoIOracle, ChannelHeuristic,
-                                     MAIN_POLICIES)
+                                     ScreenedConventionalVoI, MAIN_POLICIES)
 from secure_clarify.runner import run_episode, run_grid, summarize
 from secure_clarify.guardrail import PostHocGuardrail, run_posthoc_grid, screen_plan
 from secure_clarify.schema import Condition, Channel, load_task
@@ -217,6 +217,74 @@ def test_secure_voi_oracle_matches_ground_truth():
                 found_benign_like = True
     assert found_attack and found_benign_like, "fixture should contain both cases"
     print("[ok] SecureVoIOracle reads ground-truth carries_attack correctly")
+
+
+def test_screened_conventional_voi_decide_matches_conventional():
+    """Decisive-ablation policy (Jul 27-28): its decide() must be BYTE-IDENTICAL
+    to ConventionalVoI's -- same (question, channel) pick, same rationale VoI
+    value -- for every lam, since stage 1 here is deliberately risk-blind and
+    must not depend on lambda at all. If this ever diverges, the ablation is
+    no longer isolating stage 1 as intended."""
+    tasks = build_pilot(20)
+    agent = ScriptedAgent()
+    conv = ConventionalVoI()
+    for lam in [0.0, 1.0, 3.0, 4.0, 8.0]:
+        screened = ScreenedConventionalVoI(lam=lam)
+        for t in tasks:
+            d_conv = conv.decide(t, agent)
+            d_screened = screened.decide(t, agent)
+            assert d_screened.ask == d_conv.ask, (t.task_id, lam)
+            if d_conv.ask:
+                assert d_screened.question.qid == d_conv.question.qid, (t.task_id, lam)
+                assert d_screened.channel == d_conv.channel, (t.task_id, lam)
+                # both rationales embed the identical "VoI=X.XXX" value
+                assert d_screened.rationale.split("(")[0] == d_conv.rationale.split("(")[0], \
+                    (t.task_id, lam, d_screened.rationale, d_conv.rationale)
+    print("[ok] ScreenedConventionalVoI.decide() matches ConventionalVoI.decide() "
+          "exactly, independent of lam")
+
+
+def test_screened_conventional_voi_accept_matches_secure_voi():
+    """Its accept() must be BYTE-IDENTICAL to SecureVoI's -- inherited, not a
+    hand-copied duplicate -- so the ablation's stage 2 cannot silently drift
+    from the real thing it is supposed to reuse unchanged."""
+    tasks = build_pilot(20)
+    agent = ScriptedAgent()
+    for lam in [0.0, 1.0, 3.0, 4.0, 8.0]:
+        secure = SecureVoI(lam=lam)
+        screened = ScreenedConventionalVoI(lam=lam)
+        checked = 0
+        for t in tasks:
+            for q in t.candidate_questions:
+                for c in t.available_channels:
+                    for r in t.responses:
+                        if r.qid != q.qid or r.channel != c:
+                            continue
+                        a_secure = secure.accept(t, q, c, r.text, agent)
+                        a_screened = screened.accept(t, q, c, r.text, agent)
+                        assert a_secure == a_screened, (t.task_id, lam, q.qid, c)
+                        checked += 1
+        assert checked > 0
+    print("[ok] ScreenedConventionalVoI.accept() matches SecureVoI.accept() exactly "
+          "(inherited, not duplicated)")
+
+
+def test_screened_conventional_voi_no_worse_than_conventional_on_adversarial():
+    """Stage 2 can only refuse responses ConventionalVoI would blindly accept,
+    never the reverse (ConventionalVoI has no gate at all) -- so on the SAME
+    adversarial tasks, the screened ablation's unsafe rate must be <= plain
+    ConventionalVoI's. This is the structural floor the real ablation numbers
+    (run via scripts/screened_ablation.py against real models) must respect."""
+    tasks = build_pilot(20)
+    agent = ScriptedAgent()
+    eps = run_grid(tasks, [ConventionalVoI(), ScreenedConventionalVoI(lam=1.0)], agent,
+                   conditions=[Condition.ADVERSARIAL])
+    tb = summarize(eps)
+    conv_unsafe = tb["conventional_voi|adversarial"]["unsafe_rate"]
+    screened_unsafe = tb["screened_conventional_voi|adversarial"]["unsafe_rate"]
+    assert screened_unsafe <= conv_unsafe, (screened_unsafe, conv_unsafe)
+    print(f"[ok] screened ablation unsafe_rate ({screened_unsafe:.2f}) <= "
+          f"ConventionalVoI's ({conv_unsafe:.2f}) on adversarial tasks")
 
 
 def test_posthoc_guardrail_drops_unsafe_actions():
@@ -558,6 +626,9 @@ if __name__ == "__main__":
     test_always_ask_always_asks()
     test_confidence_threshold_boundary()
     test_secure_voi_oracle_matches_ground_truth()
+    test_screened_conventional_voi_decide_matches_conventional()
+    test_screened_conventional_voi_accept_matches_secure_voi()
+    test_screened_conventional_voi_no_worse_than_conventional_on_adversarial()
     test_posthoc_guardrail_drops_unsafe_actions()
     test_screen_plan_matches_safety_verifier()
     test_every_prohibited_pattern_reachable()
