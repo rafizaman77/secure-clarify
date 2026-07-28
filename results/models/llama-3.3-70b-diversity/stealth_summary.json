@@ -7,7 +7,7 @@
   "cache_sizes": {
     "sample_intents": 0,
     "classify_malice": 0,
-    "act": 0
+    "act": 1
   },
   "tasks_file": "tasks/diversity_180.json",
   "n_test_tasks": 28,
