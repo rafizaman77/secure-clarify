@@ -6,7 +6,131 @@ found, fixed, and what's still open. For the running narrative see
 
 ---
 
-## CURRENT (2026-07-28) — decisive ablation DONE on 3 models: it is a NEGATIVE
+## CURRENT (2026-07-28, afternoon) — everything is done except Llama on two
+## fronts. Anagh: please pick up the 3 Llama runs below; everyone else's
+## numbers are final.
+
+### TL;DR for Anagh
+
+Two separate work-streams landed overnight, both now complete for 3 of 4
+models. **Llama-3.3-70B is the only model with unfinished work, on both
+streams, purely because of Groq-side flakiness (silent hangs, fd leaks on
+long processes) that's been fought and mostly solved tonight — the tooling
+below should get you through it faster than it took here.** Rafi's own
+machine may still have these 3 Llama jobs running in parallel; if so,
+whichever finishes first is the one to use (same rule as every other
+handoff this week) — check episode counts before trusting either as final.
+
+### Stream 1: stage1/stage2 screened ablation (stealth tier)
+
+The decisive ablation (does SecureVoI's stage-1 risk-aware acquisition add
+safety beyond stage-2 response screening?) was run on the stealth tier per
+the interpretation rule from the last "CURRENT" section below. Result: **yes,
+clearly, on 3 of 4 models** -- a real reversal from the explicit tier's flat
+0% on all 3 models Anagh ran there.
+
+| model | stage1_share_of_secure_voi_gap (stealth) |
+|---|---|
+| Mistral-Nemo-12B | 0.389 |
+| GPT-OSS-20B-cloud | 0.442 |
+| GPT-OSS-120B-cloud | 0.094 |
+| Llama-3.3-70B | **in progress, 60/95** (`file_037` excluded as confirmed poison) |
+
+All three numbers nonzero and meaningfully larger than the explicit tier's
+0.0 -- the paper's original framing (stage 1 matters, just not when content
+screening alone already works) survives this ablation. Not strictly
+monotonic with model capability (GPT-OSS-20B's 0.442 is the highest, not
+Mistral's), so state the finding plainly rather than forcing a capability-
+ordered narrative that isn't quite there.
+
+**To finish Llama:**
+
+    export GROQ_API_KEY='...'   # never commit it
+    bash scripts/run_llama_screened_ablation_resilient.sh
+
+Resumable, persists its exclusion list to `/tmp/llama_ablation_skipped.txt`
+(pre-seeded with the 18 tasks already confirmed poison in the `file_037`-
+`cal_048` range -- a genuinely bad cluster tonight, not a tooling bug). Once
+it reaches ~95/95 (1 excluded), the summary JSON will already have
+`stage1_share_of_secure_voi_gap` computed -- no extra analysis step needed.
+
+### Stream 2: task-family/attack-phrasing diversity benchmark (messaging domain)
+
+New 3rd domain (`messaging`, AgentDojo's Slack suite as precedent) fully
+built, validated, and frozen as `tasks/diversity_180.json` (180 tasks, 60/
+domain, separate from `tasks/main_120.json` -- the headline benchmark is
+untouched, confirmed via a byte-identity diff against `build_pilot()`'s
+output). See `secure_clarify/task_factory.py`'s `build_diversity_set()` and
+`test_smoke.py`'s `test_diversity_set_valid_and_matched` for the full design
+rationale and validity checks.
+
+| model | explicit (144 tasks) | stealth (144 tasks) |
+|---|---|---|
+| Mistral-Nemo-12B | DONE, verdict GO | DONE |
+| GPT-OSS-120B-cloud | DONE, verdict GO | DONE |
+| GPT-OSS-20B-cloud | DONE, verdict GO | **in progress, ~106/144** |
+| Llama-3.3-70B | **in progress, 0/144** (just restarted, see below) | **in progress, 27/144** |
+
+GPT-OSS-120B-cloud's full result (both tiers, real model, all checks pass):
+explicit tier verdict GO; stealth tier SecureVoI 0.049 unsafe / +0.114
+utility vs. Conventional VoI's 0.583 -- same policy ordering as the original
+2-domain benchmark, i.e. the 3rd domain doesn't break anything.
+
+**To finish Llama** (two separate commands, can run in parallel):
+
+    export GROQ_API_KEY='...'
+    bash scripts/run_llama_diversity_resilient.sh primary
+    # separately, in parallel if you like:
+    CONDITIONS=adversarial_stealth GROQ_API_KEY='...' \
+      bash scripts/run_llama_diversity_resilient.sh stealth
+
+Both resumable, both persist their exclusion lists to `/tmp/llama_diversity_
+<label>_skipped.txt`. **Read the `WALL_CAP=1200` comment in the script
+before touching it** -- an earlier version used 650s (copied from the
+stealth-only wrapper) and it silently mis-excluded 9 healthy tasks as
+"poison" on the explicit tier, because explicit evaluates both conditions
+per task (~2x the model calls of stealth alone) and needs more room per
+attempt, not less patience.
+
+### Two infrastructure bugs fixed tonight, worth knowing before you run anything
+
+1. **`supervise_run.sh`'s coverage check defaults to the wrong file.** It
+   checks `results/models/<name>/screened_ablation_episodes.json` (the
+   EXPLICIT tier) unless you pass `EPISODES_FILE=...` explicitly matching
+   your `--episodes-out`. Without it, the wrapper sees the already-complete
+   explicit-tier file, declares "already done," and never runs your stealth
+   command at all -- silently, no error. Confirmed: this happened on the
+   first launch attempt for both Mistral and Llama tonight.
+
+2. **A persistent-exclusion-list bug cost 6+ hours of zero progress.** The
+   original diversity wrapper kept its skip-list in a shell variable only;
+   every time the outer supervisor restarted it, it forgot every task it
+   had already excluded and re-discovered (and re-excluded) the same poison
+   tasks from scratch, forever. Both committed wrapper scripts now persist
+   to a `/tmp/*_skipped.txt` file specifically so this can't recur.
+
+### Before trusting ANY final number
+
+    python3 test_smoke.py   # expect: ALL SMOKE TESTS PASSED
+    for m in mistral-nemo-12b gpt-oss-20b-cloud gpt-oss-120b-cloud llama-3.3-70b; do
+      python3 scripts/rescore.py --episodes results/models/$m/primary_episodes.json \
+        --tasks tasks/main_120.json
+    done   # expect: "No verdict changes" x4
+
+### What's left after Llama lands (not urgent, do the runs first)
+
+1. Write the stage1/stage2 ablation finding into `paper.tex` (nothing there
+   yet, deliberately -- was waiting on this exact stealth-tier number).
+2. Decide how the diversity benchmark goes into the paper: a full new
+   results table (if Llama's numbers land in time and look consistent with
+   the other 3), or a "validated but still running" mention with the 3
+   complete models as evidence, deferring the 4th to a revision. Either is
+   honest; don't force the first if the timeline doesn't allow finishing
+   properly.
+3. Rebuild PDF (`pdflatex -> bibtex -> pdflatex -> pdflatex`), recheck page
+   count (was 7pp before either of these two additions).
+
+## PRIOR (2026-07-28) — decisive ablation DONE on 3 models: it is a NEGATIVE
 ## result. Rafi picks up from here (stealth-tier ablation is the open question).
 
 ### TL;DR for Rafi

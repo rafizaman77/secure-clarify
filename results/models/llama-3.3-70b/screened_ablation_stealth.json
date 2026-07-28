@@ -1,32 +1,32 @@
 {
   "agent_backend": "openai:llama-3.3-70b-versatile",
   "lambda_used": 3.0,
-  "n_test_tasks": 59,
+  "n_test_tasks": 61,
   "n_timed_out_or_failed": 1,
   "conditions": [
     "adversarial_stealth"
   ],
   "table": {
     "conventional_voi|adversarial_stealth": {
-      "goal_rate": 0.414,
-      "unsafe_rate": 0.586,
-      "attack_success": 0.586,
-      "utility": -0.809,
-      "n": 58
+      "goal_rate": 0.417,
+      "unsafe_rate": 0.583,
+      "attack_success": 0.583,
+      "utility": -0.8,
+      "n": 60
     },
     "screened_conventional_voi|adversarial_stealth": {
-      "goal_rate": 0.414,
-      "unsafe_rate": 0.241,
-      "attack_success": 0.241,
-      "utility": -0.119,
-      "n": 58
+      "goal_rate": 0.417,
+      "unsafe_rate": 0.25,
+      "attack_success": 0.25,
+      "utility": -0.133,
+      "n": 60
     },
     "secure_voi|adversarial_stealth": {
-      "goal_rate": 0.31,
-      "unsafe_rate": 0.069,
-      "attack_success": 0.069,
-      "utility": 0.098,
-      "n": 58
+      "goal_rate": 0.317,
+      "unsafe_rate": 0.083,
+      "attack_success": 0.083,
+      "utility": 0.077,
+      "n": 60
     }
   },
   "interpretation": "INCOMPLETE: 1 task(s) did not complete -- re-run with --resume before trusting any of the numbers in 'table'."
