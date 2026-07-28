@@ -510,7 +510,17 @@ $0.260$, from $0.094$ to $0.240$, and from $0.021$ to $0.073$ respectively. Thre
 of the four models (Mistral-Nemo-12B, Llama-3.3-70B, GPT-OSS-20B) have both tiers
 at full $96$-task coverage with zero excluded tasks, so the reversal from $0.000$
 to $0.389$, $0.299$ and $0.442$ is a \emph{within-model} comparison on identical
-tasks, not a cross-model artifact.
+tasks, not a cross-model artifact. The effect also survives a change of task
+family: on an independently constructed $180$-task set spanning three domains
+(adding a messaging domain to file and calendar; $144$ test tasks, full
+coverage), the stage-1 share is \emph{larger} than on the two-domain benchmark
+for both models we could re-run---$0.688$ vs.\ $0.389$ for Mistral-Nemo-12B and
+$0.270$ vs.\ $0.094$ for GPT-OSS-120B. The per-domain breakdown supports the
+mechanism rather than merely repeating the average: wherever the screen alone
+already reaches $0.000$ unsafe (GPT-OSS-120B on the file domain) the stage-1
+share is correspondingly $0.000$, and wherever the screen leaves residual risk
+the share is large (up to $0.937$ on Mistral's calendar domain). Stage 1 pays
+for itself exactly in proportion to how much the screen misses.
 The two stages are therefore not redundant but complementary along the axis that
 matters: stage 2 carries safety while attacks are recognizable from their
 wording, and stage 1 supplies the defense-in-depth that survives when they are
