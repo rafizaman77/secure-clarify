@@ -513,11 +513,12 @@ to $0.389$, $0.299$ and $0.442$ is a \emph{within-model} comparison on identical
 tasks, not a cross-model artifact. The effect also survives a change of task
 family: on an independently constructed $180$-task set spanning three domains
 (adding a messaging domain to file and calendar; $144$ test tasks, full
-coverage), stage 1 retains a substantial share of the gap in every model
-re-run: $0.688$ (vs.\ $0.389$ on the two-domain benchmark) for
-Mistral-Nemo-12B, $0.270$ (vs.\ $0.094$) for GPT-OSS-120B, and $0.206$ (vs.\
-$0.299$) for Llama-3.3-70B. The direction of change is mixed---two models
-increase, one decreases---so we claim only that the effect \emph{persists}
+coverage), stage 1 retains a substantial share of the gap in \emph{all four}
+models: $0.688$ (vs.\ $0.389$ on the two-domain benchmark) for
+Mistral-Nemo-12B, $0.448$ (vs.\ $0.442$) for GPT-OSS-20B, $0.270$ (vs.\
+$0.094$) for GPT-OSS-120B, and $0.206$ (vs.\ $0.299$) for Llama-3.3-70B. The
+direction of change is mixed---two rise substantially, one is essentially
+unchanged, and one falls---so we claim only that the effect \emph{persists}
 under a change of task family, not that it uniformly grows. The per-domain
 breakdown supports the
 mechanism rather than merely repeating the average: wherever the screen alone
