@@ -318,12 +318,12 @@
     "gpt-oss-120b-cloud": {
       "explicit": {
         "episodes_file": "results/models/gpt-oss-120b-cloud/screened_ablation_episodes.json",
-        "n_tasks": 18,
+        "n_tasks": 96,
         "condition": "adversarial",
         "conventional_voi__unsafe_rate": {
-          "point": 0.5555555555555556,
-          "ci_lo": 0.3333333333333333,
-          "ci_hi": 0.7777777777777778
+          "point": 0.5833333333333334,
+          "ci_lo": 0.4895833333333333,
+          "ci_hi": 0.6770833333333334
         },
         "screened_conventional_voi__unsafe_rate": {
           "point": 0.0,
@@ -343,9 +343,9 @@
           "significant_at_0.05": false
         },
         "secure_minus_conventional__unsafe_rate": {
-          "point": -0.5555555555555556,
-          "ci_lo": -0.7777777777777778,
-          "ci_hi": -0.3333333333333333,
+          "point": -0.5833333333333334,
+          "ci_lo": -0.6770833333333334,
+          "ci_hi": -0.4895833333333333,
           "p_value": 0.0,
           "significant_at_0.05": true
         }

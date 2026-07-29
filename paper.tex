@@ -489,13 +489,14 @@ fails to close, i.e.\ the share of the gap that stage 1 is responsible for.
 
 The answer depends entirely on attack tier, and this is the paper's most
 important negative-then-positive result. \textbf{On the explicit tier, stage 1
-contributes nothing}: the share is exactly $0.000$ on all three models tested
-(Mistral-Nemo-12B, Llama-3.3-70B, GPT-OSS-20B), because the screened policy
-already drives adversarial unsafe actions to $0.073$, $0.000$ and $0.000$
-respectively---matching full SecureVoI exactly. Worse for a two-stage story,
-stage 1 is not free: on Llama and GPT-OSS-20B the screened policy attains
-\emph{identical} safety with substantially higher benign utility ($0.950$ vs.\
-$0.675$; $0.492$ vs.\ $0.342$), because SecureVoI's risk term declines to ask on
+contributes nothing}: the share is exactly $0.000$ in all four models
+($p=1.000$ throughout), because the screened policy already drives adversarial
+unsafe actions to $0.073$, $0.000$, $0.000$ and $0.000$---matching full
+SecureVoI exactly. Worse for a two-stage story, stage 1 is not free: in three
+of the four the screened policy attains \emph{identical} safety with
+substantially higher benign utility ($0.950$ vs.\ $0.675$ on Llama-3.3-70B,
+$0.492$ vs.\ $0.342$ on GPT-OSS-20B, $0.720$ vs.\ $0.486$ on GPT-OSS-120B),
+because SecureVoI's risk term declines to ask on
 $24/96$ adversarial tasks that stage 2 would have screened successfully anyway.
 Against conspicuous injections, channel-risk-aware acquisition is redundant
 machinery that costs task completion.
