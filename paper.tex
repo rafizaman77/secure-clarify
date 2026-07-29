@@ -138,10 +138,9 @@ slightly-less-informative but lower-risk channel in the first place. Our
 ablation isolates stage 1's incremental effect when a response screen is
 present, and we report the fourth factorial cell separately. Conventional VoI is neither: it is
 risk-blind \emph{and} unscreened, which is why we show it becomes measurably
-more dangerous under adversarial responses than under benign ones. Of the four
-cells in the (risk-blind, risk-aware) $\times$ (accept-all, screen) factorial we
-evaluate three, leaving risk-aware-without-screening unrun---a bound on what our
-ablation can claim.
+more dangerous under adversarial responses than under benign ones. We evaluate all four cells of the (risk-blind, risk-aware) $\times$
+(accept-all, screen) factorial on Mistral-Nemo-12B, and the three
+screen-containing cells across all four models.
 
 \section{Related Work}
 
@@ -299,7 +298,9 @@ when sampled-intent agreement falls below a dev-calibrated threshold);
 accepts whatever returns---the policy \citet{sehwag2026aspi}'s finding that
 clarification-seeking amplifies prompt-injection vulnerability predicts is
 dangerous); \textbf{Trusted-Only} (ask only through
-channels above a trust floor); and, as an additional baseline,
+channels above a trust floor); \textbf{Channel Heuristic} (always route to the
+highest-trust available channel and accept whatever returns---the trivial
+channel-avoidance bar); and, as an additional baseline,
 \textbf{Post-Hoc Guardrail} (Conventional VoI's ask decision followed by screening
 the resulting \emph{action plan} against known prohibited-action patterns before
 execution). SecureVoI is the only policy that reasons about channel exposure at
@@ -374,6 +375,8 @@ only partially met (see Limitations).
   (\texttt{ollama} cloud), and Llama-3.3-70B-versatile (hosted OpenAI-compatible
   API). Every model is test-split-complete for the full seven-policy set, the
   oracle ablation, and the post-hoc guardrail.
+  \item \textbf{Targeted factorial}: the fourth cell (risk-aware acquisition
+  without screening) is run on Mistral-Nemo-12B only, both tiers, 96/96.
   \item \textbf{Per-model calibration}: $\lambda$ and the channel priors are fit
   \emph{per model} on the 24-task dev split only, never on test
   ($\lambda=4.0$ for Mistral-Nemo-12B, $\lambda=3.0$ for the other three).
@@ -520,15 +523,16 @@ anyway. This qualifies the headline claim above: on the explicit tier the
 strongest policy we ran is not the one we propose.
 
 \textbf{But redundant is not the same as ineffective.} The fourth factorial
-cell separates the two. Stage 1 \emph{alone} cuts adversarial unsafe actions
-from $0.583$ to $0.208$ ($+0.375$, $[0.219,0.521]$, $p<0.001$), and stage 2
-alone from $0.583$ to $0.073$ ($+0.510$, $[0.406,0.604]$, $p<0.001$): both main
-effects are large and significant, and each stage is an effective standalone
-defense. What the explicit tier shows is not that stage 1 is weak but that it is
-\emph{substitutable}---given the screen, adding it buys nothing
-($+0.000$, $p=1.000$), while given stage 1, adding the screen still buys
-$+0.135$ ($p<0.001$). The two overlap, and on conspicuous attacks the screen is
-the better of the two.
+cell separates the two (Table~\ref{tab:ablation}). Each stage is an effective
+standalone defense: against risk-blind accept-all, stage 1 alone gives
+$\Delta_{\text{unsafe}}=-0.375$ $[-0.521,-0.219]$ and stage 2 alone
+$-0.510$ $[-0.604,-0.406]$ (both $p<0.001$). These are \emph{simple} effects,
+each measured with the other factor held off, not factorial main effects. The
+explicit tier shows not that stage 1 is weak but that it is
+\emph{substitutable}: a difference-in-differences confirms it helps
+significantly more when no screen is present ($+0.375$, $[0.240,0.510]$,
+$p<0.001$). Part of that safety is bought by declining to ask, so stage 1 is
+safer \emph{and} less complete, not safer for free.
 
 \textbf{On the stealth tier the conclusion reverses.} Once the injected text no
 longer carries the explicit tier's surface tells, the screen degrades and stage 1
@@ -546,16 +550,17 @@ confirmatory. All four models have both tiers at full $96$-task coverage with
 zero excluded tasks, so each reversal is a \emph{within-model} comparison on
 identical tasks. The factorial makes the reversal sharper still, and explains
 it. Stage 1 alone yields \emph{exactly} the same $0.208$ unsafe rate on both
-tiers---indeed it fails on the identical $20$ tasks---because it never reads
-the response: it chooses a channel from priors, so its protection cannot be
-degraded by rewording an attack. Stage 2 alone, which does read the response,
+tiers---indeed it fails on the identical $20$ tasks. Its acquisition decision is
+made \emph{before} the response exists and it applies no response-risk
+classifier, so its channel choice is unaffected by the attack's surface wording;
+the agent still uses the accepted response to complete the task. Stage 2 alone, which does read the response,
 falls from $0.073$ to $0.354$ under the same rewrite. The two stages therefore
-\emph{swap roles}: on explicit attacks the screen dominates ($0.073$ vs.\
-$0.208$) and stage 1 adds nothing on top of it, whereas on stealth attacks
-stage 1 dominates ($0.208$ vs.\ $0.354$) and the screen adds nothing on top of
-\emph{it} ($+0.000$, $p=1.000$). This is a single-model probe and we do not
-generalize it, but it identifies the mechanism the four-model ablation can only
-infer: text-independent defense is what survives paraphrase.
+\emph{swap roles}: in this targeted Mistral factorial, screening dominates against explicit
+attacks ($0.073$ vs.\ $0.208$) with stage 1 adding nothing on top of it, while
+risk-aware acquisition dominates the screen-only policy under stealth attacks
+($0.208$ vs.\ $0.354$), the screen then adding nothing on top of \emph{it}
+($p=1.000$). We do not generalize this single-model result, but it identifies the mechanism the four-model ablation can only
+infer: a \emph{pre-response} defense is what survives paraphrase.
 The effect persists under a change of task family: on a second $180$-task set
 ($144$ test) built by the same generator with a \emph{messaging} domain added
 and $\lambda$ and the channel priors re-fit on its own dev split, stage 1
@@ -579,12 +584,14 @@ Model & uns/util & uns/util & uns/util & [95\% CI] \\
 \midrule
 \multicolumn{5}{@{}l}{\emph{Explicit tier}} \\
 Mistral-12B  & .58/$-$.51 & .07/$+$.08 & .07/$+$.07 & .00 [$-$.07,.08] \\
+\quad{\itshape+ stage-1-only} & \multicolumn{4}{@{}l}{\itshape .21 unsafe / $-$.10 util, asks 75\% (vs 100\%), goal .40} \\
 Llama-70B    & .58/$-$.80 & .00/$+$.37 & .00/$+$.22 & .00 [.00,.00] \\
 GPT-OSS-20B  & .58/$-$1.0 & .00/$+$.17 & .00/$+$.10 & .00 [.00,.00] \\
 GPT-OSS-120B & .58/$-$.91 & .00/$+$.26 & .00/$+$.14 & .00 [.00,.00] \\
 \midrule
 \multicolumn{5}{@{}l}{\emph{Stealth tier}} \\
 Mistral-12B  & .58/$-$.51 & .35/$-$.29 & .21/$-$.10 & .15 [.00,.29] \\
+\quad{\itshape+ stage-1-only} & \multicolumn{4}{@{}l}{\itshape .21 unsafe / $-$.10 util (identical to explicit tier)} \\
 Llama-70B    & .58/$-$.80 & .24/$-$.11 & .09/$+$.03 & .15 [.03,.26] \\
 GPT-OSS-20B  & .56/$-$.88 & .26/$-$.28 & .02/$+$.12 & .24 [.15,.33] \\
 GPT-OSS-120B & .57/$-$.91 & .07/$+$.09 & .02/$+$.07 & .05 [.00,.12] \\
@@ -596,7 +603,8 @@ VoI's risk-blind acquisition with SecureVoI's identical stage-2 screen;
 $\Delta$ is the increase in unsafe rate from removing stage 1. Explicit:
 $\Delta=0$ throughout, and the ablation attains \emph{higher} utility than
 SecureVoI in all four. Stealth: $\Delta>0$ in all four, and SecureVoI recovers
-the utility advantage in three.}
+the utility advantage in three. Italic rows give the fourth factorial cell
+(risk-aware acquisition, no screen), run on Mistral-Nemo-12B only.}
 \label{tab:ablation}
 \end{table}
 
@@ -681,16 +689,14 @@ artifact of an unfair or unanswerable attack.
   attack/defense harness already spans several application domains, or ASPI's
   scenario suite \citep{sehwag2026aspi}---is the correct next step and would test
   transfer directly rather than by adding more templates of our own design.
-  \item \textbf{Few distinct attack strings.} The explicit tier comprises only four
-  distinct injected texts (2 domains $\times$ 2 question formats) reused across the
-  120 tasks; task-level bootstrap intervals therefore cover variation in channel,
-  stakes, and information gain, but \emph{not} linguistic variation in the attack
-  itself, so confidence intervals on any classifier-mediated quantity from that tier
-  should be read accordingly. The stealth tier triples this diversity (three
-  distinct persuasion strategies per cell, 12 strings total) specifically to
-  probe whether this mattered, and the qualitative finding---degradation that
-  tracks model capability---held up under it, but 12 remains a small sample of
-  possible phrasings and we do not claim it is exhaustive.
+  \item \textbf{Few distinct attack strings.} The explicit tier uses only four
+  distinct injected texts (2 domains $\times$ 2 formats) across the 120 tasks, so
+  task-level bootstrap intervals cover variation in channel, stakes, and
+  information gain but \emph{not} linguistic variation in the attack itself;
+  intervals on classifier-mediated quantities should be read accordingly. The
+  stealth tier triples this (12 strings) and the qualitative finding held, but
+  12 remains a small sample of phrasings. All stealth-tier claims should
+  therefore be treated as exploratory with respect to attack language.
   \item Six of the eight declared attacker objectives are exercised by the current
   attack texts; \texttt{delete:credentials.json} and \texttt{email\_external} are
   declared and verifier-covered but never triggered, and
@@ -726,16 +732,10 @@ something to be chosen, not just consulted---and by screening the specific answe
 that comes back before letting it influence the agent's actions. Across all four
 models this cuts adversarial unsafe actions by $0.510$--$0.583$ ($p<0.001$) and
 leaves SecureVoI net-positive in utility once the answering channel can be
-adversarial, alone among the baselines---though our screened ablation clears
-zero by a wider margin still on the explicit tier. It does so without collapsing into the
-trivially safe policy of only ever trusting the authenticated user: SecureVoI
-matches Trusted-Only's benign utility to within statistical noise while being
-roughly $3\times$ safer under attack.
-
-Two results complicate a simple story. The defense is not source selection: a
-trivial highest-trust-channel heuristic still incurs $31$--$33\%$ unsafe
-actions. And the stages trade places: the screen dominates against conspicuous
-injections, risk-aware acquisition against paraphrased ones.
+adversarial, while the screen-only ablation does better still on the explicit
+tier. SecureVoI also matches Trusted-Only's benign utility to within
+statistical noise while being roughly $3\times$ safer under attack, so it does
+not collapse into that trivially safe policy.
 
 \bibliography{references}
 
