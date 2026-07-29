@@ -36,7 +36,225 @@ defenses (ASPI / CaMeL-style), and the method constants (info-gain scaling,
 channel informativeness, risk priors, lexical cues, classifier prompt, lambda
 grid) belong in a supplement that does not yet exist.
 
-## CURRENT (2026-07-28, late) — ablation grid essentially complete; paper final.
+## CURRENT (2026-07-29) — adding 3 frontier/closed models (OpenAI, Anthropic,
+## Google) to answer the "no frontier models tested" review gap.
+## OpenAI (gpt-5.4-mini) is DONE, clean, both evaluations, verdict GO on both.
+## Anthropic in progress on Rafi's own terminal. Google not started (no key).
+## Nothing from this section is committed yet. Read the whole section before
+## touching anything — there's still a real security item (rotate 2 keys).
+
+### Why this exists
+
+A review pass on `paper.tex` flagged that all four benchmarked models are
+open-weight (Mistral, Llama, GPT-OSS) — no frontier closed model like
+GPT-4o/Claude/Gemini, even though the paper's own closest precedent (ASPI)
+tested ten frontier models including closed ones. Rafi asked to add three:
+OpenAI, Anthropic, Google Gemini. Agreed scope with Rafi (do not exceed this
+without asking): **cheap/fast tier only** (mini/haiku/flash-class, not
+flagship), and **just the two headline evaluations** each of the other four
+models got — NOT the full ablation battery. Specifically:
+
+1. 96-task primary benchmark (`tasks/main_120.json`, `--policies mainplus`,
+   default conditions = explicit tier). This is the Table 1/2 cross-model
+   comparison.
+2. 144-task diversity set (`tasks/diversity_180.json`, same policies/tier).
+
+Explicitly OUT of scope for these three models: oracle ablation, stage1/2
+screened ablation, guardrail eval, stealth tier. (If someone decides later
+that these three should get the full battery like the other four, that's a
+new decision to make with Rafi, not something to do by default.)
+
+### SECURITY — do this before anything else
+
+**Rafi pasted two live API keys directly into this chat session**: an
+Anthropic key (`sk-ant-api03-...`) and an OpenAI project key
+(`sk-proj-...`). Both must be treated as burned regardless of platform
+trust — **rotate/revoke both and issue fresh ones** before this work
+continues past this session. Neither key was written to any file in this
+repo or committed (held only as env vars / in a session-scratchpad file
+outside the repo that dies with the session) — but the chat transcript
+itself now contains them, which is exposure enough to require rotation.
+
+Going forward: API keys ONLY as environment variables
+(`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`), never pasted into
+a chat, never written to a file in the repo, never committed. Secret-scan
+before every commit as always.
+
+### Status per model, right now
+
+| Provider | Model | Dev calibration | 96-task primary | 144-task diversity |
+|---|---|---|---|---|
+| OpenAI | `gpt-5.4-mini` | DONE (λ=3.0) | **DONE, 1344/1344, verdict GO** | **DONE, 2016/2016, verdict GO** |
+| Anthropic | `claude-haiku-4-5-20251001` | Rafi running this himself in a separate terminal | unknown to this session | unknown to this session |
+| Google Gemini | TBD — no key yet | NOT STARTED | NOT STARTED | NOT STARTED |
+
+Rafi could not get a Google API key working during this session
+("doesn't work rn i cant get a key"). Free self-serve route:
+https://aistudio.google.com/apikey (no card needed for the free tier, though
+its rate limit may be too low for a 96/144-task grid — may need billing
+enabled if it stalls).
+
+**OpenAI's gpt-5.4-mini is fully done and verified.** Both files live at
+`results/models/gpt-5.4-mini/{dev_calibration,primary_summary,primary_episodes}.json`
+and `results/models/gpt-5.4-mini-diversity/{same three}.json`. Verification
+already run and clean: `test_smoke.py` → ALL SMOKE TESTS PASSED,
+`rescore.py` on both episode files → "No verdict changes" (1344 and 2016
+episodes, 0 errored, 0 without a saved plan), `check_invariants.py` on both
+→ ALL INVARIANTS PASS. Nothing further needed on OpenAI unless the full
+ablation battery gets requested later.
+
+**Headline result — the finding replicates on a closed frontier model,
+almost exactly**, adversarial unsafe / adversarial utility:
+
+| policy | 96-task primary | 144-task diversity |
+|---|---|---|
+| Conventional VoI | 0.583 / −1.008 | 0.583 / −0.939 |
+| Channel Heuristic | 0.333 / −0.508 | 0.333 / −0.439 |
+| Trusted-Only | 0.208 / −0.346 | 0.208 / −0.297 |
+| **SecureVoI** | **0.000 / +0.071** | **0.000 / +0.156** |
+
+Same ordering, same near-identical absolute unsafe rates, as all four
+existing open-weight models. One honest side-note worth stating plainly in
+the paper, not burying: gpt-5.4-mini's **benign** goal rate is markedly
+lower than the open-weight models' (SecureVoI benign goal 0.375/0.556 here
+vs. ~0.75 for Mistral) — it is more conservative about inventing concrete
+details (file names, etc.) when acting on its own best guess rather than a
+real answer, so it trades some benign task completion for being
+exceptionally cautious. That is a real model-capability difference, not a
+bug — don't paper over it.
+
+One infra hiccup, already handled, nothing to do: the diversity-set primary
+run was killed once mid-run by something outside the script itself (exit
+code 144, not a Python exception) after ~56/2016 episodes. Relaunched under
+`scripts/supervise_run.sh` (this repo's existing self-healing wrapper for
+exactly this class of failure) and it completed clean on the very next
+attempt. If anything else in this batch of work dies the same way, that
+wrapper is the fix — see its own header comment for usage.
+
+### Code changes made this session (all in `scripts/model_backends.py`,
+### UNCOMMITTED as of this writing — `git status` shows it modified, not
+### committed; commit once the runs above are verified, not before)
+
+1. Added `anthropic_generate_fn` — Claude's native Messages API is NOT the
+   OpenAI-compatible shape `openai_compatible_generate_fn` already handles
+   (different auth header `x-api-key` + `anthropic-version`, different
+   response shape `content[0]["text"]` not `choices[0]["message"]["content"]`).
+   Wired into `build_agent`/`add_backend_args` as `--backend anthropic`.
+2. **Bug fixed**: OpenAI's current model lineup (gpt-5.x, o-series) rejects
+   `max_tokens` with a 400, wanting `max_completion_tokens` instead.
+   `openai_compatible_generate_fn` now detects `api.openai.com` in the
+   base_url and switches the field name automatically — every other
+   provider (Groq/Together/Fireworks/OpenRouter, i.e. the other 4 models'
+   already-published results) is untouched by this.
+3. **Bug fixed, cost real time to find**: `gpt-5.4-mini` writes much more
+   verbose JSON per hypothesis than the open-weight models this pipeline's
+   defaults were tuned against. The original 512-token cap silently
+   truncated `sample_intents`'s multi-hypothesis JSON mid-object;
+   `_extract_json`'s fallback on unparseable input is all-empty hypotheses,
+   which reads as "zero information gain" and made the policy never ask
+   regardless of lambda. **Symptom, if this recurs on Gemini**: dev
+   calibration's benign-goal-rate is flat and near-zero across EVERY lambda
+   in the 11-point frontier sweep (confirmed directly: first calibration
+   attempt showed goal-rate=0.042 flat across all 11 lambdas; after the fix,
+   a sane 0.500→0.125 curve that actually varies with lambda). Fixed by
+   bumping the token budget to 1536 specifically for `api.openai.com`
+   (`build_agent`'s `openai_max_tokens` local). If Gemini shows the same
+   flat-zero symptom, apply the same fix rather than assuming it's a real
+   capability finding.
+4. **Bug fixed by Rafi's parallel session, not mine, already merged into the
+   same file**: newer Claude models (sonnet-5 family) reject an explicit
+   `temperature: 0.0` with a 400. `anthropic_generate_fn` now omits the
+   `temperature` field entirely when it's 0.0 (every main run's
+   deterministic default), only sending it for actual sampling calls
+   (temperature > 0, e.g. `robustness_subset.py`).
+
+Verify `python3 test_smoke.py` still prints "ALL SMOKE TESTS PASSED" before
+committing any of this (confirmed clean as of this writing).
+
+### The exact prompt already handed to Cursor this session
+
+Rafi asked for a Cursor-portable prompt covering all three providers; it was
+written and given to him (originally at a session-scratchpad path that will
+NOT survive past this session — reproduced here in full so it isn't lost):
+
+> **Context**: This repo (`secure-clarify`) benchmarks clarification-seeking
+> policies for LLM agents under prompt-injection risk. Four open-weight
+> models already have full published results. Add three frontier/closed
+> models — OpenAI, Anthropic, Google Gemini — running the SAME two headline
+> evaluations the other four completed, at the cheap/fast tier of each
+> provider. Do NOT run the full ablation battery (oracle ablation,
+> stage1/stage2 screened ablation, guardrail eval, stealth tier) — scope is
+> deliberately just the two headline numbers, for all three providers.
+>
+> **Models**: OpenAI `gpt-5.4-mini` (confirmed working). Anthropic
+> `claude-haiku-4-5-20251001` (confirmed reachable). Google Gemini: query the
+> account's live model-list endpoint
+> (`GET https://generativelanguage.googleapis.com/v1beta/openai/models`) and
+> pick the current flash-tier (not flash-lite) model rather than trusting a
+> remembered name — never hardcode a guessed model string for any of the
+> three, provider lineups move fast.
+>
+> **Two evaluations, per model**: (1) 96-task primary, `tasks/main_120.json`,
+> `--policies mainplus`, default conditions. (2) 144-task diversity set,
+> `tasks/diversity_180.json`, same policies/conditions. Each needs its own
+> dev-split calibration first (`tune_dev.py`, never calibrate on test).
+> Mirror `results/models/gpt-oss-20b-cloud/` and
+> `results/models/gpt-oss-20b-cloud-diversity/` for exact directory/file
+> naming.
+>
+> **Commands**: smoke-test one task first
+> (`scripts/smoke_real_model.py --backend <openai|anthropic> --model
+> <model-id> [--base-url ... --api-key-env ...]`), then
+> `scripts/tune_dev.py` for calibration, then `scripts/run_primary.py
+> --policies mainplus --resume` for the real run. OpenAI:
+> `--backend openai --base-url https://api.openai.com/v1/chat/completions
+> --api-key-env OPENAI_API_KEY`. Anthropic: `--backend anthropic
+> --api-key-env ANTHROPIC_API_KEY`. Gemini: try `--backend openai
+> --base-url https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+> --api-key-env GOOGLE_API_KEY` first (Google's OpenAI-compat endpoint),
+> smoke-test before trusting it.
+>
+> **Known pitfalls** (see "Code changes made this session" above for full
+> detail — don't rediscover these the hard way): OpenAI needs
+> `max_completion_tokens` not `max_tokens` (already handled, detected by
+> base_url). `gpt-5.4-mini` needs a higher token budget than the 512 default
+> or its JSON truncates and silently degrades to zero-information-gain
+> hypotheses — watch for a flat near-zero benign-goal-rate across the whole
+> lambda frontier as the symptom, on Gemini too. Newer Claude models reject
+> explicit `temperature: 0.0` (already handled). Never trust a model-name
+> string from memory or a blog post — query the live `/models` endpoint.
+> API keys as env vars only, never committed, never pasted anywhere logged.
+>
+> **Definition of done, per model**: smoke test passes; dev calibration's
+> lambda frontier is non-degenerate (goal rate actually varies with lambda);
+> both primary runs hit their full task count (96 and 144) with zero
+> excluded tasks (use `--resume` rather than accepting partial coverage);
+> `python3 test_smoke.py` still prints "ALL SMOKE TESTS PASSED" afterward.
+> Report back the 7-policy table per model in the same shape as
+> `results/cross_model_comparison.md`'s existing rows.
+
+### What happens after all three land (not started, do the runs first)
+
+1. Extend `results/cross_model_comparison.md` (and whatever script generates
+   it, likely `scripts/aggregate_stealth.py`'s sibling or a manual table) to
+   include the 3 new models' 96-task row alongside the existing 4.
+2. Decide with Rafi how this goes into `paper.tex`: most likely extends
+   Table~\ref{tab:cross} from 4 to 7 columns (may need `\small` or a
+   two-row table if 7 columns doesn't fit AAAI's column width — check by
+   compiling), and directly answers the "no frontier models tested"
+   Limitations gap by removing or softening that bullet if the finding
+   replicates, or stating plainly what doesn't transfer if it doesn't.
+3. Re-verify AAAI page budget after the table grows (was 8 pages / 6-page
+   body before this addition — see the paper-review entries below for that
+   audit's full detail).
+4. `paper_camera_ready.tex` (untracked, uncommitted, sitting in repo root)
+   is now doubly stale — it predates both the ablation/diversity content
+   added earlier and everything above. Regenerate from `paper.tex` once the
+   frontier-model results are actually written in, not before.
+
+---
+
+## PRIOR (2026-07-28, late) — ablation grid essentially complete; paper final.
 ## Read the GROQ TPM section before running anything against Groq.
 
 ### Ablation grid (stage1_share_of_secure_voi_gap), 15 of 16 cells done
