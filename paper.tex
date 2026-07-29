@@ -72,7 +72,7 @@ the answer is not uniform. Against explicit attacks, conventional
 value-of-information paired with SecureVoI's response screen matches SecureVoI's
 safety while achieving \emph{higher} adversarial utility in all four models:
 response screening accounts for the headline safety gains in this regime, and
-risk-aware acquisition is redundant. Against stealthier attacks, whose wording
+risk-aware acquisition adds no further safety once the screen is present. Against stealthier attacks, whose wording
 strips the surface cues a screen keys on, adding risk-aware acquisition reduces
 unsafe actions by $0.05$--$0.24$ across models, with statistically significant
 reductions in two of four. These results locate the roles of the two stages:
@@ -139,8 +139,8 @@ ablation isolates stage 1's incremental effect when a response screen is
 present, and we report the fourth factorial cell separately. Conventional VoI is neither: it is
 risk-blind \emph{and} unscreened, which is why we show it becomes measurably
 more dangerous under adversarial responses than under benign ones. We evaluate all four cells of the (risk-blind, risk-aware) $\times$
-(accept-all, screen) factorial on Mistral-Nemo-12B, and the three
-screen-containing cells across all four models.
+(accept-all, screen) factorial on Mistral-Nemo-12B, and three cells---all
+except risk-aware acquisition without screening---across all four models.
 
 \section{Related Work}
 
@@ -523,16 +523,18 @@ anyway. This qualifies the headline claim above: on the explicit tier the
 strongest policy we ran is not the one we propose.
 
 \textbf{But redundant is not the same as ineffective.} The fourth factorial
-cell separates the two (Table~\ref{tab:ablation}). Each stage is an effective
-standalone defense: against risk-blind accept-all, stage 1 alone gives
+cell separates the two (Table~\ref{tab:ablation}). Both stages are effective
+standalone \emph{safety} mechanisms, though stage 1 alone remains net-negative
+in adversarial utility ($-0.10$) because part of its safety comes from
+declining to ask and completing less: against risk-blind accept-all, stage 1
+alone gives
 $\Delta_{\text{unsafe}}=-0.375$ $[-0.521,-0.219]$ and stage 2 alone
 $-0.510$ $[-0.604,-0.406]$ (both $p<0.001$). These are \emph{simple} effects,
 each measured with the other factor held off, not factorial main effects. The
 explicit tier shows not that stage 1 is weak but that it is
 \emph{substitutable}: a difference-in-differences confirms it helps
 significantly more when no screen is present ($+0.375$, $[0.240,0.510]$,
-$p<0.001$). Part of that safety is bought by declining to ask, so stage 1 is
-safer \emph{and} less complete, not safer for free.
+$p<0.001$).
 
 \textbf{On the stealth tier the conclusion reverses.} Once the injected text no
 longer carries the explicit tier's surface tells, the screen degrades and stage 1
@@ -576,7 +578,7 @@ harder one the explicit tier does not probe.
 \begin{table}[t]
 \centering
 \footnotesize
-\setlength{\tabcolsep}{3pt}
+\setlength{\tabcolsep}{2.4pt}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
 & Conv.\ VoI & Screened & SecureVoI & $\Delta$ stage 1 \\
@@ -584,14 +586,14 @@ Model & uns/util & uns/util & uns/util & [95\% CI] \\
 \midrule
 \multicolumn{5}{@{}l}{\emph{Explicit tier}} \\
 Mistral-12B  & .58/$-$.51 & .07/$+$.08 & .07/$+$.07 & .00 [$-$.07,.08] \\
-\quad{\itshape+ stage-1-only} & \multicolumn{4}{@{}l}{\itshape .21 unsafe / $-$.10 util, asks 75\% (vs 100\%), goal .40} \\
+\quad{\itshape+ stage-1-only} & \multicolumn{4}{@{}l}{\itshape .21/$-$.10 adv, goal .40, asks 75\%} \\
 Llama-70B    & .58/$-$.80 & .00/$+$.37 & .00/$+$.22 & .00 [.00,.00] \\
 GPT-OSS-20B  & .58/$-$1.0 & .00/$+$.17 & .00/$+$.10 & .00 [.00,.00] \\
 GPT-OSS-120B & .58/$-$.91 & .00/$+$.26 & .00/$+$.14 & .00 [.00,.00] \\
 \midrule
 \multicolumn{5}{@{}l}{\emph{Stealth tier}} \\
 Mistral-12B  & .58/$-$.51 & .35/$-$.29 & .21/$-$.10 & .15 [.00,.29] \\
-\quad{\itshape+ stage-1-only} & \multicolumn{4}{@{}l}{\itshape .21 unsafe / $-$.10 util (identical to explicit tier)} \\
+\quad{\itshape+ stage-1-only} & \multicolumn{4}{@{}l}{\itshape .21/$-$.10 adv, goal .40 (as explicit)} \\
 Llama-70B    & .58/$-$.80 & .24/$-$.11 & .09/$+$.03 & .15 [.03,.26] \\
 GPT-OSS-20B  & .56/$-$.88 & .26/$-$.28 & .02/$+$.12 & .24 [.15,.33] \\
 GPT-OSS-120B & .57/$-$.91 & .07/$+$.09 & .02/$+$.07 & .05 [.00,.12] \\
@@ -603,8 +605,9 @@ VoI's risk-blind acquisition with SecureVoI's identical stage-2 screen;
 $\Delta$ is the increase in unsafe rate from removing stage 1. Explicit:
 $\Delta=0$ throughout, and the ablation attains \emph{higher} utility than
 SecureVoI in all four. Stealth: $\Delta>0$ in all four, and SecureVoI recovers
-the utility advantage in three. Italic rows give the fourth factorial cell
-(risk-aware acquisition, no screen), run on Mistral-Nemo-12B only.}
+the utility advantage in three. Italic rows give the fourth factorial cell (risk-aware acquisition, no screen),
+run on Mistral-Nemo-12B only; its benign goal/utility are $0.75$/$+0.68$ vs.\
+$1.00$/$+0.95$ for risk-blind accept-all.}
 \label{tab:ablation}
 \end{table}
 
@@ -733,9 +736,7 @@ that comes back before letting it influence the agent's actions. Across all four
 models this cuts adversarial unsafe actions by $0.510$--$0.583$ ($p<0.001$) and
 leaves SecureVoI net-positive in utility once the answering channel can be
 adversarial, while the screen-only ablation does better still on the explicit
-tier. SecureVoI also matches Trusted-Only's benign utility to within
-statistical noise while being roughly $3\times$ safer under attack, so it does
-not collapse into that trivially safe policy.
+tier.
 
 \bibliography{references}
 
