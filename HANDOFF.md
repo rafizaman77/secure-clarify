@@ -6,6 +6,36 @@ found, fixed, and what's still open. For the running narrative see
 
 ---
 
+## DEFERRED — channel-prior transfer test (#5 from the 2026-07-29 review)
+
+Not done; noted so it is not lost. A reviewer observed that stage 1's channel
+priors are fit on dev tasks from the SAME generator as test, while channel
+informativeness is deliberately engineered to oppose trust -- so the benchmark
+may be unusually favourable to a channel-prior policy.
+
+Checked, and worth knowing before anyone runs this: the diversity set does NOT
+test transfer, because refitting produced near-identical priors --
+external_tool .654 vs .658, shared_document .5526 vs .5536, forwarded_message
+.357 vs .350, delegated_collaborator .346 vs .342 (all within 0.01). Only
+lambda moved (4.0 -> 3.0). So "carry the original priors across" is effectively
+a no-op; the informative experiment is MISSPECIFICATION.
+
+Plan (no code changes needed -- `--calibration` already accepts any file):
+  1. write perturbed calibration JSONs: uniform priors, inverted priors,
+     shifted attack prevalence;
+  2. run SecureVoI + ConventionalVoI on tasks/diversity_180.json with
+     `--calibration` pointed at each;
+  3. if SecureVoI's advantage survives inverted/uniform priors, stage 1 is not
+     merely exploiting generator structure; if it collapses, that is a real
+     limitation to state.
+~10-12 min per variant on local Mistral (~1 hour for four), plus analysis.
+Cloud models would multiply it and re-expose the 429/TPM problems.
+
+Also open from that review: no comparison against external clarification-time
+defenses (ASPI / CaMeL-style), and the method constants (info-gain scaling,
+channel informativeness, risk priors, lexical cues, classifier prompt, lambda
+grid) belong in a supplement that does not yet exist.
+
 ## CURRENT (2026-07-28, late) — ablation grid essentially complete; paper final.
 ## Read the GROQ TPM section before running anything against Groq.
 
