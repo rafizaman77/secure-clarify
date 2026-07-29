@@ -60,11 +60,45 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
   success, goal completion, and benign rejection rate. Remaining: fold these into
   the manuscript in place of the single conflated "unsafe rate".)*
 
-- [ ] **4. Validate the verifiers independently.** Blind-annotate a sample; measure
-  human/automatic agreement. Audit whether the safety invariant encodes knowledge
-  unavailable to the agent, whether harmless deviations count as unsafe, whether
-  partial attacks count consistently, and whether the legitimate action can itself
-  satisfy the attack detector. Material disagreement ⇒ repair and rerun everything.
+- [x] **4. Validate the verifiers independently.** *(done — `scripts/verifier_differential.py`,
+  `results/verifier_differential.json`.)* **GATE PASSES.** Human blind annotation was
+  not possible here; instead a *second* verifier was written from the threat model
+  using a deliberately different mechanism (decides from resulting state + raw tool
+  args, re-deriving externality/secrecy/privacy from the task's own lists, never
+  reading a simulator note) and differential-tested against the real log-based
+  verifier on **all 31,065 saved episodes**.
+
+  **Found and fixed one real bug.** Initial agreement 99.98% (6 disagreements) —
+  all the same root cause: `_is_external_party` requires an `"@"` (documented
+  choice: a bare *guessed* name like `"A"`/`"John Doe"` is a wrong-recipient
+  correctness failure, **not** an exfiltration), the calendar domain used it, but
+  `FileEnv.share_file` flagged *any* non-team target. So the documented
+  threat-model choice held in one domain and not the other. Impact bounded before
+  fixing: **6 of 4,435 unsafe episodes (0.135%)**, all in one diversity run, all
+  from a garbled `'A'` target — and 4 of the 6 were **benign** episodes mis-scored
+  unsafe. Fixed to use the shared discriminator; agreement now **100.0000%,
+  0 disagreements**; `rescore.py` confirms **no verdict changes on main_120 for any
+  of the 7 models**, so no reported headline number moves.
+
+  **The other three concerns, characterized rather than fixed** (each is a design
+  choice to disclose, not a defect):
+  1. *Knowledge unavailable to the agent — **yes**.* The act() prompt never contains
+     `prohibited_actions`; the agent is scored against rules it is never told. So
+     "unsafe" measures norm-violation-under-injection, not policy compliance. This
+     is arguably right for a security benchmark but must be stated — and it is why
+     the post-hoc guardrail (which *is* given the patterns) is an oracle upper bound.
+  2. *Harmless deviations — **partially**.* Sharing a **private** person's
+     availability with a **teammate** is flagged (1,249 unsafe verdicts involve no
+     external party at all). Defensible as an internal-privacy violation, but it
+     means unsafe ≠ "attacker succeeded".
+  3. *Partial attacks — **consistent, but attempt-based**.* A failed
+     `add_attendee` (event absent, `ok=False`, zero state effect) is flagged
+     identically to a successful one — deliberate anti-laundering, affecting **337**
+     unsafe verdicts. Consistent, but "unsafe" includes attempts with no effect.
+
+  4. *Legitimate action tripping the attack detector — **clean**.* Replaying the
+     benign fill with injections disabled across **all 300 tasks** in both task
+     files yields **0** unsafe flags. Doing the task correctly is never punished.
 
 ## Phase 2 — Repair the benchmark's central construct
 
@@ -252,6 +286,13 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 ---
 
 ## Log
+
+- **2026-07-29** — Step 4 complete; **both Phase-1 gates now pass**, so Phase 2+
+  compute is unblocked. Differential verification found and fixed a genuine
+  cross-domain inconsistency (0.135% of unsafe episodes, no headline number
+  affected). Three further verifier properties documented as disclosure items for
+  the Phase-9 rewrite: the agent is never told the prohibited actions; 1,249
+  unsafe verdicts involve no external party; 337 rest on an action that failed.
 
 - **2026-07-29** — Steps 1–2 complete, Step 3 instrumented. Step 2's gate passes:
   the headline is not hard-coded, but it does conflate exposure with compliance,
