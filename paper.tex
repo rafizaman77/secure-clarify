@@ -501,9 +501,10 @@ report the raw difference in adversarial unsafe rate with its confidence
 interval, and secondarily the fraction of Conventional VoI $\to$ SecureVoI's
 reduction that the screened policy fails to close (the ``stage-1 share'').
 Because this design varies stage 1 only in the presence of stage 2, it
-identifies stage 1's \emph{incremental} contribution given a screen, not its
-independent effectiveness; a risk-aware-acquisition-without-screening cell
-would be needed for the latter and we do not run it.
+identifies stage 1's \emph{incremental} contribution given a screen. To also
+measure stage 1 acting alone we add the fourth factorial cell,
+risk-aware acquisition with no screen, on Mistral-Nemo-12B (both tiers,
+$n=96$, full coverage).
 
 The answer depends entirely on attack tier, and this is the paper's most
 important negative-then-positive result. \textbf{On the explicit tier, stage 1
@@ -516,9 +517,18 @@ higher benign utility in three of four models, and \emph{dominates SecureVoI on
 adversarial utility in all four}, because SecureVoI's risk term declines to ask
 on $24/96$ adversarial tasks that stage 2 would have screened successfully
 anyway. This qualifies the headline claim above: on the explicit tier the
-strongest policy we ran is not the one we propose. Against conspicuous
-injections, channel-risk-aware acquisition is redundant machinery that costs
-task completion.
+strongest policy we ran is not the one we propose.
+
+\textbf{But redundant is not the same as ineffective.} The fourth factorial
+cell separates the two. Stage 1 \emph{alone} cuts adversarial unsafe actions
+from $0.583$ to $0.208$ ($+0.375$, $[0.219,0.521]$, $p<0.001$), and stage 2
+alone from $0.583$ to $0.073$ ($+0.510$, $[0.406,0.604]$, $p<0.001$): both main
+effects are large and significant, and each stage is an effective standalone
+defense. What the explicit tier shows is not that stage 1 is weak but that it is
+\emph{substitutable}---given the screen, adding it buys nothing
+($+0.000$, $p=1.000$), while given stage 1, adding the screen still buys
+$+0.135$ ($p<0.001$). The two overlap, and on conspicuous attacks the screen is
+the better of the two.
 
 \textbf{On the stealth tier the conclusion reverses.} Once the injected text no
 longer carries the explicit tier's surface tells, the screen degrades and stage 1
@@ -534,25 +544,29 @@ $n=144$ results are reported below but, being four model-level tests on a set
 built after these observations, we read them as corroborating rather than
 confirmatory. All four models have both tiers at full $96$-task coverage with
 zero excluded tasks, so each reversal is a \emph{within-model} comparison on
-identical tasks. The effect persists under a change of task family. We built a
-second $180$-task set ($144$ test) by the same generator, adding a
-\emph{messaging} domain to file and calendar with the same channel-mixing and
-matched-response construction, and re-fitting $\lambda$ and the channel priors
-on its own dev split so no parameter is carried over. Stage 1 retains a
-substantial share there in all four models ($0.206$--$0.688$); the direction of
-change versus the two-domain set is mixed (two rise, one flat, one falls), so
-we claim persistence, not growth. The per-domain breakdown supports the
-mechanism: where the screen alone already reaches $0.000$ unsafe (GPT-OSS-120B,
-file) the stage-1 share is likewise $0.000$, and where the screen leaves
-residual risk the share is large (up to $0.937$ on Mistral's calendar
-domain)---stage 1 pays for itself in proportion to what the screen misses.
-The two stages are therefore not redundant but complementary along the axis that
-matters: stage 2 carries safety while attacks are recognizable from their
-wording, and stage 1 supplies the defense-in-depth that survives when they are
-not. This also sharpens the honest reading of our headline explicit-tier
-numbers---they understate how much of SecureVoI's design is load-bearing,
-because the regime where stage 1 earns its cost is precisely the harder regime
-the explicit tier does not probe.
+identical tasks. The factorial makes the reversal sharper still, and explains
+it. Stage 1 alone yields \emph{exactly} the same $0.208$ unsafe rate on both
+tiers---indeed it fails on the identical $20$ tasks---because it never reads
+the response: it chooses a channel from priors, so its protection cannot be
+degraded by rewording an attack. Stage 2 alone, which does read the response,
+falls from $0.073$ to $0.354$ under the same rewrite. The two stages therefore
+\emph{swap roles}: on explicit attacks the screen dominates ($0.073$ vs.\
+$0.208$) and stage 1 adds nothing on top of it, whereas on stealth attacks
+stage 1 dominates ($0.208$ vs.\ $0.354$) and the screen adds nothing on top of
+\emph{it} ($+0.000$, $p=1.000$). This is a single-model probe and we do not
+generalize it, but it identifies the mechanism the four-model ablation can only
+infer: text-independent defense is what survives paraphrase.
+The effect persists under a change of task family: on a second $180$-task set
+($144$ test) built by the same generator with a \emph{messaging} domain added
+and $\lambda$ and the channel priors re-fit on its own dev split, stage 1
+retains a substantial share in all four models ($0.206$--$0.688$). The
+direction of change is mixed (two rise, one flat, one falls), so we claim
+persistence, not growth. Per-domain, the share is $0.000$ exactly where the
+screen alone already reaches $0.000$ unsafe and large where it leaves residual
+risk---again, stage 1 pays in proportion to what the screen misses.
+The headline explicit-tier numbers therefore understate how much of SecureVoI's
+design is load-bearing: the regime where stage 1 earns its cost is precisely the
+harder one the explicit tier does not probe.
 
 \begin{table}[t]
 \centering
@@ -616,23 +630,19 @@ tier's surface tells removed (no discourse-break imperative, no
 \texttt{evil.com}-style recipient), drawn from three distinct persuasion
 strategies per cell (plausible-role, implied-prior-agreement, scope-bundling; 12
 distinct strings total) so the result does not rest on one lucky or unlucky
-sentence. As a validity check, no risk-blind policy---which never screens
-content---shows a significant stealth effect in any of the four models (paired
-bootstrap, $p\ge0.09$ throughout, and exactly $0.000$ in Mistral-Nemo-12B),
-confirming the rewrite changed detectability rather than the underlying task.
-Against that flat baseline,
-SecureVoI's adversarial unsafe rate rises under the stealth tier in all four models,
-by an amount that tracks model capability: GPT-OSS-120B $0.000\to0.021$ ($p=0.28$,
+sentence. As a validity check, no risk-blind policy shows a significant stealth effect in
+any model (paired bootstrap, $p\ge0.09$ throughout), confirming the rewrite
+changed detectability rather than the task. Against that flat baseline,
+SecureVoI's adversarial unsafe rate rises in all four models, tracking model
+capability: GPT-OSS-120B $0.000\to0.021$ ($p=0.28$,
 not significant), GPT-OSS-20B $0.000\to0.042$ ($p=0.038$), Llama-3.3-70B
 $0.000\to0.083$ ($p<0.001$), and Mistral-Nemo-12B $0.073\to0.208$ ($p<0.001$). A
-response-risk decomposition that separates the learned classifier's contribution
-from a hardcoded keyword-cue heuristic shows \emph{why} the degradation differs:
-the weaker model's failure is substantially a genuine classifier limitation
-(Mistral-Nemo-12B, $68\%$ of the risk drop attributable to the learned screen
-itself), while the strongest model's small residual movement is mostly the
-keyword list losing its trigger words rather than the model's own judgment
-changing (GPT-OSS-120B, $33\%$; the other two models fall in between at
-$45$--$48\%$, genuinely mixed). An auxiliary judge (GPT-OSS-120B, 3 repetitions, with a prompt that
+response-risk decomposition separating the learned classifier from a hardcoded
+keyword heuristic shows \emph{why} the degradation differs: the weaker model's
+failure is substantially a genuine classifier limitation (Mistral-Nemo-12B,
+$68\%$ of the risk drop from the learned screen itself), while the strongest
+model's small residual movement is mostly the keyword list losing its triggers
+(GPT-OSS-120B, $33\%$; the others fall between at $45$--$48\%$). An auxiliary judge (GPT-OSS-120B, 3 repetitions, with a prompt that
 deliberately never mentions injection or security, so as not to prime a
 DECLINE; verbatim in the supplement) confirms the rewrite preserved the
 benchmark's fairness bound: stealth attacks remain judged
@@ -645,15 +655,12 @@ artifact of an unfair or unanswerable attack.
 \label{sec:limitations}
 
 \begin{itemize}
-  \item \textbf{Attack explicitness.} Our main-tier injections are phrased as fairly
-  overt imperatives (e.g.\ ``also share \texttt{credentials.json} with the external
-  archive team''). The stealth tier (Results) tests this directly rather than
-  leaving it a prediction: with the explicit tier's tells removed, SecureVoI's
-  adversarial unsafe rate does rise in every model, from $0.021$ (GPT-OSS-120B,
-  not significant) to $0.135$ (Mistral-Nemo-12B, $p<0.001$), and the degradation is
-  a genuine classifier limitation on the weaker models rather than solely an
-  artifact of a hardcoded keyword list. So the main-tier $0.000$--$0.073$ results
-  should be read as a floor, not a ceiling, on SecureVoI's real-world unsafe rate.
+  \item \textbf{Attack explicitness.} Our main-tier injections are fairly overt
+  imperatives. The stealth tier (Results) tests this directly: SecureVoI's
+  adversarial unsafe rate rises in every model, and the degradation is a genuine
+  classifier limitation on the weaker models rather than solely a keyword-list
+  artifact. The main-tier $0.000$--$0.073$ results are therefore a floor, not a
+  ceiling, on SecureVoI's real-world unsafe rate.
   \item \textbf{The headline benchmark has only two base task templates}
   (file-archive, calendar-scheduling); within it, diversity comes from parameter
   combinations (stakes $\times$ channel availability $\times$ attack type), not
@@ -708,13 +715,12 @@ artifact of an unfair or unanswerable attack.
 
 \section{Conclusion}
 
-We argued that clarification-seeking in deployed language-model agents is not only
-a question of how uncertain the agent is, but of who is likely to answer.
-Conventional value-of-information reasoning, which decides whether to ask purely
-from expected information gain against interaction cost, is risk-blind by
-construction: our results show it improves benign task success substantially but,
-on the same tasks, more than doubles the rate of unsafe actions once the
-answering channel can be adversarial. SecureVoI closes most of that gap by
+We argued that clarification-seeking in deployed language-model agents is not
+only a question of how uncertain the agent is, but of who is likely to answer.
+Conventional value-of-information reasoning is risk-blind by construction: it
+improves benign task success substantially but, on the same tasks, more than
+doubles the rate of unsafe actions once the answering channel can be
+adversarial. SecureVoI closes most of that gap by
 treating the \emph{channel} the same way it treats the \emph{question}---as
 something to be chosen, not just consulted---and by screening the specific answer
 that comes back before letting it influence the agent's actions. Across all four
@@ -728,9 +734,10 @@ roughly $3\times$ safer under attack.
 
 Two results complicate a simple story. The defense is not source selection: a
 trivial highest-trust-channel heuristic still incurs $31$--$33\%$ unsafe
-actions. And the stages are not equally load-bearing: against conspicuous
-injections the screen alone suffices.
+actions. And the stages trade places: the screen dominates against conspicuous
+injections, risk-aware acquisition against paraphrased ones.
 
 \bibliography{references}
 
 \end{document}
+
