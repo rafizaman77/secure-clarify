@@ -1,0 +1,423 @@
+{
+  "n_bootstrap": 2000,
+  "ci": 0.95,
+  "resampling_unit": "task_id (paired across policies within a task)",
+  "models": {
+    "mistral-nemo-12b": {
+      "explicit": {
+        "episodes_file": "results/models/mistral-nemo-12b/screened_ablation_episodes.json",
+        "n_tasks": 96,
+        "condition": "adversarial",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5833333333333334,
+          "ci_lo": 0.4895833333333333,
+          "ci_hi": 0.6770833333333334
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.07291666666666667,
+          "ci_lo": 0.03125,
+          "ci_hi": 0.125
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.07291666666666667,
+          "ci_lo": 0.020833333333333332,
+          "ci_hi": 0.125
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.0,
+          "ci_lo": -0.07291666666666667,
+          "ci_hi": 0.08333333333333333,
+          "p_value": 1.0,
+          "significant_at_0.05": false
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.5104166666666667,
+          "ci_lo": -0.6354166666666666,
+          "ci_hi": -0.38541666666666663,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      },
+      "stealth": {
+        "episodes_file": "results/models/mistral-nemo-12b/screened_ablation_stealth_episodes.json",
+        "n_tasks": 96,
+        "condition": "adversarial_stealth",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5833333333333334,
+          "ci_lo": 0.4895833333333333,
+          "ci_hi": 0.6770833333333334
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.3541666666666667,
+          "ci_lo": 0.2604166666666667,
+          "ci_hi": 0.4479166666666667
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.20833333333333334,
+          "ci_lo": 0.13541666666666666,
+          "ci_hi": 0.2916666666666667
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.14583333333333334,
+          "ci_lo": 0.0,
+          "ci_hi": 0.29166666666666663,
+          "p_value": 0.057,
+          "significant_at_0.05": false
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.375,
+          "ci_lo": -0.5208333333333334,
+          "ci_hi": -0.21875,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      },
+      "diversity_stealth": {
+        "episodes_file": "results/models/mistral-nemo-12b-diversity/screened_ablation_stealth_episodes.json",
+        "n_tasks": 144,
+        "condition": "adversarial_stealth",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5833333333333334,
+          "ci_lo": 0.5,
+          "ci_hi": 0.6666666666666666
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.4791666666666667,
+          "ci_lo": 0.3888888888888889,
+          "ci_hi": 0.5625
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.25,
+          "ci_lo": 0.18055555555555555,
+          "ci_hi": 0.3263888888888889
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.22916666666666669,
+          "ci_lo": 0.08333333333333331,
+          "ci_hi": 0.3680555555555556,
+          "p_value": 0.002,
+          "significant_at_0.05": true
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.33333333333333337,
+          "ci_lo": -0.4652777777777778,
+          "ci_hi": -0.1875,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      }
+    },
+    "llama-3.3-70b": {
+      "explicit": {
+        "episodes_file": "results/models/llama-3.3-70b/screened_ablation_episodes.json",
+        "n_tasks": 96,
+        "condition": "adversarial",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5833333333333334,
+          "ci_lo": 0.4895833333333333,
+          "ci_hi": 0.6770833333333334
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.0,
+          "ci_lo": 0.0,
+          "ci_hi": 0.0
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.0,
+          "ci_lo": 0.0,
+          "ci_hi": 0.0
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.0,
+          "ci_lo": 0.0,
+          "ci_hi": 0.0,
+          "p_value": 1.0,
+          "significant_at_0.05": false
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.5833333333333334,
+          "ci_lo": -0.6770833333333334,
+          "ci_hi": -0.4895833333333333,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      },
+      "stealth": {
+        "episodes_file": "results/models/llama-3.3-70b/screened_ablation_stealth_episodes.json",
+        "n_tasks": 96,
+        "condition": "adversarial_stealth",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5833333333333334,
+          "ci_lo": 0.4895833333333333,
+          "ci_hi": 0.6770833333333334
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.23958333333333334,
+          "ci_lo": 0.15625,
+          "ci_hi": 0.3229166666666667
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.09375,
+          "ci_lo": 0.041666666666666664,
+          "ci_hi": 0.15625
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.14583333333333334,
+          "ci_lo": 0.031250000000000014,
+          "ci_hi": 0.2604166666666667,
+          "p_value": 0.012,
+          "significant_at_0.05": true
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.48958333333333337,
+          "ci_lo": -0.6145833333333334,
+          "ci_hi": -0.36458333333333326,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      },
+      "diversity_stealth": {
+        "episodes_file": "results/models/llama-3.3-70b-diversity/screened_ablation_stealth_episodes.json",
+        "n_tasks": 144,
+        "condition": "adversarial_stealth",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5833333333333334,
+          "ci_lo": 0.5,
+          "ci_hi": 0.6666666666666666
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.20833333333333334,
+          "ci_lo": 0.1388888888888889,
+          "ci_hi": 0.2777777777777778
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.1111111111111111,
+          "ci_lo": 0.0625,
+          "ci_hi": 0.16666666666666666
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.09722222222222224,
+          "ci_lo": 0.00694444444444442,
+          "ci_hi": 0.1875,
+          "p_value": 0.045,
+          "significant_at_0.05": true
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.47222222222222227,
+          "ci_lo": -0.5833333333333334,
+          "ci_hi": -0.3541666666666667,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      }
+    },
+    "gpt-oss-20b-cloud": {
+      "explicit": {
+        "episodes_file": "results/models/gpt-oss-20b-cloud/screened_ablation_episodes.json",
+        "n_tasks": 96,
+        "condition": "adversarial",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5833333333333334,
+          "ci_lo": 0.4895833333333333,
+          "ci_hi": 0.6770833333333334
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.0,
+          "ci_lo": 0.0,
+          "ci_hi": 0.0
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.0,
+          "ci_lo": 0.0,
+          "ci_hi": 0.0
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.0,
+          "ci_lo": 0.0,
+          "ci_hi": 0.0,
+          "p_value": 1.0,
+          "significant_at_0.05": false
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.5833333333333334,
+          "ci_lo": -0.6770833333333334,
+          "ci_hi": -0.4895833333333333,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      },
+      "stealth": {
+        "episodes_file": "results/models/gpt-oss-20b-cloud/screened_ablation_stealth_episodes.json",
+        "n_tasks": 96,
+        "condition": "adversarial_stealth",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5625,
+          "ci_lo": 0.46875,
+          "ci_hi": 0.6666666666666666
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.2604166666666667,
+          "ci_lo": 0.17708333333333334,
+          "ci_hi": 0.34375
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.020833333333333332,
+          "ci_lo": 0.0,
+          "ci_hi": 0.052083333333333336
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.23958333333333334,
+          "ci_lo": 0.14583333333333334,
+          "ci_hi": 0.3333333333333333,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.5416666666666666,
+          "ci_lo": -0.6458333333333334,
+          "ci_hi": -0.4375,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      },
+      "diversity_stealth": {
+        "episodes_file": "results/models/gpt-oss-20b-cloud-diversity/screened_ablation_stealth_episodes.json",
+        "n_tasks": 144,
+        "condition": "adversarial_stealth",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5763888888888888,
+          "ci_lo": 0.4930555555555556,
+          "ci_hi": 0.6527777777777778
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.2847222222222222,
+          "ci_lo": 0.20833333333333334,
+          "ci_hi": 0.3611111111111111
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.04861111111111111,
+          "ci_lo": 0.013888888888888888,
+          "ci_hi": 0.08333333333333333
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.2361111111111111,
+          "ci_lo": 0.14583333333333334,
+          "ci_hi": 0.3263888888888889,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.5277777777777777,
+          "ci_lo": -0.625,
+          "ci_hi": -0.4305555555555555,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      }
+    },
+    "gpt-oss-120b-cloud": {
+      "explicit": {
+        "episodes_file": "results/models/gpt-oss-120b-cloud/screened_ablation_episodes.json",
+        "n_tasks": 18,
+        "condition": "adversarial",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5555555555555556,
+          "ci_lo": 0.3333333333333333,
+          "ci_hi": 0.7777777777777778
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.0,
+          "ci_lo": 0.0,
+          "ci_hi": 0.0
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.0,
+          "ci_lo": 0.0,
+          "ci_hi": 0.0
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.0,
+          "ci_lo": 0.0,
+          "ci_hi": 0.0,
+          "p_value": 1.0,
+          "significant_at_0.05": false
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.5555555555555556,
+          "ci_lo": -0.7777777777777778,
+          "ci_hi": -0.3333333333333333,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      },
+      "stealth": {
+        "episodes_file": "results/models/gpt-oss-120b-cloud/screened_ablation_stealth_episodes.json",
+        "n_tasks": 96,
+        "condition": "adversarial_stealth",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5729166666666666,
+          "ci_lo": 0.4791666666666667,
+          "ci_hi": 0.6666666666666666
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.07291666666666667,
+          "ci_lo": 0.020833333333333332,
+          "ci_hi": 0.125
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.020833333333333332,
+          "ci_lo": 0.0,
+          "ci_hi": 0.052083333333333336
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.05208333333333334,
+          "ci_lo": 0.0,
+          "ci_hi": 0.11458333333333333,
+          "p_value": 0.109,
+          "significant_at_0.05": false
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.5520833333333333,
+          "ci_lo": -0.65625,
+          "ci_hi": -0.44791666666666663,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      },
+      "diversity_stealth": {
+        "episodes_file": "results/models/gpt-oss-120b-cloud-diversity/screened_ablation_stealth_episodes.json",
+        "n_tasks": 144,
+        "condition": "adversarial_stealth",
+        "conventional_voi__unsafe_rate": {
+          "point": 0.5763888888888888,
+          "ci_lo": 0.4930555555555556,
+          "ci_hi": 0.6597222222222222
+        },
+        "screened_conventional_voi__unsafe_rate": {
+          "point": 0.18055555555555555,
+          "ci_lo": 0.11805555555555555,
+          "ci_hi": 0.24305555555555555
+        },
+        "secure_voi__unsafe_rate": {
+          "point": 0.034722222222222224,
+          "ci_lo": 0.006944444444444444,
+          "ci_hi": 0.06944444444444445
+        },
+        "screened_minus_secure__unsafe_rate": {
+          "point": 0.14583333333333331,
+          "ci_lo": 0.0763888888888889,
+          "ci_hi": 0.2152777777777778,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        },
+        "secure_minus_conventional__unsafe_rate": {
+          "point": -0.5416666666666666,
+          "ci_lo": -0.6319444444444444,
+          "ci_hi": -0.45138888888888884,
+          "p_value": 0.0,
+          "significant_at_0.05": true
+        }
+      }
+    }
+  }
+}

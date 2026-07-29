@@ -506,7 +506,12 @@ becomes the binding defense: the stage-1 share rises to $0.389$ (Mistral-Nemo-12
 $0.442$ (GPT-OSS-20B), $0.299$ (Llama-3.3-70B) and $0.094$ (GPT-OSS-120B)---every
 model tested. In absolute terms, removing stage 1 while keeping the identical
 screen raises adversarial unsafe actions from $0.208$ to $0.354$, from $0.021$ to
-$0.260$, from $0.094$ to $0.240$, and from $0.021$ to $0.073$ respectively. Three
+$0.260$, from $0.094$ to $0.240$, and from $0.021$ to $0.073$ respectively. The
+task-level paired bootstrap finds this removal effect significant for GPT-OSS-20B
+($p<0.001$) and Llama-3.3-70B ($p=0.012$) but not, at $n=96$, for
+Mistral-Nemo-12B ($p=0.057$) or GPT-OSS-120B ($p=0.109$); on the three-domain set
+($n=144$) all four reach significance ($p\le0.045$). The effect is thus
+established in two of four models here and in all four at larger sample. Three
 of the four models (Mistral-Nemo-12B, Llama-3.3-70B, GPT-OSS-20B) have both tiers
 at full $96$-task coverage with zero excluded tasks, so the reversal from $0.000$
 to $0.389$, $0.299$ and $0.442$ is a \emph{within-model} comparison on identical
@@ -521,11 +526,10 @@ direction of change is mixed---two rise substantially, one is essentially
 unchanged, and one falls---so we claim only that the effect \emph{persists}
 under a change of task family, not that it uniformly grows. The per-domain
 breakdown supports the
-mechanism rather than merely repeating the average: wherever the screen alone
-already reaches $0.000$ unsafe (GPT-OSS-120B on the file domain) the stage-1
-share is correspondingly $0.000$, and wherever the screen leaves residual risk
-the share is large (up to $0.937$ on Mistral's calendar domain). Stage 1 pays
-for itself exactly in proportion to how much the screen misses.
+mechanism: where the screen alone already reaches $0.000$ unsafe (GPT-OSS-120B,
+file domain) the stage-1 share is likewise $0.000$, and where the screen leaves
+residual risk the share is large (up to $0.937$ on Mistral's calendar
+domain)---stage 1 pays for itself in proportion to what the screen misses.
 The two stages are therefore not redundant but complementary along the axis that
 matters: stage 2 carries safety while attacks are recognizable from their
 wording, and stage 1 supplies the defense-in-depth that survives when they are
@@ -631,13 +635,11 @@ task ($0.000$ benign goal).}
   transferring to a broader task distribution. Because that benchmark is frozen and
   checksummed (\texttt{results/main120\_manifest.json}), we did not modify it;
   instead we built a \emph{separate} $180$-task, three-domain set (adding a
-  messaging domain) so that a transfer test extends the results rather than
-  invalidating them. The stage-1/stage-2 ablation replicates there in every model
-  re-run (Results), which is direct evidence that our central new finding is
-  not an artifact of the two original templates. We report that set only for the
-  ablation, not as a second headline table, because it was constructed by us under
-  the same design assumptions and so tests robustness to task family without
-  testing robustness to benchmark authorship. Porting the policy interface onto an
+  messaging domain), on which the stage-1/stage-2 ablation replicates in every
+  model (Results)---evidence the finding is not an artifact of the two original
+  templates. We report it only for that ablation, not as a second headline table:
+  we built it under the same design assumptions, so it tests robustness to task
+  family but not to benchmark authorship. Porting the policy interface onto an
   established
   multi-domain agent benchmark---AgentDojo \citep{debenedetti2024agentdojo}, whose
   attack/defense harness already spans several application domains, or ASPI's
