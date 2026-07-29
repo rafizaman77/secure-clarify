@@ -116,16 +116,24 @@ def openai_compatible_generate_fn(base_url: str, api_key: str, model: str,
     the escalating penalty Groq applies when a client ignores it. Other errors
     (network blips, 5xx) still use short exponential backoff. A small
     `min_interval` throttle between calls further smooths sustained runs so they
-    trip the burst limit less often."""
+    trip the burst limit less often.
+
+    OpenAI's own API (as opposed to Groq/Together/Fireworks/OpenRouter, which
+    all still accept the original field) rejects `max_tokens` on its current
+    model lineup (gpt-5.x, o-series) with a 400 asking for
+    `max_completion_tokens` instead -- confirmed directly against
+    api.openai.com. Detected from base_url so every other provider's
+    already-published behavior is untouched."""
 
     last_call = [0.0]  # wall-clock of the previous request start (for min_interval)
+    token_field = "max_completion_tokens" if "api.openai.com" in base_url else "max_tokens"
 
     def generate(prompt: str) -> str:
         payload = json.dumps({
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temperature,
-            "max_tokens": max_tokens,
+            token_field: max_tokens,
         }).encode("utf-8")
         req = urllib.request.Request(
             base_url, data=payload, method="POST",
@@ -179,6 +187,97 @@ def openai_compatible_generate_fn(base_url: str, api_key: str, model: str,
         # not silently wrong -- but it WILL suppress real experimental signal,
         # so surface the failure loudly rather than swallowing it quietly.
         raise RuntimeError(f"generate_fn failed after {max_retries} attempts: {last_err}")
+
+    return generate
+
+
+def anthropic_generate_fn(api_key: str, model: str, temperature: float = 0.0,
+                          max_tokens: int = 512, timeout: float = 60.0,
+                          max_retries: int = 8, min_interval: float = 0.0,
+                          base_url: str = "https://api.anthropic.com/v1/messages"):
+    """Claude's native Messages API -- NOT the OpenAI-compatible shape that
+    openai_compatible_generate_fn handles (Anthropic has no such endpoint for
+    chat completions). Differs in three ways that matter here: the auth
+    header is `x-api-key` (not `Authorization: Bearer`) plus a required
+    `anthropic-version` header, the request has no `messages[].role="system"`
+    (there's a separate top-level `system` field, unused here since every
+    caller already puts its full instructions in the single user-turn
+    prompt), and the response's text lives at `content[0]["text"]`, not
+    `choices[0]["message"]["content"]`. Same retry/hard-timeout treatment as
+    the OpenAI-compatible path for the same reason: urllib's own socket
+    timeout is not reliable on this platform (see
+    _urlopen_hard_timeout's docstring), and a 429 carries a `Retry-After`
+    worth honoring rather than hammering."""
+
+    last_call = [0.0]
+
+    def generate(prompt: str) -> str:
+        body = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        # Claude 4.6+/5-family models (e.g. claude-sonnet-5) reject an explicit
+        # temperature=0.0 outright ("`temperature` is deprecated for this
+        # model") -- confirmed directly against api.anthropic.com. Every
+        # caller here uses temperature=0.0 as its "deterministic" default, so
+        # omit the field entirely for that case rather than sending a value
+        # these models 400 on. Explicitly disable adaptive thinking too: these
+        # models think by default, which (a) breaks the "greedy decoding"
+        # comparability with every other backend's temperature=0 runs, (b)
+        # non-deterministically reorders `content` (a `thinking` block can
+        # land before the `text` block), and (c) burns extra tokens/latency
+        # across a ~2000-call grid for no benefit here. A caller that
+        # explicitly wants sampling (temperature > 0, e.g.
+        # robustness_subset.py) still gets temperature sent and thinking left
+        # on its model default.
+        if temperature != 0.0:
+            body["temperature"] = temperature
+        else:
+            body["thinking"] = {"type": "disabled"}
+        payload = json.dumps(body).encode("utf-8")
+        req = urllib.request.Request(
+            base_url, data=payload, method="POST",
+            headers={"Content-Type": "application/json",
+                     "x-api-key": api_key,
+                     "anthropic-version": "2023-06-01",
+                     "User-Agent": _USER_AGENT})
+        if min_interval > 0:
+            gap = min_interval - (time.time() - last_call[0])
+            if gap > 0:
+                time.sleep(gap)
+        last_call[0] = time.time()
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                raw = _urlopen_hard_timeout(req, socket_timeout=timeout, hard_timeout=timeout + 10)
+                data = json.loads(raw.decode("utf-8"))
+                # `content` is not always [text_block] -- a thinking-enabled
+                # response (or a future block type) can put non-text blocks
+                # first, so scan for the first "text" block rather than
+                # indexing content[0] directly.
+                for block in data["content"]:
+                    if block.get("type") == "text":
+                        return block["text"]
+                raise KeyError("no text block in response content")
+            except concurrent.futures.TimeoutError as e:
+                last_err = e
+                time.sleep(min(2 ** attempt, 8))
+            except urllib.error.HTTPError as e:
+                last_err = e
+                if e.code == 429:
+                    retry_after = e.headers.get("Retry-After") if e.headers else None
+                    try:
+                        wait = float(retry_after) if retry_after else 30.0 * (attempt + 1)
+                    except (TypeError, ValueError):
+                        wait = 30.0 * (attempt + 1)
+                    time.sleep(min(wait + 2.0, 310.0))
+                else:
+                    time.sleep(min(2 ** attempt, 8))
+            except (urllib.error.URLError, KeyError, IndexError, TimeoutError) as e:
+                last_err = e
+                time.sleep(min(2 ** attempt, 8))
+        raise RuntimeError(f"anthropic generate_fn failed after {max_retries} attempts: {last_err}")
 
     return generate
 
@@ -392,9 +491,57 @@ def build_agent(backend: str, model: str, base_url: str = "", api_key_env: str =
         # burst limit without a code change -- set it for a full grid, leave it
         # unset (0) for a one-off smoke call.
         min_interval = float(os.environ.get("GEN_MIN_INTERVAL", "0"))
+        # gpt-5.x's JSON responses run noticeably more verbose per hypothesis
+        # than the open-weight models this default was tuned against (long
+        # prose-y field values rather than short ones) -- confirmed directly:
+        # the 512-token default truncates mid-object on a k=5 sample_intents
+        # call, _extract_json/_repair_json can't recover a cut-off string, and
+        # the silent all-empty-hypothheses fallback then reads as "zero
+        # information gain" on every task regardless of lambda. Only bump this
+        # for the real OpenAI endpoint so Groq/Together/etc keep their
+        # already-validated 512 default unchanged.
+        #
+        # Gemini needs a much larger budget again, for a different reason:
+        # its 3.x models always think before answering, those thinking tokens
+        # are billed against max_tokens, and they are NOT counted in the
+        # response's `completion_tokens` -- so an overrun is invisible in the
+        # usage field and shows up only as finish_reason="length". Measured
+        # directly against gemini-3.6-flash on a k=5 sample_intents-shaped
+        # prompt: thinking alone runs 1100-1400 tokens, so at the 512 default
+        # the model burns ~487 of it thinking, emits 21 tokens of content, and
+        # returns truncated JSON every single time. 4096 leaves ~1900 tokens
+        # of headroom over the observed worst case (thinking + ~900 tokens of
+        # content) and returns finish_reason="stop". Note thinking cannot be
+        # switched off on this endpoint -- `reasoning_effort: "none"` is
+        # rejected with a 400, and "low" does not reliably reduce it.
+        if "api.openai.com" in base_url:
+            openai_max_tokens = 1536
+        elif "generativelanguage.googleapis.com" in base_url:
+            openai_max_tokens = 4096
+        else:
+            openai_max_tokens = 512
         gen = openai_compatible_generate_fn(base_url=base_url, api_key=api_key,
                                             model=model, min_interval=min_interval,
-                                            temperature=temperature)
+                                            temperature=temperature,
+                                            max_tokens=openai_max_tokens)
+    elif backend == "anthropic":
+        api_key = os.environ.get(api_key_env, "")
+        if not api_key:
+            raise SystemExit(
+                f"Set {api_key_env} in your environment first "
+                f"(export {api_key_env}=... / $env:{api_key_env}='...').")
+        min_interval = float(os.environ.get("GEN_MIN_INTERVAL", "0"))
+        # Same verbosity problem the api.openai.com branch above documents, and
+        # worse here: measured directly against claude-sonnet-5, a k=3
+        # sample_intents call already emits ~450 output tokens, so the real
+        # k=5 call (estimators.estimate_info_gain's default) overruns the
+        # 512-token default and gets cut mid-object. _extract_json cannot
+        # repair a truncated string, and its all-empty-hypotheses fallback
+        # reads as "zero information gain" on every task regardless of
+        # lambda -- a degenerate calibration that looks like a real finding.
+        gen = anthropic_generate_fn(api_key=api_key, model=model,
+                                    min_interval=min_interval, temperature=temperature,
+                                    max_tokens=2048)
     elif backend == "ollama":
         # OLLAMA_API_KEY set + host pointed at https://ollama.com -> cloud
         # inference (no local install/GPU needed); unset + default localhost
@@ -413,7 +560,7 @@ def build_agent(backend: str, model: str, base_url: str = "", api_key_env: str =
 
 def add_backend_args(ap) -> None:
     """Shared CLI flags for scripts that need to pick a model backend."""
-    ap.add_argument("--backend", choices=["scripted", "openai", "ollama", "hf_local"],
+    ap.add_argument("--backend", choices=["scripted", "openai", "anthropic", "ollama", "hf_local"],
                     default="scripted")
     ap.add_argument("--model", default="ScriptedAgent")
     ap.add_argument("--base-url", default="https://api.groq.com/openai/v1/chat/completions")
