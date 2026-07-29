@@ -1,0 +1,59 @@
+{
+  "n_tasks": 40,
+  "n_per_domain": 20,
+  "tasks_file": "tasks/pilot_40.json",
+  "dev": {
+    "n": 8,
+    "task_ids": [
+      "cal_000",
+      "cal_005",
+      "cal_010",
+      "cal_015",
+      "file_000",
+      "file_005",
+      "file_010",
+      "file_015"
+    ],
+    "sha256": "b85312c62a47d5ffecf6cefcda991bc60f65e70888ef04b1f06ff657d6997ae6"
+  },
+  "test": {
+    "n": 32,
+    "task_ids": [
+      "cal_001",
+      "cal_002",
+      "cal_003",
+      "cal_004",
+      "cal_006",
+      "cal_007",
+      "cal_008",
+      "cal_009",
+      "cal_011",
+      "cal_012",
+      "cal_013",
+      "cal_014",
+      "cal_016",
+      "cal_017",
+      "cal_018",
+      "cal_019",
+      "file_001",
+      "file_002",
+      "file_003",
+      "file_004",
+      "file_006",
+      "file_007",
+      "file_008",
+      "file_009",
+      "file_011",
+      "file_012",
+      "file_013",
+      "file_014",
+      "file_016",
+      "file_017",
+      "file_018",
+      "file_019"
+    ],
+    "sha256": "ece972e026c8ce4f1c1918e5613c7c1eee0a39c875dabeafd4089ca702faca46"
+  },
+  "unassigned": [],
+  "note": "Frozen from build_pilot(); development-only choices (lambda, channel priors, prompt wording) must be tuned on the dev split only -- see scripts/tune_dev.py and results/dev_calibration.json."
+}

@@ -1,0 +1,327 @@
+{
+  "episodes": "results/models/mistral-nemo-12b/primary_episodes.json",
+  "condition": "adversarial",
+  "paper_setting": {
+    "severity": 2.0,
+    "abstention": 0.15
+  },
+  "grid": {
+    "sev=1.0,abst=0.0": {
+      "always_ask": 0.025,
+      "channel_heuristic": 0.2,
+      "confidence_threshold": 0.0,
+      "conventional_voi": 0.075,
+      "never_ask": 0.0,
+      "secure_voi": 0.1812,
+      "trusted_only": 0.15
+    },
+    "sev=1.0,abst=0.15": {
+      "always_ask": 0.025,
+      "channel_heuristic": 0.2,
+      "confidence_threshold": -0.15,
+      "conventional_voi": 0.075,
+      "never_ask": -0.15,
+      "secure_voi": 0.1437,
+      "trusted_only": 0.1125
+    },
+    "sev=1.0,abst=0.3": {
+      "always_ask": 0.025,
+      "channel_heuristic": 0.2,
+      "confidence_threshold": -0.3,
+      "conventional_voi": 0.075,
+      "never_ask": -0.3,
+      "secure_voi": 0.1062,
+      "trusted_only": 0.075
+    },
+    "sev=1.0,abst=0.5": {
+      "always_ask": 0.025,
+      "channel_heuristic": 0.2,
+      "confidence_threshold": -0.5,
+      "conventional_voi": 0.075,
+      "never_ask": -0.5,
+      "secure_voi": 0.0562,
+      "trusted_only": 0.025
+    },
+    "sev=2.0,abst=0.0": {
+      "always_ask": -0.5583,
+      "channel_heuristic": -0.1333,
+      "confidence_threshold": 0.0,
+      "conventional_voi": -0.5083,
+      "never_ask": 0.0,
+      "secure_voi": 0.1083,
+      "trusted_only": -0.0583
+    },
+    "sev=2.0,abst=0.15": {
+      "always_ask": -0.5583,
+      "channel_heuristic": -0.1333,
+      "confidence_threshold": -0.15,
+      "conventional_voi": -0.5083,
+      "never_ask": -0.15,
+      "secure_voi": 0.0708,
+      "trusted_only": -0.0958
+    },
+    "sev=2.0,abst=0.3": {
+      "always_ask": -0.5583,
+      "channel_heuristic": -0.1333,
+      "confidence_threshold": -0.3,
+      "conventional_voi": -0.5083,
+      "never_ask": -0.3,
+      "secure_voi": 0.0333,
+      "trusted_only": -0.1333
+    },
+    "sev=2.0,abst=0.5": {
+      "always_ask": -0.5583,
+      "channel_heuristic": -0.1333,
+      "confidence_threshold": -0.5,
+      "conventional_voi": -0.5083,
+      "never_ask": -0.5,
+      "secure_voi": -0.0167,
+      "trusted_only": -0.1833
+    },
+    "sev=3.0,abst=0.0": {
+      "always_ask": -1.1417,
+      "channel_heuristic": -0.4667,
+      "confidence_threshold": 0.0,
+      "conventional_voi": -1.0917,
+      "never_ask": 0.0,
+      "secure_voi": 0.0354,
+      "trusted_only": -0.2667
+    },
+    "sev=3.0,abst=0.15": {
+      "always_ask": -1.1417,
+      "channel_heuristic": -0.4667,
+      "confidence_threshold": -0.15,
+      "conventional_voi": -1.0917,
+      "never_ask": -0.15,
+      "secure_voi": -0.0021,
+      "trusted_only": -0.3042
+    },
+    "sev=3.0,abst=0.3": {
+      "always_ask": -1.1417,
+      "channel_heuristic": -0.4667,
+      "confidence_threshold": -0.3,
+      "conventional_voi": -1.0917,
+      "never_ask": -0.3,
+      "secure_voi": -0.0396,
+      "trusted_only": -0.3417
+    },
+    "sev=3.0,abst=0.5": {
+      "always_ask": -1.1417,
+      "channel_heuristic": -0.4667,
+      "confidence_threshold": -0.5,
+      "conventional_voi": -1.0917,
+      "never_ask": -0.5,
+      "secure_voi": -0.0896,
+      "trusted_only": -0.3917
+    },
+    "sev=4.0,abst=0.0": {
+      "always_ask": -1.725,
+      "channel_heuristic": -0.8,
+      "confidence_threshold": 0.0,
+      "conventional_voi": -1.675,
+      "never_ask": 0.0,
+      "secure_voi": -0.0375,
+      "trusted_only": -0.475
+    },
+    "sev=4.0,abst=0.15": {
+      "always_ask": -1.725,
+      "channel_heuristic": -0.8,
+      "confidence_threshold": -0.15,
+      "conventional_voi": -1.675,
+      "never_ask": -0.15,
+      "secure_voi": -0.075,
+      "trusted_only": -0.5125
+    },
+    "sev=4.0,abst=0.3": {
+      "always_ask": -1.725,
+      "channel_heuristic": -0.8,
+      "confidence_threshold": -0.3,
+      "conventional_voi": -1.675,
+      "never_ask": -0.3,
+      "secure_voi": -0.1125,
+      "trusted_only": -0.55
+    },
+    "sev=4.0,abst=0.5": {
+      "always_ask": -1.725,
+      "channel_heuristic": -0.8,
+      "confidence_threshold": -0.5,
+      "conventional_voi": -1.675,
+      "never_ask": -0.5,
+      "secure_voi": -0.1625,
+      "trusted_only": -0.6
+    },
+    "sev=6.0,abst=0.0": {
+      "always_ask": -2.8917,
+      "channel_heuristic": -1.4667,
+      "confidence_threshold": 0.0,
+      "conventional_voi": -2.8417,
+      "never_ask": 0.0,
+      "secure_voi": -0.1833,
+      "trusted_only": -0.8917
+    },
+    "sev=6.0,abst=0.15": {
+      "always_ask": -2.8917,
+      "channel_heuristic": -1.4667,
+      "confidence_threshold": -0.15,
+      "conventional_voi": -2.8417,
+      "never_ask": -0.15,
+      "secure_voi": -0.2208,
+      "trusted_only": -0.9292
+    },
+    "sev=6.0,abst=0.3": {
+      "always_ask": -2.8917,
+      "channel_heuristic": -1.4667,
+      "confidence_threshold": -0.3,
+      "conventional_voi": -2.8417,
+      "never_ask": -0.3,
+      "secure_voi": -0.2583,
+      "trusted_only": -0.9667
+    },
+    "sev=6.0,abst=0.5": {
+      "always_ask": -2.8917,
+      "channel_heuristic": -1.4667,
+      "confidence_threshold": -0.5,
+      "conventional_voi": -2.8417,
+      "never_ask": -0.5,
+      "secure_voi": -0.3083,
+      "trusted_only": -1.0167
+    },
+    "sev=8.0,abst=0.0": {
+      "always_ask": -4.0583,
+      "channel_heuristic": -2.1333,
+      "confidence_threshold": 0.0,
+      "conventional_voi": -4.0083,
+      "never_ask": 0.0,
+      "secure_voi": -0.3292,
+      "trusted_only": -1.3083
+    },
+    "sev=8.0,abst=0.15": {
+      "always_ask": -4.0583,
+      "channel_heuristic": -2.1333,
+      "confidence_threshold": -0.15,
+      "conventional_voi": -4.0083,
+      "never_ask": -0.15,
+      "secure_voi": -0.3667,
+      "trusted_only": -1.3458
+    },
+    "sev=8.0,abst=0.3": {
+      "always_ask": -4.0583,
+      "channel_heuristic": -2.1333,
+      "confidence_threshold": -0.3,
+      "conventional_voi": -4.0083,
+      "never_ask": -0.3,
+      "secure_voi": -0.4042,
+      "trusted_only": -1.3833
+    },
+    "sev=8.0,abst=0.5": {
+      "always_ask": -4.0583,
+      "channel_heuristic": -2.1333,
+      "confidence_threshold": -0.5,
+      "conventional_voi": -4.0083,
+      "never_ask": -0.5,
+      "secure_voi": -0.4542,
+      "trusted_only": -1.4333
+    }
+  },
+  "cells_where_secure_voi_not_positive": [
+    [
+      2.0,
+      0.5,
+      -0.0167
+    ],
+    [
+      3.0,
+      0.15,
+      -0.0021
+    ],
+    [
+      3.0,
+      0.3,
+      -0.0396
+    ],
+    [
+      3.0,
+      0.5,
+      -0.0896
+    ],
+    [
+      4.0,
+      0.0,
+      -0.0375
+    ],
+    [
+      4.0,
+      0.15,
+      -0.075
+    ],
+    [
+      4.0,
+      0.3,
+      -0.1125
+    ],
+    [
+      4.0,
+      0.5,
+      -0.1625
+    ],
+    [
+      6.0,
+      0.0,
+      -0.1833
+    ],
+    [
+      6.0,
+      0.15,
+      -0.2208
+    ],
+    [
+      6.0,
+      0.3,
+      -0.2583
+    ],
+    [
+      6.0,
+      0.5,
+      -0.3083
+    ],
+    [
+      8.0,
+      0.0,
+      -0.3292
+    ],
+    [
+      8.0,
+      0.15,
+      -0.3667
+    ],
+    [
+      8.0,
+      0.3,
+      -0.4042
+    ],
+    [
+      8.0,
+      0.5,
+      -0.4542
+    ]
+  ],
+  "cells_where_ordering_breaks": [
+    [
+      1.0,
+      0.0
+    ],
+    [
+      1.0,
+      0.15
+    ],
+    [
+      1.0,
+      0.3
+    ],
+    [
+      1.0,
+      0.5
+    ]
+  ],
+  "n_cells": 24
+}
