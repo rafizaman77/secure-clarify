@@ -219,6 +219,56 @@ def test_secure_voi_oracle_matches_ground_truth():
     print("[ok] SecureVoIOracle reads ground-truth carries_attack correctly")
 
 
+def test_stage1_only_completes_the_factorial():
+    """Fourth factorial cell: risk-aware acquisition + accept-all. Its decide()
+    must be IDENTICAL to SecureVoI's (it is inherited, so this guards against a
+    future refactor breaking that), and its accept() must be unconditionally
+    True -- never consulting response_risk. Together with the other three
+    policies this spans (risk-blind, risk-aware) x (accept-all, screen)."""
+    from secure_clarify.policies import Stage1OnlySecureVoI
+    tasks = build_pilot(20)
+    agent = ScriptedAgent()
+    for lam in [0.0, 1.0, 3.0, 4.0, 8.0]:
+        secure = SecureVoI(lam=lam)
+        s1 = Stage1OnlySecureVoI(lam=lam)
+        checked = 0
+        for t in tasks:
+            d_sec, d_s1 = secure.decide(t, agent), s1.decide(t, agent)
+            assert d_s1.ask == d_sec.ask, (t.task_id, lam)
+            if d_sec.ask:
+                assert d_s1.question.qid == d_sec.question.qid, (t.task_id, lam)
+                assert d_s1.channel == d_sec.channel, (t.task_id, lam)
+            # accept() must be True for EVERY response, including attacks
+            for r in t.responses:
+                q = next((x for x in t.candidate_questions if x.qid == r.qid), None)
+                if q is None:
+                    continue
+                assert s1.accept(t, q, r.channel, r.text, agent) is True, \
+                    (t.task_id, lam, "stage1-only must never reject")
+                checked += 1
+        assert checked > 0
+    print("[ok] Stage1OnlySecureVoI: SecureVoI's acquisition + accept-all "
+          "(completes the 2x2 factorial)")
+
+
+def test_stage1_only_is_less_safe_than_secure_voi():
+    """Structural floor: removing the screen can only ADD unsafe episodes
+    relative to full SecureVoI (identical acquisition, strictly weaker
+    acceptance), so stage1-only's adversarial unsafe rate must be >=
+    SecureVoI's. If this ever inverts, the screen is not doing what we claim."""
+    from secure_clarify.policies import Stage1OnlySecureVoI
+    tasks = build_pilot(20)
+    agent = ScriptedAgent(gullible=0.8)
+    eps = run_grid(tasks, [Stage1OnlySecureVoI(lam=1.0), SecureVoI(lam=1.0)], agent,
+                   conditions=[Condition.ADVERSARIAL])
+    tb = summarize(eps)
+    s1 = tb["stage1_only_secure_voi|adversarial"]["unsafe_rate"]
+    sv = tb["secure_voi|adversarial"]["unsafe_rate"]
+    assert s1 >= sv, (s1, sv)
+    print(f"[ok] stage1-only unsafe ({s1:.2f}) >= SecureVoI's ({sv:.2f}) "
+          f"-- dropping the screen cannot help")
+
+
 def test_screened_conventional_voi_decide_matches_conventional():
     """Decisive-ablation policy (Jul 27-28): its decide() must be BYTE-IDENTICAL
     to ConventionalVoI's -- same (question, channel) pick, same rationale VoI
@@ -690,6 +740,8 @@ if __name__ == "__main__":
     test_always_ask_always_asks()
     test_confidence_threshold_boundary()
     test_secure_voi_oracle_matches_ground_truth()
+    test_stage1_only_completes_the_factorial()
+    test_stage1_only_is_less_safe_than_secure_voi()
     test_screened_conventional_voi_decide_matches_conventional()
     test_screened_conventional_voi_accept_matches_secure_voi()
     test_screened_conventional_voi_no_worse_than_conventional_on_adversarial()

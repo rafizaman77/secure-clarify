@@ -269,6 +269,36 @@ class SecureVoIOracle(SecureVoI):
         return info_value > self.lam * r * expected_loss
 
 
+class Stage1OnlySecureVoI(SecureVoI):
+    """Fourth factorial cell (Jul 29): risk-aware acquisition with NO response
+    screen. Completes the 2x2 over (risk-blind, risk-aware) x (accept-all,
+    screen):
+
+        risk-blind  + accept-all -> ConventionalVoI
+        risk-aware  + accept-all -> Stage1OnlySecureVoI   <- this class
+        risk-blind  + screen     -> ScreenedConventionalVoI
+        risk-aware  + screen     -> SecureVoI
+
+    Without this cell the ScreenedConventionalVoI ablation identifies only
+    stage 1's INCREMENTAL contribution given a screen; it cannot speak to
+    stage 1's independent effectiveness. This class supplies the missing
+    comparison: Stage1Only vs ConventionalVoI isolates stage 1 acting alone.
+
+    decide() is inherited from SecureVoI UNCHANGED -- that is the point, this
+    is the real risk-aware acquisition rule, not a reimplementation. accept()
+    is overridden to accept unconditionally, matching ConventionalVoI's
+    accept-all behavior (ConventionalVoI has no accept() override at all, so
+    the runner's default acceptance applies to it; returning True here is that
+    same semantics stated explicitly)."""
+    name = "stage1_only_secure_voi"
+
+    def accept(self, task: Task, q: Question, c: Channel, response_text: str,
+               agent) -> bool:
+        """Stage 2 disabled: accept whatever comes back, exactly as the
+        risk-blind baselines do. No call to response_risk or classify_malice."""
+        return True
+
+
 class ScreenedConventionalVoI(SecureVoI):
     """Decisive ablation (Jul 27): isolates whether SecureVoI's advantage over
     ConventionalVoI comes from stage 1 (channel-risk-aware acquisition,

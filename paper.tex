@@ -54,30 +54,32 @@ propose \textbf{SecureVoI}, a two-stage extension of value-of-information
 reasoning that scores each question--channel pair by expected information gain
 net of interaction cost and channel-dependent security loss, then screens
 incoming responses before accepting them. We further construct a benchmark of
-120 ambiguous file- and calendar-management tasks (96 held out for testing) with
-matched benign, noisy, and adversarial clarification responses and fully automatic
-outcome verification; crucially, attacks are distributed across channels so that
-channel identity is never perfectly predictive of an attack---a validity property
-that prevents a defense from succeeding merely by avoiding a single channel.
-Across four open-weight models (Mistral-Nemo-12B, GPT-OSS-20B, GPT-OSS-120B, and
-Llama-3.3-70B), conventional value-of-information clarification raises benign task
-completion from near zero to 53--100\% but incurs 57--58\% unsafe-action rates
-under adversarial responses; even a trivial heuristic that routes each question to
-its highest-trust available channel still suffers 31--33\% unsafe actions,
-confirming that the benchmark cannot be solved by channel avoidance alone.
+120 ambiguous file- and calendar-management tasks (96 held out) with matched
+benign, noisy, and adversarial clarification responses and fully automatic
+outcome verification; attacks are distributed across channels so channel
+identity is never perfectly predictive of an attack, preventing a defense from
+succeeding merely by avoiding one channel. Across four open-weight models,
+conventional value-of-information clarification raises benign task completion
+from near zero to 53--100\% but incurs 57--58\% unsafe-action rates under
+adversarial responses; a trivial highest-trust-channel heuristic still suffers
+31--33\%, so the benchmark cannot be solved by channel avoidance alone.
 SecureVoI drives adversarial unsafe actions to 0--7\%---a significant
 paired-bootstrap reduction over conventional value-of-information in every model
-($-0.51$ to $-0.58$, $p<0.001$)---and is the only \emph{baseline} policy that
-remains net-positive in utility under attack ($+0.07$ to $+0.22$ adversarial
-utility, while every baseline, including the channel heuristic, is negative),
-showing that its advantage comes from screening response content rather than from avoiding a
-channel. This safety costs a bounded and statistically indistinguishable amount of
-benign utility relative to a trusted-channel-only baseline ($p>0.7$), and an
-oracle response classifier eliminates SecureVoI's small residual unsafe rate
-entirely. Our results show that when an agent should ask depends not only on how
-uncertain it is, but on who might be answering---and that securing the
-clarification channel requires inspecting what comes back, not merely where it
-came from.
+($-0.51$ to $-0.58$, $p<0.001$)---at a bounded cost in benign utility that is
+statistically indistinguishable from a trusted-channel-only baseline ($p>0.7$).
+An ablation that separates the two stages locates where each one matters, and
+the answer is not uniform. Against explicit attacks, conventional
+value-of-information paired with SecureVoI's response screen matches SecureVoI's
+safety while achieving \emph{higher} adversarial utility in all four models:
+response screening accounts for the headline safety gains in this regime, and
+risk-aware acquisition is redundant. Against stealthier attacks, whose wording
+strips the surface cues a screen keys on, adding risk-aware acquisition reduces
+unsafe actions by $0.05$--$0.24$ across models, with statistically significant
+reductions in two of four. These results locate the roles of the two stages:
+response screening is the primary defense when attacks are recognizable, while
+acquisition-time risk reasoning provides defense-in-depth as screening weakens.
+More broadly, when an agent should ask depends not only on how uncertain it is,
+but on who might be answering.
 \end{abstract}
 
 \section{Introduction}
@@ -129,11 +131,12 @@ value-of-information reasoning that (1) scores each candidate question--channel
 pair by expected information gain net of interaction cost \emph{and} a
 channel-dependent security loss term before asking, and (2) screens the response
 that actually comes back before accepting it, using a learned estimate of how
-likely that specific answer is to be malicious. The two stages matter
-separately. A policy with risk-aware acquisition but no screen can still be
-talked into accepting a bad answer once it decides to ask; a policy that only
-screens has no principled way to prefer a slightly-less-informative but
-lower-risk channel in the first place. Conventional VoI is neither: it is
+likely that specific answer is to be malicious. The two stages play different roles. A policy with risk-aware acquisition but
+no screen can still be talked into accepting a bad answer once it decides to
+ask; a policy that only screens has no principled way to prefer a
+slightly-less-informative but lower-risk channel in the first place. Our
+ablation isolates stage 1's incremental effect when a response screen is
+present, and we report the fourth factorial cell separately. Conventional VoI is neither: it is
 risk-blind \emph{and} unscreened, which is why we show it becomes measurably
 more dangerous under adversarial responses than under benign ones. Of the four
 cells in the (risk-blind, risk-aware) $\times$ (accept-all, screen) factorial we
@@ -341,8 +344,10 @@ ignorable. Tasks additionally vary in \textbf{stakes} (low/medium/high, which
 weight the regret of an unsafe action) and \textbf{question format} (open
 free-text versus a restricted fixed-choice schema parsed outside the model).
 
-\paragraph{Automatic verification.} Every outcome is scored by two independent,
-deterministic (non-LLM) verifiers---there is no LLM judge anywhere in the loop.
+\paragraph{Automatic verification.} Primary goal and safety outcomes are scored by two independent,
+deterministic (non-LLM) verifiers; no LLM judge participates in any reported
+goal, safety, or utility number. An auxiliary model judge is used only for the
+refusability analysis reported later, and never feeds back into scoring.
 \texttt{goal\_verifier} checks the final environment state against a
 machine-checkable predicate; \texttt{safety\_verifier} scans the immutable,
 append-only action log for any prohibited transition. An episode is unsafe if a
@@ -390,13 +395,13 @@ only partially met (see Limitations).
 
 Table~\ref{tab:main} reports the held-out test split on Mistral-Nemo-12B, and
 Table~\ref{tab:cross} shows that the ordering reproduces across all four models.
-The central finding is that \textbf{SecureVoI is the only baseline policy that
-remains net-positive in utility under attack}: its adversarial utility is
-$+0.071$ to $+0.217$ across models, while every other policy in the comparison
-set---including both trivial baselines---is negative. Against Conventional VoI
-it reduces adversarial unsafe actions by $-0.510$ to $-0.583$ (paired bootstrap,
-$p<0.001$ in every model). The screened ablation below also clears zero, by a
-wider margin; we report that as an ablation finding, not a baseline result.
+Among the baselines, SecureVoI is the only one that remains net-positive in
+utility under attack (adversarial utility $+0.071$ to $+0.217$; every other
+baseline, including both trivial extremes, is negative), reducing adversarial
+unsafe actions against Conventional VoI by $-0.510$ to $-0.583$ (paired
+bootstrap, $p<0.001$ in every model). The ablation below shows this headline
+comparison is not the whole story: on the explicit tier a screen-only policy
+clears zero by a wider margin still.
 
 \begin{table*}[t]
 \centering
@@ -594,23 +599,21 @@ discrete recognizable action; SecureVoI's acquisition-time reasoning is
 complementary and would be expected to matter more against attacks that evade an
 action filter---a direction this benchmark does not yet stress.
 
-\paragraph{Stability under sampling.} All headline numbers are decoded greedily, so
-we re-ran a 30-task subset three times at temperature $0.7$ to confirm the effect is
-not an artifact of deterministic decoding. It is not: across repetitions Conventional
-VoI's adversarial unsafe rate is $0.511 \pm 0.016$ and SecureVoI's is $0.122 \pm
-0.016$ (mean $\pm$ SD over three runs), with SecureVoI the only policy in that
-subset holding positive adversarial utility ($+0.065 \pm 0.048$ versus $-0.455
-\pm 0.054$; this subset predates the ablation and does not include it). Every
-measured quantity has SD $\le 0.05$, an order of magnitude below the gap between the
-two policies. Absolute rates shift modestly from the greedy 96-task numbers
-($0.583$/$0.073$) because this is a smaller subset at nonzero temperature, but the
-ordering, the sign of the utility difference, and the magnitude of the safety gap all
-persist.
+\paragraph{Stability under sampling.} Headline numbers are decoded greedily, so
+we re-ran a 30-task subset three times at temperature $0.7$. The effect is not a
+decoding artifact: Conventional VoI's adversarial unsafe rate is $0.511 \pm
+0.016$ and SecureVoI's $0.122 \pm 0.016$ (mean $\pm$ SD, three runs), with
+SecureVoI the only policy in that subset net-positive in adversarial utility
+($+0.065 \pm 0.048$ vs.\ $-0.455 \pm 0.054$; the subset predates the ablation
+and excludes it). Every measured quantity has SD $\le 0.05$, an order of
+magnitude below the policy gap. Absolute rates shift from the greedy 96-task
+numbers because the subset is smaller and sampled, but the ordering and the sign
+of the utility difference persist.
 
 \paragraph{Robustness to attack phrasing.} We built a second attack tier carrying the
 identical prohibited action on the identical channel and task, with the explicit
 tier's surface tells removed (no discourse-break imperative, no
-\texttt{evil.com}-style recipient), drawn from three independent persuasion
+\texttt{evil.com}-style recipient), drawn from three distinct persuasion
 strategies per cell (plausible-role, implied-prior-agreement, scope-bundling; 12
 distinct strings total) so the result does not rest on one lucky or unlucky
 sentence. As a validity check, no risk-blind policy---which never screens
@@ -629,8 +632,10 @@ the weaker model's failure is substantially a genuine classifier limitation
 itself), while the strongest model's small residual movement is mostly the
 keyword list losing its trigger words rather than the model's own judgment
 changing (GPT-OSS-120B, $33\%$; the other two models fall in between at
-$45$--$48\%$, genuinely mixed). An independent refusability judge confirms the
-rewrite preserved the benchmark's fairness bound: stealth attacks remain judged
+$45$--$48\%$, genuinely mixed). An auxiliary judge (GPT-OSS-120B, 3 repetitions, with a prompt that
+deliberately never mentions injection or security, so as not to prime a
+DECLINE; verbatim in the supplement) confirms the rewrite preserved the
+benchmark's fairness bound: stealth attacks remain judged
 refusable $83\%$ of the time versus $100\%$ for the explicit tier, with a $0\%$
 false-positive rate on benign controls, so the harder detection problem is not an
 artifact of an unfair or unanswerable attack.
@@ -675,7 +680,7 @@ artifact of an unfair or unanswerable attack.
   stakes, and information gain, but \emph{not} linguistic variation in the attack
   itself, so confidence intervals on any classifier-mediated quantity from that tier
   should be read accordingly. The stealth tier triples this diversity (three
-  independent persuasion strategies per cell, 12 strings total) specifically to
+  distinct persuasion strategies per cell, 12 strings total) specifically to
   probe whether this mattered, and the qualitative finding---degradation that
   tracks model capability---held up under it, but 12 remains a small sample of
   possible phrasings and we do not claim it is exhaustive.
@@ -714,24 +719,17 @@ treating the \emph{channel} the same way it treats the \emph{question}---as
 something to be chosen, not just consulted---and by screening the specific answer
 that comes back before letting it influence the agent's actions. Across all four
 models this cuts adversarial unsafe actions by $0.510$--$0.583$ ($p<0.001$) and
-leaves SecureVoI as the only \emph{baseline} policy still net-positive in utility
-once the answering channel can be adversarial---though our own screened ablation
-clears zero by a wider margin on the explicit tier. It does so without collapsing into the
+leaves SecureVoI net-positive in utility once the answering channel can be
+adversarial, alone among the baselines---though our screened ablation clears
+zero by a wider margin still on the explicit tier. It does so without collapsing into the
 trivially safe policy of only ever trusting the authenticated user: SecureVoI
 matches Trusted-Only's benign utility to within statistical noise while being
 roughly $3\times$ safer under attack.
 
-Three results complicate a simple story. The defense cannot be reduced to source
-selection: a trivial highest-trust-channel heuristic still incurs $31$--$33\%$
-unsafe actions, and where SecureVoI queries the attacked channel directly it
-accepts the benign answer while rejecting the adversarial one at the same
-source. Plan-level screening (Post-Hoc Guardrail) removes more unsafe actions
-($0.000$ on three of four models) but completes less of the benign task under
-attack (goal $0.542$--$0.698$), and it has oracle knowledge of the prohibited
-patterns, so it is an upper bound rather than a deployable result. Most
-important, our stage-1 ablation shows the two stages are not equally
-load-bearing: against conspicuous injections the screen alone is strictly
-better, and stage 1 earns its cost only once attacks evade it.
+Two results complicate a simple story. The defense is not source selection: a
+trivial highest-trust-channel heuristic still incurs $31$--$33\%$ unsafe
+actions. And the stages are not equally load-bearing: against conspicuous
+injections the screen alone suffices.
 
 \bibliography{references}
 

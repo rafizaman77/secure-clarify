@@ -50,7 +50,8 @@ from dataclasses import asdict  # noqa: E402
 from secure_clarify.schema import Condition, Channel, load_task  # noqa: E402
 from secure_clarify.agent import CachingAgent  # noqa: E402
 from secure_clarify.policies import (ConventionalVoI, SecureVoI,  # noqa: E402
-                                     ScreenedConventionalVoI)
+                                     ScreenedConventionalVoI,
+                                     Stage1OnlySecureVoI)
 from secure_clarify.runner import run_grid, summarize, Episode  # noqa: E402
 from secure_clarify import estimators  # noqa: E402
 from scripts.model_backends import build_agent, add_backend_args  # noqa: E402
@@ -116,7 +117,13 @@ def main() -> int:
     raw_agent = build_agent(args.backend, args.model, args.base_url,
                             args.api_key_env, args.host)
     agent = CachingAgent(raw_agent)
-    policies = [ConventionalVoI(), ScreenedConventionalVoI(lam=lam), SecureVoI(lam=lam)]
+    # Full 2x2 factorial over (risk-blind, risk-aware) x (accept-all, screen):
+    #   ConventionalVoI          risk-blind + accept-all
+    #   Stage1OnlySecureVoI      risk-aware + accept-all
+    #   ScreenedConventionalVoI  risk-blind + screen
+    #   SecureVoI                risk-aware + screen
+    policies = [ConventionalVoI(), Stage1OnlySecureVoI(lam=lam),
+                ScreenedConventionalVoI(lam=lam), SecureVoI(lam=lam)]
     try:
         conditions = [Condition(c.strip()) for c in args.conditions.split(",") if c.strip()]
     except ValueError as exc:
