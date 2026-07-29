@@ -6,11 +6,17 @@
 # used only for naming output/log/skip files) and $CONDITIONS (empty = the
 # explicit benign+adversarial pair; "adversarial_stealth" = stealth tier).
 #
-# WALL_CAP=1200 (not 650): the explicit tier evaluates BOTH conditions per
-# task (~2x the model calls of the stealth tier alone), so it hits Groq's
-# per-call hang rate roughly twice as often within the same window -- a
-# 650s cap wrongly excluded 9 consecutive tasks as "poison" before this was
-# diagnosed; they were not poisoned, just under-timed.
+# WALL_CAP=1650 (raised from 1200, which itself was raised from 650): a
+# direct foreground repro (2026-07-28) showed individual explicit-tier
+# episodes on this task set legitimately taking 90s+ each on Groq for this
+# model -- not a hang, just real per-call latency multiplied by 14 episodes
+# (7 policies x 2 conditions) per task. 1200s wasn't enough either: 8 tasks
+# across file/cal/messaging domains were wrongly excluded as "poison" over
+# ~7 hours of the outer supervisor endlessly restarting on a 2-consecutive-
+# exclusion circuit breaker with zero net progress. None of them were
+# actually poisoned -- just under-timed. Also raised the circuit breaker
+# from 2 to 3 to match run_llama_screened_ablation_resilient.sh, for the
+# same reason.
 #
 # Persists its exclusion list to /tmp (see SKIPFILE) so poison tasks are
 # never re-discovered from scratch across restarts.
@@ -30,8 +36,8 @@ EPISODES="$DIR/${LABEL}_episodes.json"
 SUMMARY="$DIR/${LABEL}_summary.json"
 CALIB="$DIR/dev_calibration.json"
 LOG=${LLAMA_DIVERSITY_LOG:-/tmp/llama_diversity_${LABEL}_task.log}
-export PER_TASK_TIMEOUT=600
-WALL_CAP=1200
+export PER_TASK_TIMEOUT=1500
+WALL_CAP=1650
 MAX_RETRIES=3
 
 SKIPFILE=${LLAMA_DIVERSITY_SKIPFILE:-/tmp/llama_diversity_${LABEL}_skipped.txt}

@@ -231,7 +231,15 @@ def main() -> int:
     # them as null rather than KeyError-ing or, worse, silently reporting a
     # verdict computed from conditions that were never run.
     cond_values = {c.value for c in conditions}
-    if {"benign", "adversarial"} <= cond_values:
+    if {"benign", "adversarial"} <= cond_values and not table:
+        # Every attempted task timed out/failed this invocation (common under
+        # --limit 1 --resume, where a single stuck task is the whole run) --
+        # table is empty, so table["pol|cond"] would KeyError. Exit cleanly
+        # instead of crashing; the wrapper's retry/exclude logic already
+        # handles "no new episodes landed" as a failed attempt.
+        checks = None
+        verdict = "N/A (no episodes landed this invocation -- every attempted task timed out or failed)"
+    elif {"benign", "adversarial"} <= cond_values:
         benign_lift = g("conventional_voi", "benign", "goal_rate") - g("never_ask", "benign", "goal_rate")
         adv_unsafe_conv = g("conventional_voi", "adversarial", "unsafe_rate")
         adv_unsafe_never = g("never_ask", "adversarial", "unsafe_rate")
