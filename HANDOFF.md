@@ -6,7 +6,75 @@ found, fixed, and what's still open. For the running narrative see
 
 ---
 
-## CURRENT (2026-07-28, afternoon) — everything is done except Llama on two
+## CURRENT (2026-07-28, late) — ablation grid essentially complete; paper final.
+## Read the GROQ TPM section before running anything against Groq.
+
+### Ablation grid (stage1_share_of_secure_voi_gap), 15 of 16 cells done
+
+| model | main-explicit | main-stealth | div-explicit | div-stealth |
+|---|---|---|---|---|
+| Mistral-Nemo-12B | 0.000 (96) | 0.389 (96) | 0.123 (144) | 0.688 (144) |
+| Llama-3.3-70B | 0.000 (96) | 0.299 (96) | **91/144 partial** | 0.206 (144) |
+| GPT-OSS-20B | 0.000 (96) | 0.442 (96) | 0.000 (144) | 0.448 (144) |
+| GPT-OSS-120B | 0.000 (96) | 0.094 (96) | 0.000 (144) | 0.270 (144) |
+
+Every reported cell is full coverage, zero excluded tasks. The one gap
+(Llama div-explicit, 91/144) is Groq-TPM-blocked, is NOT in the paper, and is
+resumable with `--resume`.
+
+Significance (`scripts/ablation_stats.py` -> `results/ablation_stats.json`):
+explicit tier is 0.000 with p=1.000 in all four models; stealth is significant
+in GPT-OSS-20B (p<0.001) and Llama (p=0.012) but NOT Mistral (p=0.057) or
+GPT-OSS-120B (p=0.109) at n=96, and significant in all four at n=144. The
+paper states exactly this rather than claiming all four at n=96.
+
+Mistral's div-explicit 0.123 looks like the explicit null failing to replicate.
+It does not: paired bootstrap +0.063, CI [-0.014,+0.139], p=0.125, with
+calendar and messaging both exactly 0.000 and the whole effect confined to the
+file domain where that model's screen is weakest. Do not report it as a finding.
+
+### GROQ RATE LIMIT IS TOKEN-PER-MINUTE — short-prompt health checks LIE
+
+The single most time-wasting bug tonight. `curl` with a short prompt returns
+HTTP 200 in ~0.2s while the real workload gets **HTTP 429**, because Groq
+limits tokens/minute, not requests. Verified directly: same key, same moment,
+short prompt 200 / 800-token prompt 429.
+
+Consequences, all of which cost hours before this was understood:
+- "Groq is healthy" from a short curl is NOT evidence a run can proceed.
+- Swapping API keys appears to fix stalls; it actually just buys a fresh token
+  budget that exhausts again after enough tasks.
+- The 18 tasks seeded as "confirmed poison" in
+  `run_llama_screened_ablation_resilient.sh` were never poison. Re-run under a
+  fresh key they all completed, several in ~2s after previously burning full
+  300s timeouts. **Do not trust that seed list**; it bakes in a ~19% coverage
+  gap for a cause that was never task-specific.
+
+**Always health-check with a realistic-length prompt:**
+
+    curl -s -m 60 -o /dev/null -w "%{http_code}\n" \
+      https://api.groq.com/openai/v1/chat/completions \
+      -H "Authorization: Bearer $GROQ_API_KEY" -H "Content-Type: application/json" \
+      -d "$(python3 -c "import json;p='pad '*400;print(json.dumps({'model':'llama-3.3-70b-versatile','messages':[{'role':'user','content':p}],'max_tokens':200}))")"
+
+Ollama Cloud has the same class of limit and returns a plain 429 when the
+account is exhausted (hit tonight after ~424 cloud tasks); a fresh key clears it.
+
+### Killing a stuck worker: verify PIDs by --episodes-out, never by name
+
+Both llama benchmark jobs and both llama ablation jobs run `run_primary.py` /
+`screened_ablation.py`, so `grep llama` or `grep run_primary` matches several
+unrelated processes. This bit twice tonight, once killing a healthy
+gpt-oss-120b supervisor and once a healthy gpt-oss-20b worker mid-run (both
+recovered from checkpoints, no data lost). Resolve the exact pid first:
+
+    ps -o pid=,command= -p <pid> | grep -oE "(primary|stealth)_episodes\.json"
+
+Kill the WORKER only and leave `supervise_run.sh` alive -- it relaunches with
+`--resume` on a fresh process, which is the actual fix for the CLOSE_WAIT fd
+leak (a thread blocked on a socket read cannot be reaped in-process).
+
+## PRIOR (2026-07-28, afternoon) — everything is done except Llama on two
 ## fronts. Anagh: please pick up the 3 Llama runs below; everyone else's
 ## numbers are final.
 
