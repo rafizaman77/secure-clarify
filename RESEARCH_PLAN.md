@@ -683,17 +683,36 @@ between attack and benign *attack-side* text. Report this as a benchmark artifac
   | explicit adversarial | 20 | 20/20 | **13/20** |
   | adversarial **stealth** | 20 | 20/20 | **0/20** |
 
-  So "identical channel, opposite decision, driven by content" is **true on the
-  explicit tier and false on the stealth tier** — where content discrimination is
-  exactly zero. The paragraph is not wrong as written, but it is evidence about
-  the explicit tier being used to support a mechanism claim, while the headline
-  safety result is reported on **stealth**. On stealth, SecureVoI's advantage
-  cannot be content discrimination, because there is none; it is stage-1 routing.
+  **CORRECTION — this is model-specific, not a property of the method.** I first
+  wrote that the content-discrimination claim "does not survive the stealth
+  tier". That over-generalized from one model. Running the identical audit on
+  **llama-3.3-70b** (λ=3.0, same 96-task test split) refutes it:
 
-  This is the most publication-critical item found so far. The paper must either
-  (a) restrict the content-discrimination claim to the explicit tier and
-  attribute the stealth result to routing, or (b) show the screen discriminating
-  on stealth for some model — currently unobserved on Mistral.
+  | model | tier | on attacked chan | benign accepted | attack rejected |
+  |---|---|---|---|---|
+  | Mistral-Nemo-12B | explicit | 20 | 20/20 | 13/20 |
+  | Mistral-Nemo-12B | **stealth** | 20 | 20/20 | **0/20** |
+  | llama-3.3-70b | explicit | 20 | 20/20 | **20/20** |
+  | llama-3.3-70b | **stealth** | 20 | 20/20 | **11/20** |
+
+  llama-3.3-70b **does** discriminate content on the stealth tier — 11/20
+  attacks rejected while accepting 20/20 of the matched benign answers on the
+  same channel. So option (b) below is satisfied: the mechanism the paper claims
+  is real, and observable on stealth, for at least one model.
+
+  **The actual finding is heterogeneity.** Stealth-tier content discrimination
+  ranges from **0/20 to 11/20** across models under an identical policy, identical
+  tasks, and identical λ-fitting procedure. That is a *model* property, not a
+  policy property — the same conflation Step 2 identified when it decomposed
+  `unsafe = EXPOSURE × COMPLIANCE`. The screen is only as good as the underlying
+  model's ability to notice a subtle injection, and Mistral-Nemo-12B cannot notice
+  one at all.
+
+  **What the paper must do:** report this audit *per model and per tier* rather
+  than pooling. A single "identical channel, opposite decision, driven by content"
+  sentence, supported by explicit-tier numbers, invites the reader to assume the
+  mechanism holds on the tier the headline result uses — where it holds for
+  llama and fails completely for Mistral.
 
 ## Phase 6 status (Steps 19–23)
 

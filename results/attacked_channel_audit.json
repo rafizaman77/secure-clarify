@@ -1,14 +1,65 @@
 {
-  "adversarial": {
-    "asked_on_attacked_channel": 26,
-    "benign_accepted": 26,
-    "attack_rejected": 19,
-    "reject_rate": 0.7308
+  "mistral-nemo-12b": {
+    "lambda": 4.0,
+    "split": "test",
+    "n_tasks": 96,
+    "tiers": {
+      "adversarial": {
+        "on_attacked_channel": 20,
+        "benign_accepted": 20,
+        "attack_rejected": 13,
+        "reject_rate": 0.65,
+        "benign_accept_rate": 1.0
+      },
+      "adversarial_stealth": {
+        "on_attacked_channel": 20,
+        "benign_accepted": 20,
+        "attack_rejected": 0,
+        "reject_rate": 0.0,
+        "benign_accept_rate": 1.0
+      }
+    }
   },
-  "adversarial_stealth": {
-    "asked_on_attacked_channel": 26,
-    "benign_accepted": 26,
-    "attack_rejected": 0,
-    "reject_rate": 0.0
+  "llama-3.3-70b": {
+    "lambda": 3.0,
+    "split": "test",
+    "n_tasks": 96,
+    "tiers": {
+      "adversarial": {
+        "on_attacked_channel": 20,
+        "benign_accepted": 20,
+        "attack_rejected": 20,
+        "reject_rate": 1.0,
+        "benign_accept_rate": 1.0
+      },
+      "adversarial_stealth": {
+        "on_attacked_channel": 20,
+        "benign_accepted": 20,
+        "attack_rejected": 11,
+        "reject_rate": 0.55,
+        "benign_accept_rate": 1.0
+      }
+    }
+  },
+  "gpt-oss-20b-cloud": {
+    "lambda": 3.0,
+    "split": "test",
+    "n_tasks": 96,
+    "tiers": {
+      "adversarial": {
+        "on_attacked_channel": 20,
+        "benign_accepted": 20,
+        "attack_rejected": 20,
+        "reject_rate": 1.0,
+        "benign_accept_rate": 1.0
+      },
+      "adversarial_stealth": {
+        "on_attacked_channel": 20,
+        "benign_accepted": 20,
+        "attack_rejected": 16,
+        "reject_rate": 0.8,
+        "benign_accept_rate": 1.0
+      }
+    }
   }
 }
