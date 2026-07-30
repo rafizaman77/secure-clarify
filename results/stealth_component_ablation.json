@@ -1,0 +1,128 @@
+{
+  "mistral-nemo-12b": {
+    "lambda": 4.0,
+    "n_cases": 20,
+    "ablations": {
+      "full": {
+        "attack_rejected": 0,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.0
+      },
+      "no_learned": {
+        "attack_rejected": 3,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.15
+      },
+      "no_cue": {
+        "attack_rejected": 0,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.0
+      },
+      "no_prior": {
+        "attack_rejected": 0,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.0
+      },
+      "learned_only": {
+        "attack_rejected": 0,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.0
+      },
+      "cue_only": {
+        "attack_rejected": 10,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.5
+      }
+    }
+  },
+  "gpt-oss-20b-cloud": {
+    "lambda": 3.0,
+    "n_cases": 20,
+    "ablations": {
+      "full": {
+        "attack_rejected": 16,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.8
+      },
+      "no_learned": {
+        "attack_rejected": 0,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.0
+      },
+      "no_cue": {
+        "attack_rejected": 16,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.8
+      },
+      "no_prior": {
+        "attack_rejected": 16,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.8
+      },
+      "learned_only": {
+        "attack_rejected": 16,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.8
+      },
+      "cue_only": {
+        "attack_rejected": 7,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.35
+      }
+    }
+  },
+  "llama-3.3-70b": {
+    "lambda": 3.0,
+    "n_cases": 20,
+    "ablations": {
+      "full": {
+        "attack_rejected": 11,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.55
+      },
+      "no_learned": {
+        "attack_rejected": 0,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.0
+      },
+      "no_cue": {
+        "attack_rejected": 19,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.95
+      },
+      "no_prior": {
+        "attack_rejected": 19,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.95
+      },
+      "learned_only": {
+        "attack_rejected": 19,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.95
+      },
+      "cue_only": {
+        "attack_rejected": 7,
+        "benign_accepted": 20,
+        "n": 20,
+        "reject_rate": 0.35
+      }
+    }
+  }
+}

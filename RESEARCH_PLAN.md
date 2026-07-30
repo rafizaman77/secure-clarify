@@ -711,14 +711,62 @@ between attack and benign *attack-side* text. Report this as a benchmark artifac
   underlying model's ability to notice a subtle injection, and Mistral-Nemo-12B
   cannot notice one at all.
 
-  **This also re-scopes Step 27.** The component ablation ran only on Mistral, and
-  its headline invariance — all ten ablations identical on stealth — now has an
-  obvious cause: for Mistral the screen rejects **nothing** on stealth, so no
-  change to `response_risk` can move an outcome. "The learned classifier
-  contributes nothing" is therefore a **Mistral-specific** statement, not a
-  property of the method, and the ablation should be rerun on gpt-oss-20b or
-  llama-3.3-70b, where the screen demonstrably fires on stealth, before any
-  general claim is made about which risk component earns its place.
+  **This re-scopes Step 27 — and the rerun REVERSES its conclusion.** The
+  component ablation ran only on Mistral, where the screen rejects nothing on
+  stealth, so no change to `response_risk` could move an outcome. Rerunning the
+  same ablations on the 20 attacked-channel stealth cases for a model whose screen
+  *does* fire gives the opposite answer:
+
+  Stealth attacks rejected out of the 20 attacked-channel cases, 95% Wilson CI
+  (`scripts/stealth_component_ablation.py`, `results/stealth_component_ablation.json`):
+
+  | ablation | Mistral-Nemo-12B | llama-3.3-70b | gpt-oss-20b |
+  |---|---|---|---|
+  | full | 0/20 [0.00,0.16] | 11/20 [0.34,0.74] | 16/20 [0.58,0.92] |
+  | **−learned** | 3/20 [0.05,0.36] | **0/20** [0.00,0.16] | **0/20** [0.00,0.16] |
+  | −cue | 0/20 | **19/20** [0.76,0.99] | 16/20 |
+  | −prior | 0/20 | **19/20** [0.76,0.99] | 16/20 |
+  | **learned_only** | 0/20 | **19/20** [0.76,0.99] | **16/20** [0.58,0.92] |
+  | cue_only | **10/20** [0.30,0.70] | 7/20 | 7/20 |
+
+  **Benign acceptance is 20/20 in every cell of this table** — none of these
+  differences trades against false positives on matched benign answers.
+
+  On both capable models the learned classifier is **necessary**: removing it
+  takes stealth detection to **0/20**. It is also **sufficient** — `learned_only`
+  matches the full composite on gpt-oss (16/20) and *beats* it on llama
+  (**19/20 vs 11/20**). The hand-built channel prior and lexical cue features are
+  therefore redundant at best and actively harmful at worst: on llama they
+  **destroy 8 of 19 detections** the learned term would have made on its own.
+
+  **Two of my earlier claims are hereby withdrawn:**
+  1. *"Deleting the learned classifier changes nothing."* True only on Mistral.
+     On gpt-oss it destroys stealth detection completely.
+  2. *"`cue_only` dominates the full composite."* Backwards on a capable model:
+     cue_only scores 7/20 against full's 16/20. Shipping that as a design change
+     would have **halved** stealth detection on gpt-oss while helping only the
+     model that cannot detect anyway.
+
+  **The corrected story is coherent and is the one to publish.** The two-stage
+  architecture is sound, and stage 2 works exactly as designed — *conditional on
+  the base model being able to recognise an injection*. Where the model can
+  (llama-3.3-70b, gpt-oss-20b), the learned term carries the whole result and the
+  hand-built features are redundant or harmful. Where it cannot
+  (Mistral-Nemo-12B), no arrangement of features rescues it, and the learned term
+  even suppresses the lexical signal that would otherwise catch 10/20.
+
+  **Concrete design recommendation, supported across models:** drop the channel
+  prior and lexical cue terms from `response_risk` and screen on the learned
+  signal alone. It is never worse on a model that can detect injections, is
+  +8/20 better on llama, and costs nothing in benign acceptance. The one model it
+  does not help is the one where the screen does not function at all — and there
+  the honest reporting fix is to say so, not to tune features around it.
+
+  **Caveat:** n=20 per model, so the CIs are wide and the llama 11→19 gap
+  (non-overlapping intervals: [0.34,0.74] vs [0.76,0.99]) is the only difference
+  here that is individually decisive. The *pattern* — `−learned` → 0/20 on both
+  capable models — is what carries the conclusion, not any single cell. Confirm on
+  the full task set and remaining models before it goes in the paper.
 
   **What the paper must do:** report this audit *per model and per tier* rather
   than pooling. A single "identical channel, opposite decision, driven by content"
