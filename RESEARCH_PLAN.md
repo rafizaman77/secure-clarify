@@ -499,9 +499,69 @@ attributable to lexical cues plus channel routing, not to attack understanding.
   curves, performance by attack family and channel, benign false-positive rate. A
   scalar called "probability of malice" must be calibrated or renamed a risk score.
 
-- [ ] **27. Ablate every response-risk component.** Learned classifier only, channel
-  prior only, lexical cues only, format penalty only, classifier+prior, full
-  composite. Reveals whether "learned security reasoning" is a keyword detector.
+- [x] **27. Ablate every response-risk component.** *(done —
+  `estimators.set_risk_components()` (opt-in, strict no-op by default, guarded by
+  `test_risk_component_ablation_default_is_a_strict_no_op`),
+  `scripts/risk_component_ablation.py`,
+  `results/models/mistral-nemo-12b/risk_component_ablation.json`. 10 ablations ×
+  120 tasks × 3 conditions × 2 policies, Mistral-Nemo-12B, λ=4.0.)*
+
+  Two modes, because dropping a term also lowers the score and so makes rejection
+  rarer for reasons unrelated to information: **zeroed** (drop it) and **renorm**
+  (drop it and rescale survivors to the original total, holding scale fixed).
+
+  **FINDING — "learned security reasoning" is a keyword detector, and the blend is
+  worse than its own keyword term.** SecureVoI on `adversarial_stealth`, the
+  paper's headline tier (Δ vs full composite):
+
+  | ablation | reject\|ask | unsafe | Δ unsafe | utility |
+  |---|---|---|---|---|
+  | full composite | 0.333 | 0.217 | — | −0.117 |
+  | **−learned** (zeroed) | 0.333 | 0.217 | **+0.000** | −0.117 |
+  | −cue (zeroed / renorm) | 0.333 | 0.217 | +0.000 | −0.117 |
+  | −prior (zeroed / renorm) | 0.333 | 0.217 | +0.000 | −0.117 |
+  | −off_schema | 0.333 | 0.217 | +0.000 | −0.117 |
+  | learned_only | 0.333 | 0.217 | +0.000 | −0.117 |
+  | **cue_only** (renorm) | **0.478** | **0.108** | **−0.108** | **+0.100** |
+
+  1. **Deleting the learned classifier changes nothing** — Δunsafe = +0.000 on
+     stealth. Step 8 inferred this from scores; this proves it on real episodes.
+  2. **`cue_only` strictly dominates the full composite**: stealth unsafe halves
+     (0.217 → 0.108), rejection rises (0.333 → 0.478), utility flips negative to
+     positive (−0.117 → +0.100). Same on explicit `adversarial`: `cue_only` and
+     `no_learned_renorm` both reach unsafe **0.000** vs full 0.058, utility +0.208
+     vs +0.092. The learned term and channel prior add non-discriminative mass
+     that **dilutes** the one component doing work, and against a fixed threshold
+     (`info_value/λ`) that dilution costs both safety and utility.
+  3. Benign is identical across every ablation (unsafe 0.000, goal 0.750) except
+     `learned_only`, which *hurts* (goal 0.667, rejection 0.111) — expected, since
+     benign text carries zero cue terms.
+
+  Plumbing verified live, not assumed: `cue_only` and `no_learned_renorm` do move
+  the numbers, so the flat rows are genuine invariance rather than a switch that
+  failed to take effect.
+
+  **Caveats.** One model, and `main_120` carries only **12 distinct stealth
+  strings**, so the ablation's resolution is coarse — several no-ops may simply
+  reflect too few texts near the threshold. Before this becomes a design
+  recommendation it must be rerun against the 81-attack corpus and replicated
+  across models. **Next:** rerun this ablation on `attack_corpus.json` rather than
+  main_120's 12 strings.
+
+## Phase 6 status (Steps 19–23)
+
+- [x] **19. Declare primary hypotheses.** *(done — `HYPOTHESES.md`, committed
+  before the Phase 3 confirmatory runs.)* Four confirmatory hypotheses (H1 vs
+  ConventionalVoI; **H2 vs ScreenedConventionalVoI — the decisive stage-1 test**;
+  H3 vs Stage1OnlySecureVoI for stage-2 necessity; H4 benign-utility
+  *equivalence*), primary metric **exact attacker objective success** rather than
+  pooled `unsafe`, equivalence margins fixed at 0.05, Holm correction per model,
+  and pre-declared decision rules including: if H2 fails on most models, the
+  abstract must claim only that response screening drives the effect. States
+  explicitly that it is **not** a pre-registration of the already-completed
+  exploratory work (Steps 2–9, 18, 26, 27), which informed it.
+- [ ] **20–23.** Hierarchical resampling, Holm correction, TOST, zero-rate
+  intervals — to be implemented against the Phase 3 runs.
 
 ## Phase 8 — External validity
 

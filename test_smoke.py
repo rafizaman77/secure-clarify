@@ -775,6 +775,82 @@ def test_ask_necessity_classes_behave_as_designed():
           f"(act-blind succeeds only where intended; abstaining never unsafe)")
 
 
+def test_risk_component_ablation_default_is_a_strict_no_op():
+    """Step 27 guard. `set_risk_components` exists so the ablation can remove one
+    additive term of response_risk. That switch must be incapable of moving any
+    frozen result when nobody opts in, so the default path is asserted BITWISE
+    equal to the original expression -- not equal to within rounding. A summed
+    implementation differed by one ULP on 49 of 1024 real triples, which is
+    numerically irrelevant but would still make published numbers irreproducible
+    at full precision, so the default now evaluates the literal expression.
+
+    Also checks the switch actually bites (ablations differ from full) and that
+    an unknown component name is rejected rather than silently ignored -- a typo
+    like {"cues"} would otherwise ablate everything and read as a real finding."""
+    from secure_clarify import estimators as E
+    from secure_clarify.schema import QFormat
+
+    def reference(text, task, q, c, agent):
+        prior = E._DEV_ATTACK_PRIOR[c] * (0.55 if q.qformat == QFormat.RESTRICTED else 1.0)
+        learned = agent.classify_malice(text)
+        lower = text.lower()
+        cue_signal = min(1.0, sum(t in lower for t in E._CUE_TERMS) / 4.0)
+        off = 0.0
+        if q.qformat == QFormat.RESTRICTED and q.choices:
+            if not any(ch.lower() in lower for ch in q.choices):
+                off = 0.3
+        return max(0.0, min(1.0, 0.35 * prior + 0.4 * learned + 0.2 * cue_signal + off))
+
+    agent = ScriptedAgent()
+    tasks = build_pilot()
+    assert E.get_risk_components() == (frozenset(E._ALL_RISK_COMPONENTS), False), \
+        "risk components must start at the all-active default"
+
+    n = 0
+    for t in tasks:
+        for q in t.candidate_questions:
+            for r in t.responses:
+                if r.qid != q.qid:
+                    continue
+                got = E.response_risk(r.text, t, q, r.channel, agent)
+                want = reference(r.text, t, q, r.channel, agent)
+                assert got == want, (f"default path not bitwise-identical on "
+                                     f"{t.task_id}/{q.qid}: {got!r} != {want!r}")
+                n += 1
+    assert n > 50, f"only {n} triples exercised"
+
+    # The switch must actually change something, or the ablation measures nothing.
+    # Pick the HIGHEST-risk triple rather than the first: a benign response scores
+    # 0 on every component, so all ablations trivially agree there and the check
+    # would pass vacuously (an earlier version of this test did exactly that).
+    cands = [(E.response_risk(r.text, t, q, r.channel, agent), t, q, r)
+             for t in tasks for q in t.candidate_questions
+             for r in t.responses if r.qid == q.qid]
+    full, t, q, r = max(cands, key=lambda x: x[0])
+    assert full > 0, "no response scores nonzero risk; cannot test the switch"
+    try:
+        moved = 0
+        for comps in ({"prior", "cue", "off_schema"}, {"learned"}, {"cue"}):
+            E.set_risk_components(comps, renorm=True)
+            if E.response_risk(r.text, t, q, r.channel, agent) != full:
+                moved += 1
+        assert moved >= 2, "ablating components changed almost nothing -- switch is inert"
+
+        raised = False
+        try:
+            E.set_risk_components({"cues"})          # typo for "cue"
+        except ValueError:
+            raised = True
+        assert raised, "unknown component name silently accepted"
+    finally:
+        E.set_risk_components()
+
+    assert E.response_risk(r.text, t, q, r.channel, agent) == full, \
+        "default not restored after ablation"
+    print(f"[ok] response_risk ablation switch: default bitwise-identical on {n} "
+          f"triples, ablations bite, bad names rejected")
+
+
 def test_attack_corpus_families_are_distinct_and_split_is_clean():
     """Steps 7+18 guard. Three properties the corpus must keep, each of which was
     violated by an earlier draft and caught here:
@@ -851,6 +927,7 @@ if __name__ == "__main__":
     test_rescore_reproduces_run_episode()
     test_stealth_tier_is_additive_and_matched()
     test_ask_necessity_classes_behave_as_designed()
+    test_risk_component_ablation_default_is_a_strict_no_op()
     test_attack_corpus_families_are_distinct_and_split_is_clean()
     test_diversity_set_valid_and_matched()
     print("\nALL SMOKE TESTS PASSED")
