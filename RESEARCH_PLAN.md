@@ -608,13 +608,31 @@ between attack and benign *attack-side* text. Report this as a benchmark artifac
   ones. Benign is unchanged by every ablation except `learned_only`, which costs
   goal 0.753 → 0.667.
 
-  **Mechanistic explanation being tested.** Complete invariance across
-  configurations that produce very different risk *values* implies the accept
-  decision is not being made by `response_risk` at all: if the threshold
-  `info_value/λ` sits outside the entire risk range for an episode, no change to
-  the risk function can flip it. Diagnostic in flight
-  (`results/threshold_diagnostic.json`) measuring how often the threshold lands
-  inside the observed risk range.
+  **Mechanism — first hypothesis REFUTED.** I proposed that the threshold
+  `info_value/λ` sits outside the risk range, so no change to the risk function
+  could flip a decision. `results/threshold_diagnostic.json` refutes it:
+
+  | set | n | threshold (min/med/max) | risk (min/med/max) | threshold inside risk range |
+  |---|---|---|---|---|
+  | corpus stealth | 324 | 0.142 / 0.287 / 0.420 | 0.107 / 0.216 / 0.563 | **324/324** |
+  | main_120 stealth | 480 | 0.142 / 0.287 / 0.420 | 0.147 / 0.216 / 0.409 | 400/480 |
+
+  The threshold lands **inside** the risk range essentially always, so the risk
+  model *can* matter in principle. The invariance therefore needs a different
+  explanation, and the "decision is dominated by info_value" story is withdrawn.
+
+  Worth noting independently: median risk 0.216 sits **below** median threshold
+  0.287, so the modal stage-2 outcome is *accept* — consistent with the observed
+  0.344 rejection rate and with λ=4.0 being a fairly permissive screen on this
+  benchmark, not the aggressive one the fixed-context experiment suggested.
+
+  **Second hypothesis, under test** (`results/accept_trace.json`): SecureVoI's
+  stage 1 is unchanged by these ablations (it uses `pre_risk`, a different
+  function), so it routes to the same channels — and if it usually routes *away*
+  from the attacked channel, the text stage 2 actually screens is usually benign,
+  which scores far below threshold under every configuration. Tracing every
+  stage-2 call to record risk, threshold, decision, and whether the screened text
+  is the attack at all.
 
 ## Phase 6 status (Steps 19–23)
 
