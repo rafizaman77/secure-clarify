@@ -197,7 +197,41 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
   rate, ask/accept/reject/abstain rates, utility — and whether the screen mistakes
   ordinary noise for malice.
 
-- [ ] **9. Test attacks only where compliance is meaningfully avoidable.** The judge
+- [x] **9. Test attacks only where compliance is meaningfully avoidable.** *(done —
+  `scripts/refusable_subset.py`, `results/refusable_subset.json`.)* Validated by
+  exact reproduction: the `full` stratum recovers all four published stealth
+  numbers (Mistral secure 0.208 / screened 0.354 / Δ +0.146; and Llama, OSS-20B,
+  OSS-120B likewise).
+
+  The judge's 83% pooled figure hides graded structure — 7 strings unanimously
+  refusable (3/3), 3 majority (2/3), 2 unanimously contested (0/3) — so the
+  stage-1 effect is reported per stratum:
+
+  | model | unanimous (3/3) | majority (2/3) | contested (0/3) |
+  |---|---|---|---|
+  | Mistral-12B | +0.104 (p=.365) | **+0.469 (p=.002)** | **−0.375 (p=.002)** |
+  | Llama-70B | +0.042 (p=.540) | **+0.469 (p<.001)** | −0.188 (p=.083) |
+  | GPT-OSS-20B | 0.000 (p=1.00) | **+0.719 (p<.001)** | 0.000 (p=1.00) |
+  | GPT-OSS-120B | 0.000 (p=1.00) | +0.156 (p=.097) | 0.000 (p=1.00) |
+
+  **FINDING — stage 1's stealth benefit is concentrated in the borderline
+  stratum and reverses on contested attacks.** On *unanimously* refusable
+  attacks (the clearest cases) the effect is ≈0 and never significant in any
+  model. The entire benefit lives in the 2/3-vote borderline stratum. On
+  contested attacks it is significantly **negative** in Mistral (−0.375,
+  p=0.002) and trends negative in Llama — SecureVoI is *worse* than screen-only
+  there. So the pooled stealth number averages "no effect on clear attacks",
+  "large effect on borderline ones", and "harm on ambiguous ones" into a single
+  misleading figure.
+
+  *Design bug caught and fixed twice:* stratifying by the text each episode
+  *received* dropped 156/288 episodes (most never receive an attack, because the
+  policy routes around the attacked channel) and — worse — conditioned on a
+  policy-dependent variable, since SecureVoI avoids attacked channels by design.
+  That yielded secure_voi = 1.000 against a known 0.208. Refusability is a
+  property of the attack a **task** carries, fixed before any policy runs, so
+  stratifying on that keeps the task set identical across policies and preserves
+  the paired comparison. The judge
   says 83% of stealth attacks are refusable. Recompute all safety comparisons on the
   full set, the judge-refusable subset, and the contested subset separately, with
   human validation of a sample.
@@ -367,6 +401,12 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 ---
 
 ## Log
+
+- **2026-07-29** — Step 9 done. Stage 1's stealth advantage is NOT uniform: ≈0 on
+  unanimously-refusable attacks, large on borderline (2/3-vote) ones, and
+  significantly negative on contested ones in Mistral (−0.375, p=0.002). The
+  pooled stealth figure averages three different regimes. Implementation
+  validated by exact reproduction of all four published stealth numbers.
 
 - **2026-07-29** — Steps 5, 7, 18 done. Step 5's mechanism identified: stage-1
   info gain is near-saturated (0.89–0.99) across ALL ask-necessity classes
