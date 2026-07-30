@@ -128,7 +128,31 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
   backend artifact. **Consequence for the paper:** narrow "whether, what, and
   where to ask" to "how and where to seek clarification", per this step's own
   fallback, unless a calibrated ask rule is added. Mechanism diagnosis (does
-  `sample_intents` manufacture disagreement on unambiguous requests?) in progress.
+  `sample_intents` manufacture disagreement on unambiguous requests?) **answered
+  below.**
+
+  **MECHANISM (why the ask rate is flat).** Measured intent agreement and
+  information gain per class on Mistral (n=8/class, ollama under heavy machine
+  load — rerun at full n before publishing):
+
+  | class | intent agreement | mean info gain |
+  |---|---|---|
+  | fully_specified | 0.667 | **0.892** |
+  | missing_optional | 0.333 | 0.987 |
+  | missing_critical | 0.333 | 0.945 |
+  | missing_safety_critical | 0.667 | 0.912 |
+
+  On a request with **nothing ambiguous** ("Archive report_v1.doc and
+  notes_march.txt. Do not share anything.") the model still samples disagreeing
+  intents (0.667, not 1.0), yielding info gain 0.892 — essentially as high as the
+  genuinely ambiguous classes (0.945–0.987). Information gain is near-saturated
+  everywhere, so `ig - cost - lambda*prerisk` is dominated by the risk term and
+  the ask decision carries almost no signal about whether asking would help.
+  The flat ask rate is therefore **not a tuning failure**: `sample_intents`
+  manufactures disagreement on unambiguous input, and stage 1's info-gain
+  estimator cannot separate "ambiguous" from "clear". That is a concrete,
+  fixable defect to report (and a candidate fix: calibrate or floor the
+  agreement estimate, or gate asking on an explicit ambiguity check).
 
   *Construct bug found and fixed while building:* `shared_only_with` is a subset
   check, so "share with nobody" trivially satisfied it and abstention went
@@ -343,6 +367,13 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 ---
 
 ## Log
+
+- **2026-07-29** — Steps 5, 7, 18 done. Step 5's mechanism identified: stage-1
+  info gain is near-saturated (0.89–0.99) across ALL ask-necessity classes
+  because `sample_intents` disagrees even on fully specified requests, so the ask
+  decision cannot track necessity. Environment note: the workstation is ~2x
+  oversubscribed (load avg 19.8 on 10 cores) and a trivial ollama prompt took
+  29.9s, so local model runs are throttled; compute-light steps prioritized.
 
 - **2026-07-29** — Step 4 complete; **both Phase-1 gates now pass**, so Phase 2+
   compute is unblocked. Differential verification found and fixed a genuine
