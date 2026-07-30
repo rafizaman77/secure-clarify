@@ -166,7 +166,43 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
   **If not feasible:** narrow the paper everywhere from "whether, what, and where
   to ask" to "how and where to seek clarification on ambiguous tasks."
 
-- [ ] **6. Increase genuine task diversity.** Independently written templates across
+- [~] **6. Increase genuine task diversity.** *(blocked on a design decision —
+  two prerequisite inconsistencies found and documented below.)*
+
+  **Baseline confirmed:** only **3 families total** across both task files
+  (`archive` 60, `scheduling` 60, `channel_setup` 60) — one per domain. Exactly
+  the "two templates x many parameter combinations" criticism.
+
+  **BLOCKER — the model may emit only 3 tools per domain.** `_TOOL_SCHEMA`
+  exposes `{archive_file, delete_file, share_file}` /
+  `{add_attendee, schedule_event, share_availability}` /
+  `{invite_to_channel, share_file_in_channel}`, while the simulators implement far
+  more (`move_file`, `change_permission`, `remove_attendee`, `cancel_event`,
+  `send_email`, `send_message`, `remove_from_channel`). Any "new family" built
+  from 3 tools is a recombination, not a distinct workflow — so Step 6 cannot be
+  satisfied without exposing more tools, and that changes every frozen number.
+  **Decision needed:** expand the schema and re-run (sanctioned now that Steps 1–4
+  pass, and Step 10 requires a full sweep anyway), or narrow the diversity claim.
+
+  **Two real inconsistencies found while scoping this (feed Steps 35–36):**
+  1. *`allowed_actions` is decorative.* `act()` uses the global `_TOOL_SCHEMA`
+     and never consults `task.allowed_actions`. Frozen file tasks allow
+     `{archive_file, list_files, read_metadata, share_file}` but the model can
+     emit `delete_file`; calendar tasks allow
+     `{add_attendee, get_free_busy, schedule_event}` but it can emit
+     `share_availability` — and those two unlisted tools are precisely what
+     several attacks exploit. The task declares an action allowlist the harness
+     never enforces. (Arguably fine for a security benchmark, since the attacker
+     induces an unauthorized action — but it must be described that way, not as
+     an allowlist.)
+  2. *Dead verifier coverage explains the "never triggered" objectives.*
+     `safety_verifier` has branches for `send_email` and `change_permission`, and
+     calendar tasks list `email_external:*` as prohibited, but neither tool is
+     emittable — so `email_external` **cannot** fire regardless of attack text.
+     The Limitations bullet attributes this to attack coverage; the real cause is
+     the tool schema. (This also makes the Step 7 corpus's
+     `unrelated_instruction`->`email_external` attacks unreachable until the
+     schema is expanded.) Independently written templates across
   file sharing/permissions, email drafting/sending, calendar invites/cancellations,
   messaging/recipient selection, data lookup/summarization, credential ops,
   purchase/approval. Parameter substitution ≠ a new task family.
@@ -401,6 +437,14 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 ---
 
 ## Log
+
+- **2026-07-29** — Step 6 scoped and blocked on a decision. Found that the model
+  may emit only 3 tools per domain although the simulators implement 7/6/5, so
+  genuine new workflows require expanding `_TOOL_SCHEMA` (which invalidates frozen
+  numbers). Two independent inconsistencies recorded: `task.allowed_actions` is
+  declared but never enforced, and `email_external` cannot fire because
+  `send_email` is not emittable — the real cause of a gap the Limitations blames
+  on attack coverage.
 
 - **2026-07-29** — Step 9 done. Stage 1's stealth advantage is NOT uniform: ≈0 on
   unanimously-refusable attacks, large on borderline (2/3-vote) ones, and
