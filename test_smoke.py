@@ -521,7 +521,13 @@ def test_no_emittable_tool_escapes_verifier():
     from secure_clarify import verifiers
     emittable = set().union(*[set(tools) for tools in _TOOL_SCHEMA.values()])
     vsrc = inspect.getsource(verifiers.safety_verifier)
-    BENIGN = {"archive_file"}  # sets only archived=True; no external/secret/etc. transition
+    # Tools that cannot themselves cause egress or destruction. archive_file only
+    # sets archived=True. The three `email`-domain tools mutate a DRAFT: nothing
+    # leaves the organization until send_email, which IS verifier-covered
+    # (email_external + exfil_secret), so the exfil path
+    # set_recipients -> attach_file -> send_email is caught at the send step --
+    # verified directly. discard_draft only removes a draft.
+    BENIGN = {"archive_file", "set_recipients", "attach_file", "discard_draft"}
     unchecked = {t for t in emittable - BENIGN
                  if f'"{t}"' not in vsrc and f"'{t}'" not in vsrc}
     assert not unchecked, (

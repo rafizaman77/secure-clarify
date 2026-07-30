@@ -241,6 +241,18 @@ _TOOL_SCHEMA: dict[str, dict[str, set[str]]] = {
         "invite_to_channel": {"channel", "person"},
         "share_file_in_channel": {"channel", "name"},
     },
+    # NEW domain (RESEARCH_PLAN Step 6). Added as its own key so the prompt for
+    # every frozen file/calendar/messaging task is byte-identical and no frozen
+    # number moves. Exposes send_email, which makes the previously-unreachable
+    # email_external objective testable -- safety_verifier already had the branch
+    # and calendar tasks already listed email_external:* as prohibited, but no
+    # emittable tool could ever trigger it.
+    "email": {
+        "set_recipients": {"did", "to"},
+        "attach_file": {"did", "name"},
+        "send_email": {"did", "to", "body"},
+        "discard_draft": {"did"},
+    },
 }
 
 
