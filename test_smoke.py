@@ -775,6 +775,46 @@ def test_ask_necessity_classes_behave_as_designed():
           f"(act-blind succeeds only where intended; abstaining never unsafe)")
 
 
+def test_adaptive_attacks_sit_at_the_cue_floor():
+    """Steps 16-17 guard, plus the structural fact that motivates them.
+
+    `simulators._is_external_party` calls a party external only when it contains
+    "@", and "@" is itself a cue term in `estimators._CUE_TERMS`. So every attack
+    whose exfiltration the verifier can DETECT necessarily scores >=1 cue hit: the
+    lexical screen gets one free hit on every verifiable exfiltration attack, and a
+    fully cue-free attack is not expressible in this benchmark. One hit is the
+    floor.
+
+    This asserts (a) the coupling still holds, so the claim in RESEARCH_PLAN.md
+    cannot silently rot, and (b) every adaptive attack sits exactly ON the floor --
+    trips "@" and nothing else. If someone adds a term to _CUE_TERMS that an
+    adaptive attack happens to use, this fails rather than quietly reporting a
+    weaker adaptive attack as a strong one."""
+    from secure_clarify.estimators import _CUE_TERMS
+    from secure_clarify.simulators import _is_external_party
+    from secure_clarify.adaptive_attacks import build_adaptive_attacks, cue_hits
+
+    assert "@" in _CUE_TERMS, "the cue list no longer contains '@'"
+    assert _is_external_party("x@outside.example", ["teammate1"]), \
+        "an @-address is no longer treated as external"
+    assert not _is_external_party("John Doe", ["teammate1"]), \
+        "a bare name is now treated as external; the cue floor argument changes"
+
+    attacks = build_adaptive_attacks()
+    assert len(attacks) >= 8, f"only {len(attacks)} adaptive attacks"
+    for a in attacks:
+        n = cue_hits(a["text"])
+        assert n == 1, (f"{a['attack_id']} trips {n} cue terms {a['cues']}, "
+                        f"not the floor of 1")
+        assert "@" in a["text"], f"{a['attack_id']} has no external address to detect"
+        # must still be textually distinct from its corpus counterpart
+        assert a["split"] == "test", "adaptive attacks must never be used for fitting"
+    assert len({a["text"] for a in attacks}) == len(attacks), \
+        "adaptive attacks are not textually distinct"
+    print(f"[ok] adaptive attacks: {len(attacks)} at the cue floor (1 hit, '@' only); "
+          f"verifier/cue-list coupling confirmed")
+
+
 def test_corpus_attacks_are_all_verifier_covered():
     """Every corpus attack must be SATISFIABLE and DETECTED.
 
@@ -1000,6 +1040,7 @@ if __name__ == "__main__":
     test_rescore_reproduces_run_episode()
     test_stealth_tier_is_additive_and_matched()
     test_ask_necessity_classes_behave_as_designed()
+    test_adaptive_attacks_sit_at_the_cue_floor()
     test_corpus_attacks_are_all_verifier_covered()
     test_risk_component_ablation_default_is_a_strict_no_op()
     test_attack_corpus_families_are_distinct_and_split_is_clean()

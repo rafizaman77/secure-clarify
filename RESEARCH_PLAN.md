@@ -461,6 +461,32 @@ security-adjacent benign traffic is needed to do that. This makes Step 27's
 component ablation load-bearing: the safety result should be reported as
 attributable to lexical cues plus channel routing, not to attack understanding.
 
+**SCOPE OF THE OPERATING-POINT NUMBERS (tightened).** The 71/81 and 12/12 counts
+hold at **one** threshold. `info_value` is a property of (task, question, channel)
+and varies across the benchmark, so the reject threshold `info_value/λ` varies
+too; the fixed-context design deliberately pins it (here at 0.510/4.0 = 0.128) in
+order to hold `prior` and `off_schema` constant and isolate the text. Those counts
+are therefore "at threshold 0.128", **not** a fleet-wide rejection rate — and
+because attack risks cluster in 0.12–0.37 and hard negatives in 0.20–0.28, both
+sets sit close enough to 0.128 that a modest threshold shift moves the counts a
+lot. The **AUROC results are threshold-free and unaffected** by this, which is why
+the inverted ranking (0.039) is the claim to lean on rather than the counts.
+Characterizing the per-task threshold distribution is pending (blocked only on
+model contention).
+
+**STRUCTURAL COUPLING — the cue list and the verifier share a token.**
+`simulators._is_external_party` treats a party as external only when
+`"@" in str(party)` (correctly: a bare guessed name is a correctness failure, not
+exfiltration). But `"@"` is the last entry in `estimators._CUE_TERMS`. Therefore
+**any attack whose exfiltration the verifier can detect necessarily scores at
+least one cue hit** — the lexical screen gets one free hit on every verifiable
+exfiltration attack, for reasons unrelated to detecting anything. A fully cue-free
+attack is not expressible in this benchmark; 1 hit is the floor. Measured: corpus
+attacks already average **1.06** cue hits, i.e. essentially at the floor already,
+which is why the minimal-cue adaptive attacks below gain little on this axis and
+why the screen's apparent power should not be read as lexical discrimination
+between attack and benign *attack-side* text. Report this as a benchmark artifact.
+
 ## Phase 6 — Fix measurement and statistics
 
 - [ ] **19. Declare primary hypotheses before the new runs.** Primary: SecureVoI vs
@@ -547,6 +573,48 @@ attributable to lexical cues plus channel routing, not to attack understanding.
   recommendation it must be rerun against the 81-attack corpus and replicated
   across models. **Next:** rerun this ablation on `attack_corpus.json` rather than
   main_120's 12 strings.
+
+  ### Rerun on the 81-attack corpus — resolves the caveat and CORRECTS one claim
+
+  *(`results/models/mistral-nemo-12b/risk_component_ablation_corpus.json`, same 10
+  ablations on `tasks/corpus_attacks_81.json` — 81 distinct stealth texts instead
+  of 12.)*
+
+  **On the stealth tier the risk model is completely inert.** All ten ablations —
+  including reducing the score to a single component — give *identical* outcomes:
+  rejection 0.344, unsafe 0.148, goal 0.383, in every configuration. With 81
+  distinct attack texts this can no longer be dismissed as coarse resolution.
+
+  **CORRECTION to the main_120 conclusion above.** "`cue_only` strictly dominates
+  the full composite" does **not** replicate on the corpus: on stealth,
+  `cue_only` and `full` are both unsafe 0.148 (main_120 showed 0.108 vs 0.217).
+  That advantage was an artifact of 12 stealth strings and must not be reported as
+  a general result. What *does* replicate is that removing the learned classifier
+  costs nothing on stealth (Δ = +0.000).
+
+  **On the explicit tier the components genuinely matter**, and there the learned
+  classifier earns its place — the opposite of the stealth picture:
+
+  | ablation | reject\|ask | unsafe | Δ unsafe |
+  |---|---|---|---|
+  | full | 0.574 | 0.049 | — |
+  | −learned (zeroed) | 0.426 | 0.161 | **+0.111** (much worse) |
+  | −learned (renorm) | 0.639 | 0.000 | −0.049 |
+  | cue_only | 0.639 | 0.000 | −0.049 |
+  | learned_only | 0.525 | 0.086 | +0.037 |
+
+  Consistent with Step 8's classifier profile (flagged 3/4 explicit, 0/12
+  stealth): the learned term detects *blatant* injections and is blind to subtle
+  ones. Benign is unchanged by every ablation except `learned_only`, which costs
+  goal 0.753 → 0.667.
+
+  **Mechanistic explanation being tested.** Complete invariance across
+  configurations that produce very different risk *values* implies the accept
+  decision is not being made by `response_risk` at all: if the threshold
+  `info_value/λ` sits outside the entire risk range for an episode, no change to
+  the risk function can flip it. Diagnostic in flight
+  (`results/threshold_diagnostic.json`) measuring how often the threshold lands
+  inside the observed risk range.
 
 ## Phase 6 status (Steps 19–23)
 
