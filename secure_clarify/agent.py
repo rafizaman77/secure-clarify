@@ -404,35 +404,91 @@ class CachingAgent:
     only matters for a real model backend, where each of those calls costs
     real wall-clock time or API spend. ScriptedAgent is cheap enough that the
     difference is invisible; OpenModelAgent on a real CPU/API backend is not.
+
+    OPTIONAL PERSISTENT LAYER. If `SECURE_CLARIFY_CACHE` names a directory (or
+    `disk_cache_dir` is passed), results are also memoized ACROSS processes. The
+    in-process dicts stay exactly as they were and remain the fast path; disk is
+    consulted only on an in-process miss. Disabled by default, so the ordinary
+    code path is unchanged.
+
+    Disk keys hash TASK CONTENT, never task_id: `main_120.json` and
+    `diversity_180.json` share all 120 `file_*`/`cal_*` ids (byte-identical
+    today, but a disk cache would turn any future divergence into silent
+    cross-contamination). They also include the model id and a fingerprint of the
+    agent's prompt source, so switching models or editing a prompt invalidates
+    automatically. See secure_clarify/diskcache.py.
     """
 
-    def __init__(self, inner):
+    def __init__(self, inner, disk_cache_dir=None):
         self._inner = inner
         self._intents_cache: dict[tuple[str, int], list[dict]] = {}
         self._malice_cache: dict[str, float] = {}
         self._act_cache: dict[tuple[str, str], list[tuple[str, dict]]] = {}
 
+        from .diskcache import DiskCache, agent_fingerprint, cache_dir_from_env
+        directory = disk_cache_dir or cache_dir_from_env()
+        self._disk = (DiskCache(directory, agent_fingerprint(inner))
+                      if directory else None)
+
+    @staticmethod
+    def _task_key(task: Task) -> str:
+        """Content identity of a task -- deliberately NOT task_id."""
+        return task.to_json()
+
     def sample_intents(self, task: Task, k: int) -> list[dict]:
         key = (task.task_id, k)
         if key not in self._intents_cache:
-            self._intents_cache[key] = self._inner.sample_intents(task, k)
+            got = None
+            if self._disk is not None:
+                from .diskcache import make_key
+                dk = make_key("sample_intents", self._task_key(task), k)
+                got = self._disk.get(dk)
+                if got is None:
+                    got = self._inner.sample_intents(task, k)
+                    self._disk.put(dk, got)
+            else:
+                got = self._inner.sample_intents(task, k)
+            self._intents_cache[key] = got
         return copy.deepcopy(self._intents_cache[key])
 
     def classify_malice(self, text: str) -> float:
         if text not in self._malice_cache:
-            self._malice_cache[text] = self._inner.classify_malice(text)
+            if self._disk is not None:
+                from .diskcache import make_key
+                dk = make_key("classify_malice", text)
+                got = self._disk.get(dk)
+                if got is None:
+                    got = self._inner.classify_malice(text)
+                    self._disk.put(dk, got)
+                self._malice_cache[text] = got
+            else:
+                self._malice_cache[text] = self._inner.classify_malice(text)
         return self._malice_cache[text]
 
     def act(self, task: Task, resolved_intent: dict,
             answer_text: str | None = None) -> list[tuple[str, dict]]:
-        key = (task.task_id,
-               json.dumps(resolved_intent, sort_keys=True, default=str),
-               answer_text or "")
+        intent_s = json.dumps(resolved_intent, sort_keys=True, default=str)
+        key = (task.task_id, intent_s, answer_text or "")
         if key not in self._act_cache:
-            self._act_cache[key] = self._inner.act(task, resolved_intent, answer_text)
+            if self._disk is not None:
+                from .diskcache import make_key
+                dk = make_key("act", self._task_key(task), intent_s,
+                              answer_text or "")
+                got = self._disk.get(dk)
+                if got is None:
+                    got = self._inner.act(task, resolved_intent, answer_text)
+                    self._disk.put(dk, got)
+                # JSON round-trips tuples to lists; restore the tool-call shape
+                self._act_cache[key] = [(a, b) for a, b in got]
+            else:
+                self._act_cache[key] = self._inner.act(task, resolved_intent,
+                                                       answer_text)
         return copy.deepcopy(self._act_cache[key])
 
     def cache_sizes(self) -> dict[str, int]:
         return {"sample_intents": len(self._intents_cache),
                 "classify_malice": len(self._malice_cache),
                 "act": len(self._act_cache)}
+
+    def disk_stats(self) -> dict | None:
+        return self._disk.stats() if self._disk is not None else None

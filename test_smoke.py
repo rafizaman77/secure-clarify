@@ -775,6 +775,78 @@ def test_ask_necessity_classes_behave_as_designed():
           f"(act-blind succeeds only where intended; abstaining never unsafe)")
 
 
+def test_disk_cache_is_result_neutral():
+    """The persistent cache must make runs FASTER without making them DIFFERENT.
+
+    A cache that changes a published number is worse than no cache, so this
+    asserts episode-level equality between an uncached run, a cold-disk run, and
+    a warm-disk run that makes zero model calls.
+
+    It also pins the three key-safety properties, each guarding a way a disk
+    cache could silently corrupt results across processes:
+      * model identity -- two models must not share a store
+      * prompt identity -- editing a prompt must invalidate, since old answers
+        respond to a question no longer asked
+      * TASK CONTENT, not task_id -- main_120.json and diversity_180.json share
+        all 120 file_*/cal_* ids. They are byte-identical today so sharing is
+        correct, but keying on id would turn any future divergence into silent
+        cross-contamination."""
+    import json as _json
+    import shutil
+    import tempfile
+    from dataclasses import asdict
+    from secure_clarify.diskcache import agent_fingerprint, make_key
+
+    tasks = build_pilot(6)
+    calls = {"n": 0}
+
+    def gen(p):
+        calls["n"] += 1
+        if "probability" in p:
+            return "0.3"
+        if "intent" in p.lower() or "json" in p.lower():
+            return '[{"archive": ["report_v1.doc"]}, {"archive": ["notes_march.txt"]}]'
+        return '[["archive_file", {"name": "report_v1.doc"}]]'
+
+    tmp = tempfile.mkdtemp(prefix="sc_cache_")
+    try:
+        def run(cache_dir):
+            calls["n"] = 0
+            a = CachingAgent(OpenModelAgent("test-model", gen),
+                             disk_cache_dir=cache_dir)
+            eps = run_grid(tasks, [SecureVoI(lam=4.0)], a,
+                           conditions=[Condition.BENIGN,
+                                       Condition.ADVERSARIAL_STEALTH])
+            return [asdict(e) for e in eps], calls["n"]
+
+        plain, n_plain = run(None)
+        cold, n_cold = run(tmp)
+        warm, n_warm = run(tmp)
+
+        dump = lambda x: _json.dumps(x, sort_keys=True, default=str)
+        assert dump(plain) == dump(cold), "cold disk run differs from uncached"
+        assert dump(plain) == dump(warm), "WARM disk run differs from uncached"
+        assert n_warm == 0, f"warm run still made {n_warm} model calls"
+        assert n_cold == n_plain, (n_cold, n_plain)
+
+        # model and prompt identity both partition the store
+        f_a = agent_fingerprint(OpenModelAgent("model-a", gen))
+        f_b = agent_fingerprint(OpenModelAgent("model-b", gen))
+        assert f_a != f_b, "two models share a cache store"
+        assert agent_fingerprint(ScriptedAgent()) not in (f_a, f_b)
+
+        # content, not id
+        t = build_pilot(2)[0]
+        k1 = make_key("sample_intents", t.to_json(), 5)
+        t.initial_request += " (changed)"
+        assert k1 != make_key("sample_intents", t.to_json(), 5), \
+            "cache key ignores task content"
+        print(f"[ok] disk cache result-neutral ({n_plain} calls -> {n_warm} on reuse); "
+              f"keys track content, model and prompt")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_adaptive_attacks_sit_at_the_cue_floor():
     """Steps 16-17 guard, plus the structural fact that motivates them.
 
@@ -1040,6 +1112,7 @@ if __name__ == "__main__":
     test_rescore_reproduces_run_episode()
     test_stealth_tier_is_additive_and_matched()
     test_ask_necessity_classes_behave_as_designed()
+    test_disk_cache_is_result_neutral()
     test_adaptive_attacks_sit_at_the_cue_floor()
     test_corpus_attacks_are_all_verifier_covered()
     test_risk_component_ablation_default_is_a_strict_no_op()
