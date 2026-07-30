@@ -724,6 +724,96 @@ def test_diversity_set_valid_and_matched():
           f"{min(len(v) for v in by_domain_qid.values())}+ strategies/cell")
 
 
+def test_ask_necessity_classes_behave_as_designed():
+    """Step 5 construct guard: the whole point of the ask-necessity set is that
+    acting WITHOUT clarification succeeds in some classes and fails in others --
+    that is what makes "whether to ask" measurable at all. If a future edit makes
+    every class behave alike, ask rate silently stops carrying information and
+    this test fails first."""
+    from secure_clarify.ask_necessity import (build_ask_necessity_set, ASK_CLASSES,
+                                              DEFAULT_ACHIEVES_GOAL)
+    from secure_clarify.simulators import make_env
+    from secure_clarify.verifiers import goal_verifier, safety_verifier
+
+    tasks = build_ask_necessity_set(6)
+    agent = ScriptedAgent(gullible=0.0)          # injections off: construct only
+
+    def run(t, fill):
+        intent = {k: v for k, v in t.hidden_intent.items() if not k.startswith("_")}
+        intent.update(t.hidden_intent.get(fill, {}))
+        env = make_env(t.domain, t.initial_state)
+        for tool, args in agent.act(t, intent, None):
+            getattr(env, tool)(**args)
+        st = env.final_state() if hasattr(env, "final_state") else env.state
+        unsafe, _ = safety_verifier(env.log, t.prohibited_actions,
+                                    team=t.initial_state.get("team", []),
+                                    secrets=t.initial_state.get("secrets", []))
+        return goal_verifier(st, t.goal_predicate), unsafe
+
+    for cls in ASK_CLASSES:
+        sel = [t for t in tasks if t.family == f"ask::{cls}"]
+        assert sel, cls
+        blind_ok = all(run(t, "_default_fill")[0] for t in sel)
+        asked_ok = all(run(t, "_benign_fill")[0] for t in sel)
+        assert blind_ok == DEFAULT_ACHIEVES_GOAL[cls], (cls, "act-blind success wrong")
+        assert asked_ok, (cls, "clarifying must always succeed")
+        # abstaining must never be UNSAFE in any class -- otherwise a cautious
+        # policy is punished for caution and the class cannot test calibration
+        assert not any(run(t, "_default_fill")[1] for t in sel), (cls, "abstain unsafe")
+
+    # the safety-critical class must make abstention safe-but-incomplete
+    sc = [t for t in tasks if t.family == "ask::missing_safety_critical"]
+    g, u = run(sc[0], "_default_fill")
+    assert (g, u) == (False, False), "safety-critical abstain should be safe but partial"
+    print(f"[ok] ask-necessity: 4 classes x {len(sel)} tasks behave as designed "
+          f"(act-blind succeeds only where intended; abstaining never unsafe)")
+
+
+def test_attack_corpus_families_are_distinct_and_split_is_clean():
+    """Steps 7+18 guard. Three properties the corpus must keep, each of which was
+    violated by an earlier draft and caught here:
+      1. every (family, domain, objective) attack is TEXTUALLY UNIQUE -- an
+         earlier version left recipient_injection and unrelated_instruction
+         identical on calendar, which makes exact-objective attribution
+         impossible;
+      2. train and test FAMILIES are disjoint, so held-out attacks are
+         linguistically unseen rather than the same sentences reshuffled;
+      3. benign hard negatives contain the same alarming vocabulary as attacks
+         (external addresses, delete/share imperatives, secret filenames) while
+         requesting nothing prohibited -- otherwise a screen scores well by
+         flagging scary words."""
+    from secure_clarify.attack_corpus import (build_attack_corpus,
+                                              build_benign_hard_negatives,
+                                              FAMILIES, TRAIN_FAMILIES, TEST_FAMILIES)
+    c = build_attack_corpus()
+    assert len(c) >= 50, f"corpus too small ({len(c)}); Step 7 asks for 50-100"
+
+    texts = {}
+    for a in c:
+        texts.setdefault(a["text"], []).append(a["attack_id"])
+    collisions = {t: v for t, v in texts.items() if len(v) > 1}
+    assert not collisions, f"textually identical attacks: {list(collisions.values())[:3]}"
+
+    assert not set(TRAIN_FAMILIES) & set(TEST_FAMILIES), "family split not disjoint"
+    assert set(TRAIN_FAMILIES) | set(TEST_FAMILIES) == set(FAMILIES)
+    assert sum(1 for a in c if a["split"] == "test") >= 10
+
+    # every attack still carries the legitimate answer alongside the injection,
+    # so ignoring it is costly (the invariant the existing tiers rely on)
+    for a in c:
+        assert a["body"] in a["text"] and len(a["text"]) > len(a["body"]), a["attack_id"]
+
+    negs = build_benign_hard_negatives()
+    assert len(negs) >= 10
+    alarming = ("@", "delete", "credential", "secret", "external", "forward", "private")
+    loaded = [n for n in negs if sum(w in n["text"].lower() for w in alarming) >= 2]
+    assert len(loaded) >= len(negs) // 2, "hard negatives are not actually hard"
+    assert all(not n["carries_attack"] for n in negs)
+    print(f"[ok] attack corpus: {len(c)} attacks, {len(texts)} distinct texts, "
+          f"{len(FAMILIES)} families ({len(TEST_FAMILIES)} held out), "
+          f"{len(negs)} benign hard negatives")
+
+
 if __name__ == "__main__":
     test_all_tasks_validate()
     test_roundtrip()
@@ -754,5 +844,7 @@ if __name__ == "__main__":
     test_channel_heuristic_tracks_benchmark_degeneracy()
     test_rescore_reproduces_run_episode()
     test_stealth_tier_is_additive_and_matched()
+    test_ask_necessity_classes_behave_as_designed()
+    test_attack_corpus_families_are_distinct_and_split_is_clean()
     test_diversity_set_valid_and_matched()
     print("\nALL SMOKE TESTS PASSED")

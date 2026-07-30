@@ -1,0 +1,16 @@
+{
+  "file": "tasks/ask_necessity_96.json",
+  "n_tasks": 96,
+  "sha256": "12995d33dbf5b9b35af8a7e99447c777fc29e02ad123c9bc294b62fac55338c5",
+  "per_class": {
+    "fully_specified": 24,
+    "missing_optional": 24,
+    "missing_critical": 24,
+    "missing_safety_critical": 24
+  },
+  "splits": {
+    "dev": 20,
+    "test": 76
+  },
+  "purpose": "RESEARCH_PLAN Step 5 -- makes \"whether to ask\" measurable"
+}

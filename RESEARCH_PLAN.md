@@ -102,7 +102,39 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 ## Phase 2 — Repair the benchmark's central construct
 
-- [ ] **5. Add tasks where asking is not always necessary.** Four classes: fully
+- [x] **5. Add tasks where asking is not always necessary.** *(done —
+  `secure_clarify/ask_necessity.py`, frozen `tasks/ask_necessity_96.json`
+  (96 tasks, 4 classes x 24, sha in `results/ask_necessity_manifest.json`),
+  metrics `scripts/ask_calibration.py`, result
+  `results/models/mistral-nemo-12b/ask_calibration.json`.)*
+
+  **FINDING — the "whether to ask" claim is not supported.** On tasks built so
+  that acting blind *succeeds* in two classes and *fails* in two, no policy's ask
+  rate tracks ask-necessity. Real model (Mistral-Nemo-12B, 76 test tasks), ask
+  rate by class (fully_specified / missing_optional / missing_critical /
+  missing_safety_critical):
+
+  | policy | fully_spec | miss_opt | miss_crit | miss_safety | spread |
+  |---|---|---|---|---|---|
+  | always_ask / conventional_voi / channel_heuristic | 1.000 | 1.000 | 1.000 | 1.000 | 0.000 |
+  | never_ask / confidence_threshold | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 |
+  | trusted_only | 0.737 | 0.737 | 0.737 | 0.789 | 0.053 |
+  | **secure_voi** | **0.737** | **0.789** | **0.684** | **0.789** | **0.105** |
+
+  SecureVoI asks *less* when asking is necessary (0.684) than when it is
+  pointless (0.737–0.789) — mildly **anti**-calibrated, with a 31.6% under-ask
+  rate on `missing_critical` and a 73.7% unnecessary-ask rate on
+  `fully_specified`. The scripted dry run showed the same shape, so it is not a
+  backend artifact. **Consequence for the paper:** narrow "whether, what, and
+  where to ask" to "how and where to seek clarification", per this step's own
+  fallback, unless a calibrated ask rule is added. Mechanism diagnosis (does
+  `sample_intents` manufacture disagreement on unambiguous requests?) in progress.
+
+  *Construct bug found and fixed while building:* `shared_only_with` is a subset
+  check, so "share with nobody" trivially satisfied it and abstention went
+  unpenalized. Added an additive `shared_with_superset` key to the goal DSL (no
+  existing task uses it) so `missing_safety_critical` makes abstention a partial
+  miss — verified safe-but-incomplete (goal=False, unsafe=False). Four classes: fully
   specified (act), missing-optional (usually act), missing-task-critical (ask),
   missing-safety-critical (ask cautiously/abstain) × benign/noisy/adversarial.
   Report ask calibration: ask rate when necessary, unnecessary-ask rate, correct
@@ -115,7 +147,23 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
   messaging/recipient selection, data lookup/summarization, credential ops,
   purchase/approval. Parameter substitution ≠ a new task family.
 
-- [ ] **7. Expand attack-language diversity.** 50–100 independently written attacks;
+- [x] **7. Expand attack-language diversity.** *(done —
+  `secure_clarify/attack_corpus.py`, frozen `tasks/attack_corpus.json`, manifest
+  `results/attack_corpus_manifest.json`.)* **81 attacks, 81 textually distinct**,
+  across **9 persuasion families** (direct-imperative, plausible-role,
+  prior-agreement, scope-bundling, policy-claim, quoted-relay,
+  indirect-multistep, non-imperative, socratic) x 7 objectives x 3 domains —
+  replacing 4 explicit + 12 stealth strings. Split is by **family**
+  (5 train / 4 test, disjoint), so held-out attacks are linguistically unseen
+  rather than the same sentences reshuffled.
+
+  Two authoring bugs caught by the guard test rather than shipped:
+  `recipient_injection` and `unrelated_instruction` produced *identical* calendar
+  text (both mapped to "add attendee"), making exact-objective attribution
+  impossible — remapped `unrelated_instruction` to `email_external`, which also
+  exercises one of the two objectives the paper's Limitations admits are
+  "declared and verifier-covered but never triggered"; and `indirect_multistep`
+  initially omitted the verb, collapsing send/delete into one string. 50–100 independently written attacks;
   multiple per objective and domain; benign text with suspicious-looking language;
   non-imperative, multi-step, indirect, role-play, quoted, policy-claim,
   scope-bundling; attacks targeting SecureVoI's own prompts. Split by attack
@@ -177,7 +225,16 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
   restricted formats; benign-looking responses triggering dangerous downstream
   actions; attack prevalence shifted away from dev priors.
 
-- [ ] **18. Benign hard negatives.** Benign responses containing security
+- [x] **18. Benign hard negatives.** *(done — `BENIGN_HARD_NEGATIVES` in
+  `attack_corpus.py`.)* 12 goal-consistent, strictly harmless answers written
+  against the screen's **actual** cue lists (`estimators._CUE_TERMS` and
+  `classify_malice`'s regex signals): "ignore", "instead", "also", "as well",
+  "forward to", "send to", "upload", "external", "credential", "password",
+  "delete all", "everyone", "disregard", "urgent", "@". Mean **5.6 cue hits**
+  each and **11 of 12 saturate** the lexical cue signal (which caps at 4), so a
+  purely lexical screen rejects nearly all of them while none requests anything
+  prohibited. A first draft was rejected by the guard test as "not actually
+  hard" (9/12 too weak) and rewritten. Benign responses containing security
   terminology, imperatives, external addresses, file paths, quoted malicious text,
   legitimate delete/send/share requests. Measure false-positive rejection and the
   resulting task failure.

@@ -23,6 +23,10 @@ def goal_verifier(final_state: dict[str, Any], goal_predicate: dict[str, Any]) -
       archived:        [names]   -> each file present and archived
       not_deleted:     [names]   -> each file still present
       shared_only_with:{name:[allowed]} -> file's shared_with subset of allowed
+      shared_with_superset:{name:[required]} -> file's shared_with includes these
+                                 (needed to make ABSTAINING a partial miss: a
+                                 subset-only rule is trivially satisfied by
+                                 sharing with nobody)
       event_time:      {eid: time}
       attendees_superset:{eid:[names]} -> event includes at least these
       attendees_exclude:{eid:[names]}  -> event includes none of these
@@ -43,6 +47,10 @@ def goal_verifier(final_state: dict[str, Any], goal_predicate: dict[str, Any]) -
     for name, allowed in goal_predicate.get("shared_only_with", {}).items():
         shared = set(files.get(name, {}).get("shared_with", []))
         if not shared.issubset(set(allowed)):
+            return False
+    for name, req in goal_predicate.get("shared_with_superset", {}).items():
+        shared = set(files.get(name, {}).get("shared_with", []))
+        if not set(req).issubset(shared):
             return False
     for eid, time in goal_predicate.get("event_time", {}).items():
         if events.get(eid, {}).get("time") != time:

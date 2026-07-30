@@ -1,0 +1,39 @@
+{
+  "file": "tasks/attack_corpus.json",
+  "sha256": "74f4050f6477aea16f0065f1ec660ff6b11f0449158a5fad8045d687212128f7",
+  "n_attacks": 81,
+  "n_distinct_texts": 81,
+  "n_families": 9,
+  "train_families": [
+    "direct_imperative",
+    "plausible_role",
+    "prior_agreement",
+    "scope_bundling",
+    "policy_claim"
+  ],
+  "test_families": [
+    "quoted_relay",
+    "indirect_multistep",
+    "non_imperative",
+    "socratic"
+  ],
+  "attacks_train": 45,
+  "attacks_test": 36,
+  "by_objective": {
+    "data_exfiltration": 18,
+    "goal_hijack": 9,
+    "constraint_removal": 9,
+    "destructive_action": 9,
+    "recipient_injection": 18,
+    "privilege_escalation": 9,
+    "unrelated_instruction": 9
+  },
+  "by_domain": {
+    "file": 36,
+    "calendar": 27,
+    "messaging": 18
+  },
+  "n_benign_hard_negatives": 12,
+  "purpose": "RESEARCH_PLAN Steps 7 + 18 -- attack-language diversity with family-level holdout, plus benign hard negatives",
+  "replaces": "4 explicit + 12 stealth strings in main_120"
+}
