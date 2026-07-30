@@ -775,6 +775,61 @@ def test_ask_necessity_classes_behave_as_designed():
           f"(act-blind succeeds only where intended; abstaining never unsafe)")
 
 
+def test_accept_outcome_separates_screen_rejection_from_no_response():
+    """`accepted` is a bool and cannot say WHY an answer was not accepted.
+
+    Pooling the reasons caused a real misreading. `1 - accepted/asked` was
+    reported as a stage-2 rejection rate, but it also counts episodes where the
+    benchmark defines no response for the chosen (question, channel) -- there the
+    screen never runs. On corpus stealth that turned a true 0/40 = 0.000 rejection
+    rate into 0.344 (21 of 61 asked episodes had no response), and it was the
+    whole reason every response_risk ablation looked identical: nothing the risk
+    model does can change an outcome decided before the screen is called.
+
+    This pins the refactor that separated them:
+      * `accepted` is unchanged -- true exactly when accept_outcome == "accepted"
+      * every asked episode lands in a screen-related bucket, never "not_asked"
+      * "rejected_by_screen" is never assigned when no response existed
+      * both events actually occur on the benchmark, so the distinction is live
+        rather than theoretical"""
+    from secure_clarify.task_factory import build_diversity_set
+    import collections
+
+    tasks = build_pilot(20) + build_diversity_set(12)
+    pols = [P() for P in MAIN_POLICIES] + [SecureVoI(lam=4.0),
+                                           ScreenedConventionalVoI(lam=4.0)]
+    eps = run_grid(tasks, pols, ScriptedAgent(),
+                   conditions=[Condition.BENIGN, Condition.NOISY,
+                               Condition.ADVERSARIAL,
+                               Condition.ADVERSARIAL_STEALTH])
+
+    bad = [e for e in eps if e.accepted != (e.accept_outcome == "accepted")]
+    assert not bad, f"{len(bad)} episodes where accepted disagrees with accept_outcome"
+
+    for e in eps:
+        if e.asked:
+            assert e.accept_outcome != "not_asked", \
+                f"{e.task_id}/{e.policy}: asked but outcome 'not_asked'"
+        else:
+            assert e.accept_outcome == "not_asked", \
+                f"{e.task_id}/{e.policy}: not asked but outcome {e.accept_outcome!r}"
+
+    oc = collections.Counter(e.accept_outcome for e in eps)
+    assert oc["rejected_by_screen"] > 0, "no screen rejection ever observed"
+    assert oc["no_response"] > 0, "no missing-response episode observed"
+
+    screened = oc["accepted"] + oc["rejected_by_screen"] + oc["rejected_by_rule"]
+    asked = sum(1 for e in eps if e.asked)
+    pooled = (oc["rejected_by_screen"] + oc["rejected_by_rule"]
+              + oc["no_response"]) / asked
+    true_rate = (oc["rejected_by_screen"] + oc["rejected_by_rule"]) / screened
+    assert pooled > true_rate, \
+        "pooling no_response no longer inflates the rejection rate -- has the " \
+        "benchmark's response matrix become dense? re-check the finding"
+    print(f"[ok] accept_outcome separates screen rejection from missing response "
+          f"(pooled {pooled:.3f} vs true {true_rate:.3f} on {len(eps)} episodes)")
+
+
 def test_disk_cache_is_result_neutral():
     """The persistent cache must make runs FASTER without making them DIFFERENT.
 
@@ -1112,6 +1167,7 @@ if __name__ == "__main__":
     test_rescore_reproduces_run_episode()
     test_stealth_tier_is_additive_and_matched()
     test_ask_necessity_classes_behave_as_designed()
+    test_accept_outcome_separates_screen_rejection_from_no_response()
     test_disk_cache_is_result_neutral()
     test_adaptive_attacks_sit_at_the_cue_floor()
     test_corpus_attacks_are_all_verifier_covered()
