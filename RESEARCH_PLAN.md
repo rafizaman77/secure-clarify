@@ -626,13 +626,40 @@ between attack and benign *attack-side* text. Report this as a benchmark artifac
   0.344 rejection rate and with λ=4.0 being a fairly permissive screen on this
   benchmark, not the aggressive one the fixed-context experiment suggested.
 
-  **Second hypothesis, under test** (`results/accept_trace.json`): SecureVoI's
-  stage 1 is unchanged by these ablations (it uses `pre_risk`, a different
-  function), so it routes to the same channels — and if it usually routes *away*
-  from the attacked channel, the text stage 2 actually screens is usually benign,
-  which scores far below threshold under every configuration. Tracing every
-  stage-2 call to record risk, threshold, decision, and whether the screened text
-  is the attack at all.
+  **Second hypothesis — CONFIRMED, and it is more serious than the invariance.**
+  *(`results/accept_trace.json`, `results/stage2_rejection_audit.json`.)*
+
+  Tracing every stage-2 call on corpus stealth: the screen is invoked **40** times
+  and **accepts 40/40** — including **16/16** of the texts that actually carry the
+  attack (mean risk 0.176 vs mean threshold 0.296, comfortably below). Swapping
+  the risk function barely matters: `cue_only` flips 1 decision of 40,
+  `learned_only` flips 0.
+
+  **The reported "rejection rate" is not measuring the screen.** `run_episode`
+  sets `accepted = False` and never calls `policy.accept()` when
+  `find_response(task, question, channel, condition)` returns `None`. So
+  `reject_given_ask = 1 − accepted/asked` silently counts *"the benchmark defines
+  no answer for the (question, channel) I chose"* as a rejection. On corpus
+  stealth: 61 asked, 40 screened, **21 with no response** → 21/61 = **0.344**,
+  reproducing the ablation table's rejection rate to three decimals, while the
+
+      TRUE stage-2 rejection rate is 0/40 = 0.000.
+
+  That is the complete explanation for the ablation invariance: no change to
+  `response_risk` can alter an outcome that is decided *before* the screen runs.
+
+  **Consequence for the two-stage claim.** On the stealth tier the safety
+  attributed to stage 2 is not coming from stage 2 — it is coming from stage 1
+  routing to (question, channel) pairs the attack does not occupy. That is a real
+  defense and the routing story is intact, but it is **not screening**, and the
+  paper must not present it as such. The explicit tier is different: there
+  rejection genuinely varies with the risk function across ablations (0.426–0.639),
+  so the screen does fire on blatant attacks — consistent with Step 8's classifier
+  profile (3/4 explicit flagged, 0/12 stealth).
+
+  **Reporting fix required:** separate `rejected_by_screen` from
+  `no_response_available` everywhere. They are different events with different
+  causes, and pooling them credits the screen for the router's work.
 
 ## Phase 6 status (Steps 19–23)
 
