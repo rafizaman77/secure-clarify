@@ -1,0 +1,14 @@
+{
+  "adversarial": {
+    "asked_on_attacked_channel": 26,
+    "benign_accepted": 26,
+    "attack_rejected": 19,
+    "reject_rate": 0.7308
+  },
+  "adversarial_stealth": {
+    "asked_on_attacked_channel": 26,
+    "benign_accepted": 26,
+    "attack_rejected": 0,
+    "reject_rate": 0.0
+  }
+}

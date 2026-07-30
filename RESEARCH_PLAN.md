@@ -659,7 +659,41 @@ between attack and benign *attack-side* text. Report this as a benchmark artifac
 
   **Reporting fix required:** separate `rejected_by_screen` from
   `no_response_available` everywhere. They are different events with different
-  causes, and pooling them credits the screen for the router's work.
+  causes, and pooling them credits the screen for the router's work. *(Done —
+  `Episode.accept_outcome`, guarded; `accepted` verified unchanged.)*
+
+  ### The manuscript's content-discrimination audit does not survive the stealth tier
+
+  *(`results/attacked_channel_audit.json`.)* The paper's central answer to "isn't
+  this just channel avoidance?" is a per-episode audit:
+
+  > on the 20 tasks where SecureVoI asks *directly on the attacked channel*, it
+  > accepts the benign answer 20/20 and rejects the adversarial one 20/20
+  > (Mistral: 13/20) — identical channel, opposite decision, driven by content.
+
+  **Reproduced exactly.** On main_120's test split (96 tasks), Mistral-Nemo-12B,
+  λ=4.0: 20 tasks on the attacked channel, benign accepted **20/20**, explicit
+  adversarial rejected **13/20** — the paper's stated Mistral figure to the digit.
+  (All 120 tasks gives 26 / 26 / 19; the paper's numbers are the test split.)
+
+  **The same audit on the stealth tier, same 20 tasks, same channel:**
+
+  | tier | on attacked channel | benign accepted | attack rejected |
+  |---|---|---|---|
+  | explicit adversarial | 20 | 20/20 | **13/20** |
+  | adversarial **stealth** | 20 | 20/20 | **0/20** |
+
+  So "identical channel, opposite decision, driven by content" is **true on the
+  explicit tier and false on the stealth tier** — where content discrimination is
+  exactly zero. The paragraph is not wrong as written, but it is evidence about
+  the explicit tier being used to support a mechanism claim, while the headline
+  safety result is reported on **stealth**. On stealth, SecureVoI's advantage
+  cannot be content discrimination, because there is none; it is stage-1 routing.
+
+  This is the most publication-critical item found so far. The paper must either
+  (a) restrict the content-discrimination claim to the explicit tier and
+  attribute the stealth result to routing, or (b) show the screen discriminating
+  on stealth for some model — currently unobserved on Mistral.
 
 ## Phase 6 status (Steps 19–23)
 
