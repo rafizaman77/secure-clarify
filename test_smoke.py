@@ -775,6 +775,63 @@ def test_ask_necessity_classes_behave_as_designed():
           f"(act-blind succeeds only where intended; abstaining never unsafe)")
 
 
+def test_confirmatory_statistics():
+    """Steps 20-23. Each function exists to stop a specific overstatement, so
+    each is checked against the case it is meant to prevent."""
+    from secure_clarify.confirmatory import (wilson_interval, format_rate, holm,
+                                             tost, hierarchical_bootstrap,
+                                             paired_hierarchical_diff)
+    import random
+    import statistics as st
+
+    # 23: a zero rate is not certainty. 0/96 admits a true rate near 4%.
+    lo, hi = wilson_interval(0, 96)
+    assert lo == 0.0 and 0.03 < hi < 0.05, (lo, hi)
+    assert "no events observed" in format_rate(0, 96)
+    assert wilson_interval(0, 20)[1] > wilson_interval(0, 96)[1], \
+        "a smaller denominator must give a WIDER bound"
+    for s, n in ((0, 10), (5, 10), (10, 10)):
+        a, b = wilson_interval(s, n)
+        assert 0.0 <= a <= b <= 1.0, "interval escaped [0,1]"
+
+    # 21: borderline results must not survive correction
+    res = holm({"H1": 0.004, "H2": 0.031, "H3": 0.040, "H4": 0.9})
+    assert res["H1"]["reject_at_alpha"], "strongest result lost"
+    assert not res["H2"]["reject_at_alpha"] and not res["H3"]["reject_at_alpha"], \
+        "p=0.031/0.040 must not survive Holm over 4 hypotheses"
+    ps = [v["p_holm"] for v in sorted(res.values(), key=lambda v: v["p_raw"])]
+    assert ps == sorted(ps), "Holm-adjusted p-values must be monotone"
+
+    # 22: equivalence, non-equivalence and underpowered are three outcomes
+    assert tost(0.01, -0.02, 0.04, 0.05)["equivalent"]
+    assert not tost(0.09, 0.06, 0.12, 0.05)["equivalent"]
+    wide = tost(0.0, -0.30, 0.30, 0.05)
+    assert not wide["equivalent"] and "underpowered" in wide["verdict"], \
+        "a wide CI must read as underpowered, never as equivalent"
+
+    # 20: clustered data resampled hierarchically must not look iid-precise
+    rng = random.Random(1)
+    units = {}
+    for f, base in enumerate((0.2, 0.5, 0.8)):
+        units[f"fam{f}"] = {
+            f"t{f}_{i}": [1.0 if rng.random() < base else 0.0 for _ in range(6)]
+            for i in range(20)}
+    h = hierarchical_bootstrap(units, n_boot=400)
+    flat = [v for f in units for t in units[f] for v in units[f][t]]
+    naive_w = 2 * 1.96 * st.pstdev(flat) / len(flat) ** 0.5
+    assert (h["ci_hi"] - h["ci_lo"]) > 2 * naive_w, \
+        "hierarchical CI is not wider than iid -- clustering is being ignored"
+    assert h["n_families"] == 3 and h["n_tasks"] == 60
+
+    # paired difference: identical arms must centre on zero and not be significant
+    same = paired_hierarchical_diff(units, units, n_boot=400)
+    assert abs(same["point"]) < 1e-9, same["point"]
+    assert same["p_value"] > 0.05, "identical arms reported as different"
+    print(f"[ok] confirmatory stats: 0/96 -> true rate <= {hi:.3f}; Holm rejects "
+          f"p=0.031; TOST separates underpowered from equivalent; hierarchical CI "
+          f"{(h['ci_hi'] - h['ci_lo']) / naive_w:.1f}x the iid width")
+
+
 def test_accept_outcome_separates_screen_rejection_from_no_response():
     """`accepted` is a bool and cannot say WHY an answer was not accepted.
 
@@ -1167,6 +1224,7 @@ if __name__ == "__main__":
     test_rescore_reproduces_run_episode()
     test_stealth_tier_is_additive_and_matched()
     test_ask_necessity_classes_behave_as_designed()
+    test_confirmatory_statistics()
     test_accept_outcome_separates_screen_rejection_from_no_response()
     test_disk_cache_is_result_neutral()
     test_adaptive_attacks_sit_at_the_cue_floor()
