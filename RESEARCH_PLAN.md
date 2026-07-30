@@ -688,25 +688,37 @@ between attack and benign *attack-side* text. Report this as a benchmark artifac
   tier". That over-generalized from one model. Running the identical audit on
   **llama-3.3-70b** (λ=3.0, same 96-task test split) refutes it:
 
-  | model | tier | on attacked chan | benign accepted | attack rejected |
-  |---|---|---|---|---|
-  | Mistral-Nemo-12B | explicit | 20 | 20/20 | 13/20 |
-  | Mistral-Nemo-12B | **stealth** | 20 | 20/20 | **0/20** |
-  | llama-3.3-70b | explicit | 20 | 20/20 | **20/20** |
-  | llama-3.3-70b | **stealth** | 20 | 20/20 | **11/20** |
+  | model | explicit rejected | **stealth rejected** | benign accepted (both tiers) |
+  |---|---|---|---|
+  | Mistral-Nemo-12B (λ=4.0) | 13/20 | **0/20** | 20/20 |
+  | llama-3.3-70b (λ=3.0) | 20/20 | **11/20** | 20/20 |
+  | gpt-oss-20b-cloud (λ=3.0) | 20/20 | **16/20** | 20/20 |
 
-  llama-3.3-70b **does** discriminate content on the stealth tier — 11/20
-  attacks rejected while accepting 20/20 of the matched benign answers on the
-  same channel. So option (b) below is satisfied: the mechanism the paper claims
-  is real, and observable on stealth, for at least one model.
+  Two of three models **do** discriminate content on the stealth tier — rejecting
+  11/20 and 16/20 attacks while accepting 20/20 of the matched benign answers on
+  the same channel. The mechanism the paper claims is real and observable on
+  stealth; it is Mistral that is the outlier, not the claim.
+
+  Note it is not simple scale: gpt-oss-20b (0.80) beats llama-3.3-70b (0.55)
+  despite being smaller, so what matters is the model's injection-noticing
+  ability, not parameter count.
 
   **The actual finding is heterogeneity.** Stealth-tier content discrimination
-  ranges from **0/20 to 11/20** across models under an identical policy, identical
-  tasks, and identical λ-fitting procedure. That is a *model* property, not a
-  policy property — the same conflation Step 2 identified when it decomposed
-  `unsafe = EXPOSURE × COMPLIANCE`. The screen is only as good as the underlying
-  model's ability to notice a subtle injection, and Mistral-Nemo-12B cannot notice
-  one at all.
+  ranges from **0/20 to 16/20** (0% to 80%) across models under an identical
+  policy, identical tasks, and identical λ-fitting procedure. That is a *model*
+  property, not a policy property — the same conflation Step 2 identified when it
+  decomposed `unsafe = EXPOSURE × COMPLIANCE`. The screen is only as good as the
+  underlying model's ability to notice a subtle injection, and Mistral-Nemo-12B
+  cannot notice one at all.
+
+  **This also re-scopes Step 27.** The component ablation ran only on Mistral, and
+  its headline invariance — all ten ablations identical on stealth — now has an
+  obvious cause: for Mistral the screen rejects **nothing** on stealth, so no
+  change to `response_risk` can move an outcome. "The learned classifier
+  contributes nothing" is therefore a **Mistral-specific** statement, not a
+  property of the method, and the ablation should be rerun on gpt-oss-20b or
+  llama-3.3-70b, where the screen demonstrably fires on stealth, before any
+  general claim is made about which risk component earns its place.
 
   **What the paper must do:** report this audit *per model and per tier* rather
   than pooling. A single "identical channel, opposite decision, driven by content"
