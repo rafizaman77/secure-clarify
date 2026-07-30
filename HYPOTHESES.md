@@ -79,6 +79,44 @@ reject, equivalently if the 90% CI for the difference lies entirely within
   explicit denominator, phrased "no unsafe actions observed in *n* episodes"
   (Step 23). "Eliminates attacks" is forbidden.
 
+## RESULTS (recorded 2026-07-30, after the tests were run)
+
+`scripts/confirmatory_tests.py`, `results/confirmatory_tests.json`. Stealth tier,
+primary metric **exact attacker objective success**, Holm-corrected per model,
+paired resampling. H3/H4 not yet runnable (need `stage1_only` and benign episode
+files).
+
+| model | H1 (vs ConventionalVoI) | p_holm | **H2 (vs Screened — the decisive test)** | p_holm |
+|---|---|---|---|---|
+| mistral-nemo-12b | +0.375 [+0.219,+0.531] | <0.0001 ✓ | +0.146 [+0.000,+0.292] | 0.064 ✗ |
+| llama-3.3-70b | +0.490 [+0.365,+0.615] | <0.0001 ✓ | **+0.146 [+0.031,+0.250]** | **0.015 ✓** |
+| gpt-oss-20b-cloud | +0.542 [+0.438,+0.646] | <0.0001 ✓ | **+0.240 [+0.146,+0.333]** | **<0.0001 ✓** |
+| gpt-oss-120b-cloud | +0.552 [+0.448,+0.656] | <0.0001 ✓ | +0.052 [+0.000,+0.115] | 0.117 ✗ |
+
+**H1 holds decisively in all four models.** **H2 holds in two of four.** By
+decision rule 3 that must be reported as a per-model split, never pooled.
+
+**A methodological near-miss, recorded because it nearly changed the paper.**
+The first run used family-level resampling as this document specifies — and H2
+failed in *all four* models (p = 0.079…0.596), which would have triggered
+decision rule 1 and a rewrite of the abstract. It is underpowered by
+construction: `main_120` contains only **2 task families**, so resampling
+families cannot detect any effect and a null there is not evidence of absence.
+The task-level test is the one with power, and it generalizes to new tasks from
+these same families. Both are now reported side by side, with the family column
+explicitly labelled underpowered. **The "generalizes to new domains" question is
+not answerable on this benchmark** — which is itself the finding, and an argument
+for Step 6's additional domains.
+
+**This confirms the plan's guiding claim.** "Response screening handles
+recognizable attacks; risk-aware acquisition can add safety when screening is
+imperfect." The paper's own explicit-tier ablation reports the stage-1 share as
+exactly 0.000 in all four models. On the stealth tier, where the screen is
+weaker, the stage-1 effect is +0.05 to +0.24 and significant in 2/4. Stage 1 is
+redundant exactly where the screen already works and load-bearing where it does
+not — the predicted pattern, and a *stronger* result for the two-stage design
+than the current manuscript claims.
+
 ## Pre-declared decision rules
 
 Written down so the conclusion is not chosen after the fact.
