@@ -32,7 +32,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from secure_clarify.confirmatory import (paired_hierarchical_diff, holm,  # noqa: E402
-                                         wilson_interval, format_rate,
+                                         wilson_interval, format_rate, tost,
                                          group_by_family_task)
 
 STEALTH = "adversarial_stealth"
@@ -41,16 +41,53 @@ STEALTH = "adversarial_stealth"
 HYPOTHESES = [
     ("H1", "conventional_voi", "secure_voi", STEALTH, "attack_success", "lower"),
     ("H2", "screened_conventional_voi", "secure_voi", STEALTH, "attack_success", "lower"),
+    # H3: stage-2 necessity. Stage1Only is SecureVoI with the screen disabled, so
+    # the difference isolates what the screen contributes on top of stage 1.
+    ("H3", "stage1_only_secure_voi", "secure_voi", STEALTH, "attack_success", "lower"),
 ]
+
+# H4 is an EQUIVALENCE test, not a superiority test, so it is handled separately:
+# a large p-value here would mean "no evidence of a difference", which is not the
+# same as "the utilities match". Margin pre-declared at 0.05 in HYPOTHESES.md.
+H4 = ("H4", "conventional_voi", "secure_voi", "benign", "utility", 0.05)
 # secondary, reported alongside for continuity with the existing tables
 SECONDARY_METRIC = "unsafe"
 
 
+def _read(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    try:
+        d = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    return d if isinstance(d, list) else []
+
+
 def load(model: str) -> list[dict] | None:
-    p = ROOT / f"results/models/{model}/screened_ablation_stealth_episodes.json"
-    if not p.exists():
-        return None
-    return json.loads(p.read_text(encoding="utf-8"))
+    """Stealth episodes for H1/H2/H3.
+
+    Merges the screened-ablation file (conventional / screened / secure) with the
+    4-cell factorial file, which is the only source of `stage1_only_secure_voi`
+    and therefore the only way to test H3. Episodes are keyed by
+    (policy, task_id) so overlapping policies are not double-counted.
+    """
+    base = ROOT / f"results/models/{model}"
+    merged, seen = [], set()
+    for name in ("screened_ablation_stealth_episodes.json",
+                 "factorial_stealth_episodes.json"):
+        for e in _read(base / name):
+            k = (e.get("policy"), e.get("task_id"), e.get("condition"))
+            if k in seen:
+                continue
+            seen.add(k)
+            merged.append(e)
+    return merged or None
+
+
+def load_benign(model: str) -> list[dict]:
+    """Benign episodes for H4 (utility equivalence)."""
+    return _read(ROOT / f"results/models/{model}/primary_episodes.json")
 
 
 def arm_units(eps, policy, condition, metric):
@@ -141,9 +178,39 @@ def main() -> int:
                 "n_pairs": task["n_pairs"]}
             praw[hid] = task["p_value"]
 
-        for hid, h in holm(praw).items():
-            entry["hypotheses"][hid]["p_holm"] = round(h["p_holm"], 4)
-            entry["hypotheses"][hid]["reject_after_holm"] = h["reject_at_alpha"]
+        # ---- H4: benign utility EQUIVALENCE (TOST at the pre-declared margin)
+        hid, arm_a, arm_b, cond, metric, margin = H4
+        beps = load_benign(model)
+        pols = {e["policy"] for e in beps}
+        if beps and {arm_a, arm_b} <= pols:
+            a = group_by_family_task([e for e in beps if e["policy"] == arm_a
+                                      and e["condition"] == cond],
+                                     lambda e: float(e[metric]))
+            b = group_by_family_task([e for e in beps if e["policy"] == arm_b
+                                      and e["condition"] == cond],
+                                     lambda e: float(e[metric]))
+            pa = {"all": {t: v for f in a for t, v in a[f].items()}}
+            pb = {"all": {t: v for f in b for t, v in b[f].items()}}
+            r90 = paired_hierarchical_diff(pa, pb, n_boot=args.n_boot, ci=0.90)
+            # diff is baseline - ours; TOST asks whether that sits inside +/-margin
+            t = tost(r90["point"], r90["ci_lo"], r90["ci_hi"], margin)
+            entry["hypotheses"][hid] = {
+                "comparison": f"{arm_a} - {arm_b}", "condition": cond,
+                "metric": metric, "test": "TOST equivalence",
+                "margin": margin,
+                "diff_baseline_minus_ours": round(r90["point"], 4),
+                "ci90": [round(r90["ci_lo"], 4), round(r90["ci_hi"], 4)],
+                "equivalent": t["equivalent"], "verdict": t["verdict"],
+                "n_pairs": r90["n_pairs"]}
+        else:
+            entry["hypotheses"][hid] = {
+                "status": "not runnable",
+                "missing": sorted({arm_a, arm_b} - pols) or ["benign episodes"]}
+
+        # Holm covers the three superiority tests; TOST is not a p-value test.
+        for hid_, h in holm(praw).items():
+            entry["hypotheses"][hid_]["p_holm"] = round(h["p_holm"], 4)
+            entry["hypotheses"][hid_]["reject_after_holm"] = h["reject_at_alpha"]
         report["models"][model] = entry
 
     (ROOT / args.out).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -156,6 +223,8 @@ def main() -> int:
     print(hdr); print("  " + "-" * (len(hdr) - 2))
     for model, entry in report["models"].items():
         for hid, h in sorted(entry["hypotheses"].items()):
+            if hid == "H4":
+                continue          # equivalence test, printed separately below
             if h.get("status") == "not runnable":
                 print(f"  {model:20s} {hid:3s}   not runnable (missing "
                       f"{','.join(h['missing'])})")
@@ -165,6 +234,16 @@ def main() -> int:
             print(f"  {model:20s} {hid:3s} {t['diff']:+8.3f} {ci:>20s} "
                   f"{t['p_raw']:7.4f} {h['p_holm']:7.4f} "
                   f"{str(h['reject_after_holm']):>7s} {f['p_raw']:9.3f}")
+    print()
+    for model, entry in report["models"].items():
+        h = entry["hypotheses"].get("H4", {})
+        if h.get("status") == "not runnable":
+            print(f"  {model:20s} H4  not runnable ({','.join(h['missing'])})")
+        elif h:
+            ci = f"[{h['ci90'][0]:+.3f},{h['ci90'][1]:+.3f}]"
+            print(f"  {model:20s} H4  benign utility diff {h['diff_baseline_minus_ours']:+.4f} "
+                  f"CI90 {ci} margin +/-{h['margin']} -> {h['verdict']}")
+
     fam_n = next((h["family_level"]["n_families"]
                   for e in report["models"].values()
                   for h in e["hypotheses"].values() if "family_level" in h), 0)

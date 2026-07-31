@@ -110,12 +110,16 @@ def hierarchical_bootstrap(units: dict[str, dict[str, list[float]]],
 
 
 def paired_hierarchical_diff(units_a: dict, units_b: dict, n_boot: int = 2000,
-                             seed: int = 20260730) -> dict:
+                             seed: int = 20260730, ci: float = 0.95) -> dict:
     """Paired A-B difference resampled at family -> task level.
 
     Pairing is preserved: a replicate that draws task T takes A(T) and B(T)
     together, so the difference is not contaminated by which tasks each arm
     happened to receive.
+
+    `ci` selects the interval width. TOST (Step 22) needs the **90%** interval,
+    not 95%: two one-sided tests at alpha=0.05 correspond to a 90% two-sided
+    interval, and using 95% there would be needlessly conservative.
     """
     rng = random.Random(seed)
     fams = sorted(set(units_a) & set(units_b))
@@ -145,13 +149,14 @@ def paired_hierarchical_diff(units_a: dict, units_b: dict, n_boot: int = 2000,
         if pairs:
             reps.append(diff_over(pairs))
     reps.sort()
-    lo = reps[int(0.025 * len(reps))]
-    hi = reps[int(0.975 * len(reps))]
+    alpha = (1.0 - ci) / 2.0
+    lo = reps[int(alpha * len(reps))]
+    hi = reps[min(len(reps) - 1, int((1.0 - alpha) * len(reps)))]
     # two-sided bootstrap p: how often the replicate crosses zero
     n_le = sum(1 for r in reps if r <= 0)
     n_ge = sum(1 for r in reps if r >= 0)
     p = min(1.0, 2.0 * min(n_le, n_ge) / len(reps))
-    return {"point": point, "ci_lo": lo, "ci_hi": hi, "p_value": p,
+    return {"point": point, "ci_lo": lo, "ci_hi": hi, "p_value": p, "ci_level": ci,
             "n_families": len(fams), "n_pairs": len(all_pairs), "n_boot": len(reps)}
 
 
