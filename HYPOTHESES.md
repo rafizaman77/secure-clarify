@@ -101,7 +101,13 @@ decision rule 3 that must be reported as a per-model split, never pooled.
 | model | diff (Stage1Only − SecureVoI) | 95% CI | p_holm | |
 |---|---|---|---|---|
 | mistral-nemo-12b (screen blind) | **+0.000** | [+0.000, +0.000] | 1.000 | ✗ |
-| **gpt-oss-20b-cloud (screen fires)** | **+0.188** | [+0.115, +0.260] | **<0.0001** | **✓** |
+| **llama-3.3-70b** | **+0.115** | [+0.052, +0.177] | **<0.0001** | **✓** |
+| **gpt-oss-20b-cloud** | **+0.188** | [+0.115, +0.260] | **<0.0001** | **✓** |
+| gpt-oss-120b-cloud | *(run in progress)* | — | — | — |
+
+**H3 holds on every model whose screen fires** (llama +0.115, gpt-oss-20b +0.188),
+and both clear the underpowered family-level test as well. It fails only on
+Mistral, where the screen never fires at all.
 
 On Mistral the screen contributes **exactly nothing** — identical episode for
 episode — which is precisely what the attacked-channel audit predicted (it rejects

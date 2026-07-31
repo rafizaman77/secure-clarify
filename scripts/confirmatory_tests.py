@@ -115,7 +115,27 @@ def main() -> int:
         if eps is None:
             print(f"  [skip] {model}: no stealth episode file")
             continue
-        entry = {"n_episodes": len(eps), "hypotheses": {}, "rates": {}}
+        # PARTIAL-FILE GUARD. `screened_ablation.py --resume` checkpoints episodes
+        # as it goes, so reading its output mid-run yields a valid-looking file
+        # covering only the tasks finished so far. That silently produced an H3
+        # for gpt-oss-120b on 33 of 96 task pairs, which would have been reported
+        # as a finished result. Flag any arm that covers fewer tasks than the
+        # best-covered arm for the same model.
+        cover = defaultdict(set)
+        for e in eps:
+            if e["condition"] == STEALTH:
+                cover[e["policy"]].add(e["task_id"])
+        expected = max((len(v) for v in cover.values()), default=0)
+        partial = {p: len(v) for p, v in cover.items() if len(v) < expected}
+        entry = {"n_episodes": len(eps), "hypotheses": {}, "rates": {},
+                 "coverage": {p: len(v) for p, v in sorted(cover.items())},
+                 "tasks_expected": expected}
+        if partial:
+            entry["INCOMPLETE"] = partial
+        if expected and expected < 96:
+            entry["INCOMPLETE_ALL_ARMS"] = (
+                f"only {expected} tasks per arm (expected 96) -- a run is probably "
+                f"still in progress; results are PRELIMINARY")
 
         for pol in sorted({e["policy"] for e in eps}):
             sel = [e for e in eps if e["policy"] == pol and e["condition"] == STEALTH]
@@ -176,6 +196,11 @@ def main() -> int:
                              % fam["n_families"]) if fam["n_families"] < 5 else ""},
                 "diff_baseline_minus_ours": round(task["point"], 4),
                 "n_pairs": task["n_pairs"]}
+            short = {p: n for p, n in partial.items() if p in (arm_a, arm_b)}
+            if short:
+                entry["hypotheses"][hid]["partial_arms"] = short
+                entry["hypotheses"][hid]["PRELIMINARY"] = (
+                    f"arm coverage {short} vs {expected} tasks -- run still in progress")
             praw[hid] = task["p_value"]
 
         # ---- H4: benign utility EQUIVALENCE (TOST at the pre-declared margin)
@@ -231,9 +256,15 @@ def main() -> int:
                 continue
             t, f = h["task_level"], h["family_level"]
             ci = f"[{t['ci95'][0]:+.3f},{t['ci95'][1]:+.3f}]"
+            # A hypothesis is preliminary if EITHER of its arms is short. The
+            # merge in load() pairs a complete screened-ablation file with a
+            # possibly in-progress factorial file, so per-model flags are not
+            # enough -- H1/H2 can be final while H3 is still filling in.
+            mark = " *PARTIAL*" if (entry.get("INCOMPLETE_ALL_ARMS")
+                                    or h.get("partial_arms")) else ""
             print(f"  {model:20s} {hid:3s} {t['diff']:+8.3f} {ci:>20s} "
                   f"{t['p_raw']:7.4f} {h['p_holm']:7.4f} "
-                  f"{str(h['reject_after_holm']):>7s} {f['p_raw']:9.3f}")
+                  f"{str(h['reject_after_holm']):>7s} {f['p_raw']:9.3f}{mark}")
     print()
     for model, entry in report["models"].items():
         h = entry["hypotheses"].get("H4", {})
@@ -252,6 +283,13 @@ def main() -> int:
               f"is underpowered by construction.\n  A null there is NOT evidence of "
               f"absence; it means the benchmark cannot answer the\n  'generalizes to new "
               f"domains' question. Task-level is the reportable test.")
+    incomplete = {m: e["INCOMPLETE_ALL_ARMS"] for m, e in report["models"].items()
+                  if e.get("INCOMPLETE_ALL_ARMS")}
+    if incomplete:
+        print("\n  *** PRELIMINARY -- a run is still in progress: ***")
+        for m, msg in incomplete.items():
+            print(f"    {m}: {msg}")
+
     print(f"\nWrote {args.out}")
     return 0
 
