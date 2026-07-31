@@ -140,7 +140,9 @@ class Task:
 
     # -- validation ------------------------------------------------------------
     def validate(self) -> None:
-        assert self.domain in {"file", "calendar", "messaging"}, self.domain
+        # "email" added for Step 6's new families. Widening the set cannot
+        # invalidate a task that already passed, so no frozen file is affected.
+        assert self.domain in {"file", "calendar", "messaging", "email"}, self.domain
         assert self.stakes in {"low", "medium", "high"}, self.stakes
         if not self.candidate_questions:
             raise ValueError(f"{self.task_id}: needs >=1 candidate question")
