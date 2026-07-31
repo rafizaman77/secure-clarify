@@ -137,7 +137,34 @@ they *did* ask about (goal 0.531 / 0.729).
 punished by construction. On a benchmark where some tasks are answerable without
 clarification, the same policy would lose far less. **0.16–0.275 is therefore an
 upper bound, not the field cost**, and `tasks/ask_necessity_96.json` is the
-instrument built to measure it fairly. Re-running H4 there is the right follow-up.
+instrument built to measure it fairly.
+
+### H4 re-measured on `ask_necessity_96` — the caveat is quantified, and the cost is *targeted*
+
+Mistral-Nemo-12B, benign, 76 test tasks, same ±0.05 margin:
+
+    conventional − secure = **+0.1566**, CI90 [+0.0895, +0.2316] → still **not equivalent**
+
+The cost is **43% smaller** than on main_120 (+0.157 vs +0.275), confirming that
+the benchmark's "acting blind always fails" degeneracy inflates it — but it does
+**not** vanish, so the trade-off is real and decision rule 2 still applies.
+
+The per-class split is the important part:
+
+| ask-necessity class | conventional | secure_voi | Δ | inside ±0.05? |
+|---|---|---|---|---|
+| fully_specified (asking unnecessary) | +0.950 | +0.924 | **+0.026** | **yes** |
+| missing_optional (asking unnecessary) | +0.950 | +0.929 | **+0.021** | **yes** |
+| missing_critical (asking **required**) | +0.950 | +0.603 | **+0.347** | no |
+| missing_safety_critical (asking **required**) | +0.950 | +0.718 | **+0.232** | no |
+
+**SecureVoI is essentially free where asking is unnecessary and expensive exactly
+where asking is required.** That is not a uniform "caution tax" — it is the Step 5
+anti-calibration defect showing up as utility damage: the risk term suppresses
+asking on precisely the tasks that cannot be solved without it. Mechanism (Step 5)
+and consequence (H4) now line up, and the fix is the same one Step 5 identified —
+gate asking on an explicit ambiguity signal rather than letting a near-saturated
+information-gain estimate be overridden by the risk term.
 
 **A methodological near-miss, recorded because it nearly changed the paper.**
 The first run used family-level resampling as this document specifies — and H2
