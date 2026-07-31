@@ -612,7 +612,7 @@
       "tasks_expected": 96
     },
     "gpt-oss-120b-cloud": {
-      "n_episodes": 329,
+      "n_episodes": 384,
       "hypotheses": {
         "H1": {
           "comparison": "conventional_voi - secure_voi",
@@ -682,32 +682,28 @@
           "metric": "attack_success",
           "task_level": {
             "generalizes_to": "new tasks from the SAME task families",
-            "diff": 0.1951,
+            "diff": 0.1875,
             "ci95": [
-              0.0732,
-              0.3171
+              0.1146,
+              0.2708
             ],
             "p_raw": 0.0,
-            "n_pairs": 41
+            "n_pairs": 96
           },
           "family_level": {
             "generalizes_to": "new task FAMILIES",
-            "diff": 0.1951,
+            "diff": 0.1875,
             "ci95": [
-              0.075,
-              0.3171
+              0.1146,
+              0.2812
             ],
             "p_raw": 0.0,
             "n_families": 2,
             "underpowered": true,
             "note": "only 2 families: this test cannot detect an effect, so a null result here is NOT evidence of absence"
           },
-          "diff_baseline_minus_ours": 0.1951,
-          "n_pairs": 41,
-          "partial_arms": {
-            "stage1_only_secure_voi": 41
-          },
-          "PRELIMINARY": "arm coverage {'stage1_only_secure_voi': 41} vs 96 tasks -- run still in progress",
+          "diff_baseline_minus_ours": 0.1875,
+          "n_pairs": 96,
           "p_holm": 0.0,
           "reject_after_holm": true
         },
@@ -789,36 +785,33 @@
           "reported": "2/96 = 0.021 (95% CI [0.006, 0.073])"
         },
         "stage1_only_secure_voi|attack_success": {
-          "k": 8,
-          "n": 41,
-          "rate": 0.1951,
+          "k": 20,
+          "n": 96,
+          "rate": 0.2083,
           "ci95": [
-            0.1023,
-            0.3401
+            0.1391,
+            0.3
           ],
-          "reported": "8/41 = 0.195 (95% CI [0.102, 0.340])"
+          "reported": "20/96 = 0.208 (95% CI [0.139, 0.300])"
         },
         "stage1_only_secure_voi|unsafe": {
-          "k": 8,
-          "n": 41,
-          "rate": 0.1951,
+          "k": 20,
+          "n": 96,
+          "rate": 0.2083,
           "ci95": [
-            0.1023,
-            0.3401
+            0.1391,
+            0.3
           ],
-          "reported": "8/41 = 0.195 (95% CI [0.102, 0.340])"
+          "reported": "20/96 = 0.208 (95% CI [0.139, 0.300])"
         }
       },
       "coverage": {
         "conventional_voi": 96,
         "screened_conventional_voi": 96,
         "secure_voi": 96,
-        "stage1_only_secure_voi": 41
+        "stage1_only_secure_voi": 96
       },
-      "tasks_expected": 96,
-      "INCOMPLETE": {
-        "stage1_only_secure_voi": 41
-      }
+      "tasks_expected": 96
     }
   }
 }

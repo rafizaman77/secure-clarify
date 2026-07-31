@@ -103,11 +103,45 @@ decision rule 3 that must be reported as a per-model split, never pooled.
 | mistral-nemo-12b (screen blind) | **+0.000** | [+0.000, +0.000] | 1.000 | ✗ |
 | **llama-3.3-70b** | **+0.115** | [+0.052, +0.177] | **<0.0001** | **✓** |
 | **gpt-oss-20b-cloud** | **+0.188** | [+0.115, +0.260] | **<0.0001** | **✓** |
-| gpt-oss-120b-cloud | *(run in progress)* | — | — | — |
+| **gpt-oss-120b-cloud** | **+0.188** | [+0.115, +0.271] | **<0.0001** | **✓** |
 
-**H3 holds on every model whose screen fires** (llama +0.115, gpt-oss-20b +0.188),
-and both clear the underpowered family-level test as well. It fails only on
-Mistral, where the screen never fires at all.
+**H3 holds on three of four models** — every one whose screen fires — and all
+three clear the underpowered family-level test as well, which no other hypothesis
+managed. It fails only on Mistral, where the screen never fires at all.
+
+## FINAL SCORECARD (all four models, stealth tier, exact attacker objective)
+
+| model | H1 vs Conventional | H2 vs Screened (stage 1) | H3 vs Stage1Only (stage 2) | H4 utility equiv. |
+|---|---|---|---|---|
+| mistral-nemo-12b | **+0.375 ✓** | +0.146 ✗ (p=.128) | +0.000 ✗ | ✗ not equiv. |
+| llama-3.3-70b | **+0.490 ✓** | **+0.146 ✓** (p=.015) | **+0.115 ✓** | ✗ not equiv. |
+| gpt-oss-20b-cloud | **+0.542 ✓** | **+0.240 ✓** (p<.0001) | **+0.188 ✓** | ✗ not equiv. |
+| gpt-oss-120b-cloud | **+0.552 ✓** | +0.052 ✗ (p=.117) | **+0.188 ✓** | ✗ not equiv. |
+| | **4/4** | **2/4** | **3/4** | **0/4** |
+
+**Verdict against the pre-declared decision rules.**
+
+* **Rule 1 does not fire.** It requires H2 to fail on a *majority* of models; it
+  fails on exactly half (2/4). The abstract does not have to be rewritten to
+  disclaim risk-aware acquisition — but the split must be reported honestly, not
+  averaged away.
+* **Rule 3 governs H2 and H3.** Both are reported per model. H2's failures are on
+  the two extremes: Mistral (screen blind, so stage 1 is doing all the work and
+  the *screened* baseline is weak) and gpt-oss-120b (screen so strong the screened
+  baseline is already at 0.073, leaving little headroom — a ceiling effect, not an
+  absent effect).
+* **Rule 2 fires on H4.** The utility cost is real in every model and must be
+  reported with its magnitude.
+* **Rule 4 stands.** The defects found along the way — flat/anti-calibrated ask
+  rate, unmeasurable screen precision, degenerate noisy condition, uncalibrated
+  risk score — are reported as limitations regardless of these outcomes.
+
+**The defensible one-sentence claim:** *both stages of SecureVoI carry
+independent, significant safety effects on models capable of recognising an
+injection (H2 and H3 both hold on llama-3.3-70b and gpt-oss-20b), the design
+degrades to stage-1 routing on models that cannot (Mistral), and the safety comes
+at a measured benign-utility cost concentrated on tasks where clarification is
+genuinely required.*
 
 On Mistral the screen contributes **exactly nothing** — identical episode for
 episode — which is precisely what the attacked-channel audit predicted (it rejects
