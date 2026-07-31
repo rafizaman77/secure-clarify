@@ -557,11 +557,49 @@ between attack and benign *attack-side* text. Report this as a benchmark artifac
   miscalibration. A single λ could not work precisely because the scores are not
   on a common scale.
 
-  **Constructive fix:** fit a calibration map (Platt or isotonic) on the dev split
-  so `response_risk` returns an actual probability. λ then becomes an interpretable
-  loss ratio, plausibly shared across models, and the decision-theoretic framing
-  becomes literally true rather than aspirational. This is a small change with a
-  large effect on what the paper is entitled to claim.
+  **Constructive fix, implemented and tested** — `secure_clarify/risk_calibration.py`
+  (two-parameter Platt map, gradient-fit, no scipy), `results/risk_recalibration.json`,
+  per-model `risk_platt.json`. **Fit on the dev split, evaluated on test:**
+
+  | model | | Brier | reliability | ECE | NLL | AUROC |
+  |---|---|---|---|---|---|---|
+  | mistral | raw | 0.1223 | 0.0249 | 0.1289 | 0.4049 | 0.890 |
+  | mistral | **calibrated** | **0.0922** | 0.0406 | **0.1126** | **0.3060** | 0.890 |
+  | gpt-oss-20b | raw | 0.1417 | 0.0532 | 0.1646 | 0.4285 | 0.916 |
+  | gpt-oss-20b | **calibrated** | **0.1066** | **0.0262** | **0.1190** | **0.3532** | 0.916 |
+
+  Brier improves ~25% and NLL 18–24% on both; AUROC is unchanged to three decimals,
+  as a monotone map requires — a useful check that the map calibrates rather than
+  re-ranks. *Mistral's `reliability` term worsens (0.0249→0.0406) even as its ECE
+  and NLL improve*: its map is steep (a=4.06) and pushes scores into sparse bins
+  where the squared-gap weighting is noisy. Reported rather than hidden.
+
+  **MY PREDICTION THAT ONE λ WOULD THEN TRANSFER IS WRONG.** I wrote that
+  calibration would let a single λ be shared across models. Tested directly on the
+  20 attacked-channel stealth cases, sweeping λ over raw vs calibrated risk:
+
+  | λ | mistral raw | mistral calib | gpt-oss raw | gpt-oss calib |
+  |---|---|---|---|---|
+  | 3.0 | 0/20 | 0/20 | **16/20** | 3/20 |
+  | 4.0 | 0/20 | 0/20 | 16/20 | 10/20 |
+  | 6.0 | 7/20 | 0/20 | 16/20 | **16/20** |
+
+  Calibration *moves* the operating point (gpt-oss needs λ≈6 calibrated to match
+  λ≈3 raw) and does not equalise the models. The reason is that λ was absorbing
+  **two** things and I only accounted for one: miscalibration *and* differing
+  discrimination. Calibration fixes the first; the second is an irreducible model
+  property. Mistral's calibrated score correctly reports low confidence on stealth
+  attacks — its raw scores there (~0.18) sit below the map's crossover and are
+  pushed *down*, because on dev those scores genuinely were mostly benign. That is
+  the calibrator being right about a model that cannot detect these attacks.
+
+  **What survives.** Calibration is still worth doing: the scores become
+  meaningfully better probabilities (Brier, NLL, ECE all improve out of sample),
+  and λ multiplied by a real probability *is* an interpretable loss ratio. What it
+  does **not** buy is a shared λ or any rescue of a weak detector. The paper may
+  claim the decision rule is decision-theoretically meaningful **after
+  calibration**, but must still refit λ per model and must not attribute the
+  per-model λ spread solely to risk appetite.
 
 - [x] **27. Ablate every response-risk component.** *(done —
   `estimators.set_risk_components()` (opt-in, strict no-op by default, guarded by
