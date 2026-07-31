@@ -525,6 +525,44 @@ between attack and benign *attack-side* text. Report this as a benchmark artifac
   curves, performance by attack family and channel, benign false-positive rate. A
   scalar called "probability of malice" must be calibrated or renamed a risk score.
 
+- [x] **26. Risk-score calibration.** *(done — `scripts/risk_calibration.py`,
+  `results/risk_calibration.json`, n=2040 scored responses per model, ground
+  truth `carries_attack`, which the policy never sees.)*
+
+  | model | AUROC | Brier | reliability (↓ better) | resolution (↑ better) |
+  |---|---|---|---|---|
+  | mistral-nemo-12b | 0.893 | 0.1219 | 0.0252 | 0.0790 |
+  | gpt-oss-20b-cloud | 0.917 | 0.1412 | 0.0539 | 0.0875 |
+
+  **It discriminates well but is not a probability.** AUROC ≈0.9 says the ranking
+  is good. The reliability tables say the *numbers* are not:
+
+  - **Mistral under-predicts at the top.** Every response scoring ≥0.4 carries an
+    attack — observed rate **1.000** in all four bins from [0.4,0.5) up — while
+    the score reports 0.41–0.73. Gaps of −0.27 to **−0.59**.
+  - **gpt-oss-20b over-predicts in the middle.** Its modal bin [0.5,0.6) holds
+    **539** responses scored ≈0.55 whose observed attack rate is **0.143**. Gaps
+    of **+0.38 to +0.40** across [0.3,0.6).
+
+  **Why this matters more than a goodness-of-fit complaint.** Stage 2 is
+  `info_value > λ · risk · expected_loss` — an expected-loss comparison that is
+  only decision-theoretically meaningful if `risk` is P(malicious | evidence). It
+  is not. So **λ is not a loss ratio**; its fitted value carries no units and no
+  interpretation, and the "principled decision-theoretic screen" framing describes
+  a tuned threshold.
+
+  **This also explains why λ varies across models** (1.0 / 3.0 / 4.0). The
+  miscalibration runs in *opposite directions* on these two models, so a per-model
+  λ is not expressing a different risk appetite — it is absorbing model-specific
+  miscalibration. A single λ could not work precisely because the scores are not
+  on a common scale.
+
+  **Constructive fix:** fit a calibration map (Platt or isotonic) on the dev split
+  so `response_risk` returns an actual probability. λ then becomes an interpretable
+  loss ratio, plausibly shared across models, and the decision-theoretic framing
+  becomes literally true rather than aspirational. This is a small change with a
+  large effect on what the paper is entitled to claim.
+
 - [x] **27. Ablate every response-risk component.** *(done —
   `estimators.set_risk_components()` (opt-in, strict no-op by default, guarded by
   `test_risk_component_ablation_default_is_a_strict_no_op`),
