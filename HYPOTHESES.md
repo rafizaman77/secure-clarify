@@ -96,19 +96,52 @@ files).
 **H1 holds decisively in all four models.** **H2 holds in two of four.** By
 decision rule 3 that must be reported as a per-model split, never pooled.
 
-### H3 — stage-2 necessity (Mistral only; the other models lack `stage1_only` runs)
+### H3 — stage-2 necessity
 
-| model | diff (Stage1Only − SecureVoI) | 95% CI | p |
+| model | diff (Stage1Only − SecureVoI) | 95% CI | p_holm | |
+|---|---|---|---|---|
+| mistral-nemo-12b (screen blind) | **+0.000** | [+0.000, +0.000] | 1.000 | ✗ |
+| **gpt-oss-20b-cloud (screen fires)** | **+0.188** | [+0.115, +0.260] | **<0.0001** | **✓** |
+
+On Mistral the screen contributes **exactly nothing** — identical episode for
+episode — which is precisely what the attacked-channel audit predicted (it rejects
+0/20 stealth attacks, so disabling a screen that never fires changes nothing).
+Two independent measurements agreeing to the digit.
+
+On gpt-oss-20b, where the screen demonstrably fires, stage 2 contributes
+**+0.188** and is significant even under the *underpowered* family-level test
+(p=0.000), which no other hypothesis managed.
+
+### The full 2×2 factorial on gpt-oss-20b — both stages independently significant
+
+Stealth tier, exact attacker objective success, 96 test tasks per cell:
+
+| acquisition | stage 2 | policy | attack success |
 |---|---|---|---|
-| mistral-nemo-12b | **+0.000** | [+0.000, +0.000] | 1.000 |
+| risk-blind | accept-all | ConventionalVoI | 56/96 = 0.583 [0.48,0.68] |
+| **risk-aware** | accept-all | Stage1OnlySecureVoI | 20/96 = 0.208 [0.14,0.30] |
+| risk-blind | **screen** | ScreenedConventionalVoI | 27/96 = 0.281 [0.20,0.38] |
+| **risk-aware** | **screen** | **SecureVoI** | **4/96 = 0.042** [0.02,0.10] |
 
-Identical, episode for episode. On Mistral the stage-2 screen contributes
-**exactly nothing** beyond stage 1 on the stealth tier — which is precisely what
-the attacked-channel audit predicted (Mistral rejects **0/20** stealth attacks,
-so disabling a screen that never fires cannot change anything). Two independent
-measurements agreeing to the digit. **H3 is untested on the models where the
-screen demonstrably does fire**, and those are the runs that would actually
-answer it.
+Main effects (lower is better):
+
+    risk-aware acquisition | no screen   0.583 -> 0.208   -0.375
+    risk-aware acquisition | screen      0.281 -> 0.042   -0.240   [H2, p<0.0001]
+    screening | risk-blind acquisition   0.583 -> 0.281   -0.302
+    screening | risk-aware acquisition   0.208 -> 0.042   -0.167   [H3, p<0.0001]
+    interaction (difference-in-differences)              +0.135
+
+**This is the paper's central claim, cleanly demonstrated on one model.** Both
+stages carry an independent, significant effect; neither is redundant; and the
+positive interaction says they are partial substitutes — each is worth less once
+the other is in place — which is exactly what a defense-in-depth argument
+predicts. Attacker success falls from 0.583 to **0.042** when both are used.
+
+The caveat that matters: this holds on the model whose base capability lets the
+screen work. On Mistral the same factorial collapses to a stage-1-only story. The
+honest framing is that SecureVoI's two-stage design delivers as advertised
+*given a model that can recognise an injection*, and degrades to routing alone
+when it cannot.
 
 ### H4 — benign utility equivalence: **FAILS in all four models**
 
