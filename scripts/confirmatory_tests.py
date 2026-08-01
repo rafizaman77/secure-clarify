@@ -110,6 +110,28 @@ def _family_map() -> dict[str, str]:
     return _FAMILY_OF
 
 
+def _expected_test_tasks(cover) -> int:
+    """How many test-split tasks the observed task ids imply.
+
+    Derived from whichever frozen task file the episodes came from, so a run is
+    only called PARTIAL when it really is short.
+    """
+    seen = set().union(*cover.values()) if cover else set()
+    if not seen:
+        return 0
+    best = 0
+    for tf in ("tasks/main_120.json", "tasks/families_120.json",
+               "tasks/diversity_180.json", "tasks/corpus_attacks_81.json"):
+        p = ROOT / tf
+        if not p.exists():
+            continue
+        ids = {t["task_id"] for t in json.loads(p.read_text(encoding="utf-8"))
+               if t.get("split") == "test"}
+        if seen & ids:
+            best = max(best, len(ids))
+    return best
+
+
 def load_benign(model: str) -> list[dict]:
     """Benign episodes for H4 (utility equivalence)."""
     return _read(ROOT / f"results/models/{model}/primary_episodes.json")
@@ -165,10 +187,14 @@ def main() -> int:
                  "tasks_expected": expected}
         if partial:
             entry["INCOMPLETE"] = partial
-        if expected and expected < 96:
+        # Expected task count comes from the TASK FILES, not a hardcoded 96:
+        # main_120's test split is 96 but families_120's is 95, and hardcoding
+        # flagged a complete run as PARTIAL.
+        n_test = _expected_test_tasks(cover)
+        if expected and n_test and expected < n_test:
             entry["INCOMPLETE_ALL_ARMS"] = (
-                f"only {expected} tasks per arm (expected 96) -- a run is probably "
-                f"still in progress; results are PRELIMINARY")
+                f"only {expected} tasks per arm (expected {n_test}) -- a run is "
+                f"probably still in progress; results are PRELIMINARY")
 
         for pol in sorted({e["policy"] for e in eps}):
             sel = [e for e in eps if e["policy"] == pol and e["condition"] == STEALTH]

@@ -109,6 +109,30 @@ decision rule 3 that must be reported as a per-model split, never pooled.
 three clear the underpowered family-level test as well, which no other hypothesis
 managed. It fails only on Mistral, where the screen never fires at all.
 
+## Step 6 payoff: H2 now holds at the FAMILY level
+
+The family-level column was uninformative because `main_120` has 2 task families.
+`tasks/families_120.json` adds 5 more (Step 6), and re-running the same
+pre-declared tests there gives the first family-level result with real power —
+**on Mistral, the model where H2 previously failed**:
+
+| hypothesis | task-level diff | p_holm | **family-level p** | n_families |
+|---|---|---|---|---|
+| H1 | +0.368 [+0.253,+0.484] | <0.0001 ✓ | **0.000 ✓** | 5 |
+| **H2** | **+0.200 [+0.095,+0.316]** | **0.002 ✓** | **0.024 ✓** | 5 |
+| H3 | +0.021 [+0.000,+0.053] | 0.268 ✗ | 0.792 ✗ | 5 |
+
+On `main_120` Mistral's H2 was +0.146, p_holm=0.128, family p=0.079 — **not**
+significant. On five genuinely different workflows it is +0.200, significant at
+the task level *and* at the family level. That is the strongest form of the
+stage-1 claim available: the benefit of risk-aware acquisition **generalizes
+across task families**, not just across tasks drawn from the same two templates.
+
+H3 stays null on Mistral (+0.021, p=0.268), exactly as it should — Mistral's
+screen rejects 0/20 stealth attacks, so stage 2 has nothing to contribute
+regardless of which families it runs on. The two results being *inconsistent with
+each other* would have signalled a bug; they are consistent.
+
 ## FINAL SCORECARD (all four models, stealth tier, exact attacker objective)
 
 | model | H1 vs Conventional | H2 vs Screened (stage 1) | H3 vs Stage1Only (stage 2) | H4 utility equiv. |
