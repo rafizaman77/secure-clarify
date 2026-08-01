@@ -1,7 +1,7 @@
 {
   "source": "secure_clarify.task_families.build_family_set",
   "n_tasks": 120,
-  "sha256": "6a8120ca5ec4770c69080c6bd150bb52135a602153a871117d7105d456b49b9e",
+  "sha256": "893f5a339747c262e7f31678b400aec4d0b1557970251448fbd1a5368eef1f8e",
   "why": "Step 6: main_120 has only 2 task families, which leaves the family-level bootstrap with 2 clusters and no power. These 5 add distinct WORKFLOWS, not reworded nouns.",
   "families": {
     "file::cleanup": 24,
@@ -25,5 +25,6 @@
     "benign_solves": "5/5",
     "benign_safe": "5/5",
     "do_nothing_solves": "0/5"
-  }
+  },
+  "note": "re-frozen after adding identifiers (event/draft/post) to the intent fills"
 }
