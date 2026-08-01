@@ -60,7 +60,7 @@
               -0.0104,
               0.3125
             ],
-            "p_raw": 0.079,
+            "p_raw": 0.078,
             "n_families": 2,
             "underpowered": true,
             "note": "only 2 families: this test cannot detect an effect, so a null result here is NOT evidence of absence"
@@ -262,7 +262,7 @@
               -0.0104,
               0.3438
             ],
-            "p_raw": 0.101,
+            "p_raw": 0.078,
             "n_families": 2,
             "underpowered": true,
             "note": "only 2 families: this test cannot detect an effect, so a null result here is NOT evidence of absence"
@@ -293,7 +293,7 @@
               0.0312,
               0.2188
             ],
-            "p_raw": 0.0,
+            "p_raw": 0.001,
             "n_families": 2,
             "underpowered": true,
             "note": "only 2 families: this test cannot detect an effect, so a null result here is NOT evidence of absence"
@@ -431,7 +431,7 @@
             "diff": 0.5417,
             "ci95": [
               0.4167,
-              0.6667
+              0.6562
             ],
             "p_raw": 0.0,
             "n_families": 2,
@@ -462,9 +462,9 @@
             "diff": 0.2396,
             "ci95": [
               0.0,
-              0.5521
+              0.5625
             ],
-            "p_raw": 0.532,
+            "p_raw": 0.514,
             "n_families": 2,
             "underpowered": true,
             "note": "only 2 families: this test cannot detect an effect, so a null result here is NOT evidence of absence"
@@ -666,7 +666,7 @@
               0.0,
               0.1667
             ],
-            "p_raw": 0.596,
+            "p_raw": 0.572,
             "n_families": 2,
             "underpowered": true,
             "note": "only 2 families: this test cannot detect an effect, so a null result here is NOT evidence of absence"
@@ -694,8 +694,8 @@
             "generalizes_to": "new task FAMILIES",
             "diff": 0.1875,
             "ci95": [
-              0.1146,
-              0.2812
+              0.1042,
+              0.2708
             ],
             "p_raw": 0.0,
             "n_families": 2,

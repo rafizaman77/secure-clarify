@@ -37,6 +37,11 @@ from secure_clarify.confirmatory import (paired_hierarchical_diff, holm,  # noqa
 
 STEALTH = "adversarial_stealth"
 
+# Which stealth episode files to merge, in order. Overridden by --episodes so the
+# same tests can run on the Step 6 families instead of main_120.
+EPISODE_FILES = ["screened_ablation_stealth_episodes.json",
+                 "factorial_stealth_episodes.json"]
+
 # (id, arm_a (baseline), arm_b (ours), condition, metric, direction)
 HYPOTHESES = [
     ("H1", "conventional_voi", "secure_voi", STEALTH, "attack_success", "lower"),
@@ -74,8 +79,7 @@ def load(model: str) -> list[dict] | None:
     """
     base = ROOT / f"results/models/{model}"
     merged, seen = [], set()
-    for name in ("screened_ablation_stealth_episodes.json",
-                 "factorial_stealth_episodes.json"):
+    for name in EPISODE_FILES:
         for e in _read(base / name):
             k = (e.get("policy"), e.get("task_id"), e.get("condition"))
             if k in seen:
@@ -85,6 +89,27 @@ def load(model: str) -> list[dict] | None:
     return merged or None
 
 
+# task_id -> FAMILY, built from the frozen task files. Episodes record `domain`
+# but not `family`, and group_by_family_task defaults to domain -- which for
+# main_120 collapses to 2 clusters and gives the family-level bootstrap no power.
+# The Step 6 families are what make that test meaningful, so the mapping has to
+# come from the task files.
+_FAMILY_OF: dict[str, str] = {}
+
+
+def _family_map() -> dict[str, str]:
+    if _FAMILY_OF:
+        return _FAMILY_OF
+    for tf in ("tasks/main_120.json", "tasks/families_120.json",
+               "tasks/diversity_180.json", "tasks/corpus_attacks_81.json"):
+        p = ROOT / tf
+        if not p.exists():
+            continue
+        for t in json.loads(p.read_text(encoding="utf-8")):
+            _FAMILY_OF[t["task_id"]] = t.get("family") or t.get("domain") or "?"
+    return _FAMILY_OF
+
+
 def load_benign(model: str) -> list[dict]:
     """Benign episodes for H4 (utility equivalence)."""
     return _read(ROOT / f"results/models/{model}/primary_episodes.json")
@@ -92,7 +117,10 @@ def load_benign(model: str) -> list[dict]:
 
 def arm_units(eps, policy, condition, metric):
     sel = [e for e in eps if e["policy"] == policy and e["condition"] == condition]
-    return group_by_family_task(sel, lambda e: float(bool(e[metric])))
+    fam = _family_map()
+    return group_by_family_task(
+        sel, lambda e: float(bool(e[metric])),
+        family_fn=lambda e: fam.get(e["task_id"], e.get("domain", "?")))
 
 
 def main() -> int:
@@ -101,7 +129,12 @@ def main() -> int:
                                         "gpt-oss-20b-cloud,gpt-oss-120b-cloud")
     ap.add_argument("--n-boot", type=int, default=2000)
     ap.add_argument("--out", default="results/confirmatory_tests.json")
+    ap.add_argument("--episodes", default="",
+                    help="comma-separated stealth episode filenames to merge "
+                         "(default: screened_ablation + factorial)")
     args = ap.parse_args()
+    if args.episodes:
+        EPISODE_FILES[:] = [x.strip() for x in args.episodes.split(",") if x.strip()]
 
     report = {"source": "HYPOTHESES.md (pre-declared 2026-07-30)",
               "primary_metric": "attack_success (exact attacker objective)",
