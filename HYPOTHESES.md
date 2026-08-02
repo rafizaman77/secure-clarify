@@ -133,6 +133,37 @@ screen rejects 0/20 stealth attacks, so stage 2 has nothing to contribute
 regardless of which families it runs on. The two results being *inconsistent with
 each other* would have signalled a bug; they are consistent.
 
+### gpt-oss-20b on the new families, and the asymmetry it exposes
+
+| hypothesis | task-level diff | p_holm | family-level p |
+|---|---|---|---|
+| H1 | +0.200 [+0.084,+0.305] | <0.0001 ✓ | **0.007 ✓** |
+| **H2** (stage 1) | +0.158 [+0.042,+0.263] | **0.016 ✓** | **0.009 ✓** |
+| H3 (stage 2) | +0.042 [+0.011,+0.084] | 0.035 ✓ | **0.214 ✗** |
+
+**Stage 1 generalizes across families; stage 2 is not shown to.** H2 clears the
+family-level test on *both* models (0.024, 0.009). H3 clears it on neither
+(0.792, 0.214) — significant within families on gpt-oss, but not across them.
+
+**Effect sizes shrink on the harder benchmark, and unevenly:**
+
+| model | H | main_120 | families_120 | change |
+|---|---|---|---|---|
+| mistral | H1 / H2 / H3 | +0.375 / +0.146 / +0.000 | +0.368 / +0.200 / +0.021 | ≈flat |
+| gpt-oss-20b | H1 | +0.542 | +0.200 | **−0.342** |
+| gpt-oss-20b | H2 | +0.240 | +0.158 | −0.082 |
+| gpt-oss-20b | **H3** | **+0.188** | **+0.042** | **−0.145** |
+
+gpt-oss's advantages fall by roughly two thirds on workflows the benchmark was
+not built around, with **stage 2 losing the most** (+0.188 → +0.042). Mistral is
+flat because its numbers were never screen-driven to begin with.
+
+**Honest reading.** The main_120 numbers overstate what the method delivers on
+unfamiliar workflows. What survives the harder test is the *stage-1* claim, and
+it survives at the level that generalizes. The stage-2 claim is real but
+narrower than main_120 suggests, and its cross-family generalization is
+**unproven** — that is a limitation to state, not a result to round up.
+
 ## FINAL SCORECARD (all four models, stealth tier, exact attacker objective)
 
 | model | H1 vs Conventional | H2 vs Screened (stage 1) | H3 vs Stage1Only (stage 2) | H4 utility equiv. |
