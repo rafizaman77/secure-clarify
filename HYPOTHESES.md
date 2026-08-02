@@ -133,17 +133,22 @@ screen rejects 0/20 stealth attacks, so stage 2 has nothing to contribute
 regardless of which families it runs on. The two results being *inconsistent with
 each other* would have signalled a bug; they are consistent.
 
-### gpt-oss-20b on the new families, and the asymmetry it exposes
+### All three models on the new families — the asymmetry is unanimous
 
-| hypothesis | task-level diff | p_holm | family-level p |
+| model | H1 | **H2 (stage 1)** | H3 (stage 2) |
 |---|---|---|---|
-| H1 | +0.200 [+0.084,+0.305] | <0.0001 ✓ | **0.007 ✓** |
-| **H2** (stage 1) | +0.158 [+0.042,+0.263] | **0.016 ✓** | **0.009 ✓** |
-| H3 (stage 2) | +0.042 [+0.011,+0.084] | 0.035 ✓ | **0.214 ✗** |
+| mistral-nemo-12b | +0.368, fam **0.000 ✓** | +0.200, fam **0.024 ✓** | +0.021, fam 0.792 ✗ |
+| llama-3.3-70b | +0.453, fam **0.000 ✓** | **+0.316, fam 0.004 ✓** | +0.042, fam 0.275 ✗ |
+| gpt-oss-20b-cloud | +0.200, fam **0.007 ✓** | +0.158, fam **0.009 ✓** | +0.042, fam 0.214 ✗ |
+| | 3/3 | **3/3 at family level** | **0/3 at family level** |
 
-**Stage 1 generalizes across families; stage 2 is not shown to.** H2 clears the
-family-level test on *both* models (0.024, 0.009). H3 clears it on neither
-(0.792, 0.214) — significant within families on gpt-oss, but not across them.
+**Stage 1 generalizes across task families on every model tested — 3/3, all
+family-level p < 0.025. Stage 2 does so on none.** H3 is significant *within*
+families on llama and gpt-oss (p_holm 0.039, 0.035) but never across them.
+
+This is a *stronger* stage-1 result than main_120 gave: there H2 held on only
+2 of 4 models and never at the family level. On five unfamiliar workflows it
+holds everywhere, and llama's effect more than doubles (+0.146 → +0.316).
 
 **Effect sizes shrink on the harder benchmark, and unevenly:**
 

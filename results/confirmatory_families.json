@@ -207,6 +207,208 @@
       },
       "tasks_expected": 95
     },
+    "llama-3.3-70b": {
+      "n_episodes": 380,
+      "hypotheses": {
+        "H1": {
+          "comparison": "conventional_voi - secure_voi",
+          "condition": "adversarial_stealth",
+          "metric": "attack_success",
+          "task_level": {
+            "generalizes_to": "new tasks from the SAME task families",
+            "diff": 0.4526,
+            "ci95": [
+              0.3053,
+              0.5895
+            ],
+            "p_raw": 0.0,
+            "n_pairs": 95
+          },
+          "family_level": {
+            "generalizes_to": "new task FAMILIES",
+            "diff": 0.4526,
+            "ci95": [
+              0.2526,
+              0.6421
+            ],
+            "p_raw": 0.0,
+            "n_families": 5,
+            "underpowered": false,
+            "note": ""
+          },
+          "diff_baseline_minus_ours": 0.4526,
+          "n_pairs": 95,
+          "p_holm": 0.0,
+          "reject_after_holm": true
+        },
+        "H2": {
+          "comparison": "screened_conventional_voi - secure_voi",
+          "condition": "adversarial_stealth",
+          "metric": "attack_success",
+          "task_level": {
+            "generalizes_to": "new tasks from the SAME task families",
+            "diff": 0.3158,
+            "ci95": [
+              0.1789,
+              0.4526
+            ],
+            "p_raw": 0.0,
+            "n_pairs": 95
+          },
+          "family_level": {
+            "generalizes_to": "new task FAMILIES",
+            "diff": 0.3158,
+            "ci95": [
+              0.0947,
+              0.5579
+            ],
+            "p_raw": 0.004,
+            "n_families": 5,
+            "underpowered": false,
+            "note": ""
+          },
+          "diff_baseline_minus_ours": 0.3158,
+          "n_pairs": 95,
+          "p_holm": 0.0,
+          "reject_after_holm": true
+        },
+        "H3": {
+          "comparison": "stage1_only_secure_voi - secure_voi",
+          "condition": "adversarial_stealth",
+          "metric": "attack_success",
+          "task_level": {
+            "generalizes_to": "new tasks from the SAME task families",
+            "diff": 0.0421,
+            "ci95": [
+              0.0105,
+              0.0842
+            ],
+            "p_raw": 0.039,
+            "n_pairs": 95
+          },
+          "family_level": {
+            "generalizes_to": "new task FAMILIES",
+            "diff": 0.0421,
+            "ci95": [
+              0.0,
+              0.1158
+            ],
+            "p_raw": 0.275,
+            "n_families": 5,
+            "underpowered": false,
+            "note": ""
+          },
+          "diff_baseline_minus_ours": 0.0421,
+          "n_pairs": 95,
+          "p_holm": 0.039,
+          "reject_after_holm": true
+        },
+        "H4": {
+          "comparison": "conventional_voi - secure_voi",
+          "condition": "benign",
+          "metric": "utility",
+          "test": "TOST equivalence",
+          "margin": 0.05,
+          "diff_baseline_minus_ours": 0.275,
+          "ci90": [
+            0.1948,
+            0.3552
+          ],
+          "equivalent": false,
+          "verdict": "NOT equivalent (CI exceeds margin)",
+          "n_pairs": 96
+        }
+      },
+      "rates": {
+        "conventional_voi|attack_success": {
+          "k": 55,
+          "n": 95,
+          "rate": 0.5789,
+          "ci95": [
+            0.4785,
+            0.6733
+          ],
+          "reported": "55/95 = 0.579 (95% CI [0.478, 0.673])"
+        },
+        "conventional_voi|unsafe": {
+          "k": 55,
+          "n": 95,
+          "rate": 0.5789,
+          "ci95": [
+            0.4785,
+            0.6733
+          ],
+          "reported": "55/95 = 0.579 (95% CI [0.478, 0.673])"
+        },
+        "screened_conventional_voi|attack_success": {
+          "k": 42,
+          "n": 95,
+          "rate": 0.4421,
+          "ci95": [
+            0.3464,
+            0.5423
+          ],
+          "reported": "42/95 = 0.442 (95% CI [0.346, 0.542])"
+        },
+        "screened_conventional_voi|unsafe": {
+          "k": 42,
+          "n": 95,
+          "rate": 0.4421,
+          "ci95": [
+            0.3464,
+            0.5423
+          ],
+          "reported": "42/95 = 0.442 (95% CI [0.346, 0.542])"
+        },
+        "secure_voi|attack_success": {
+          "k": 12,
+          "n": 95,
+          "rate": 0.1263,
+          "ci95": [
+            0.0738,
+            0.2079
+          ],
+          "reported": "12/95 = 0.126 (95% CI [0.074, 0.208])"
+        },
+        "secure_voi|unsafe": {
+          "k": 12,
+          "n": 95,
+          "rate": 0.1263,
+          "ci95": [
+            0.0738,
+            0.2079
+          ],
+          "reported": "12/95 = 0.126 (95% CI [0.074, 0.208])"
+        },
+        "stage1_only_secure_voi|attack_success": {
+          "k": 16,
+          "n": 95,
+          "rate": 0.1684,
+          "ci95": [
+            0.1064,
+            0.2562
+          ],
+          "reported": "16/95 = 0.168 (95% CI [0.106, 0.256])"
+        },
+        "stage1_only_secure_voi|unsafe": {
+          "k": 16,
+          "n": 95,
+          "rate": 0.1684,
+          "ci95": [
+            0.1064,
+            0.2562
+          ],
+          "reported": "16/95 = 0.168 (95% CI [0.106, 0.256])"
+        }
+      },
+      "coverage": {
+        "conventional_voi": 95,
+        "screened_conventional_voi": 95,
+        "secure_voi": 95,
+        "stage1_only_secure_voi": 95
+      },
+      "tasks_expected": 95
+    },
     "gpt-oss-20b-cloud": {
       "n_episodes": 380,
       "hypotheses": {
