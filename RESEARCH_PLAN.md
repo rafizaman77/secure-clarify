@@ -865,6 +865,74 @@ between attack and benign *attack-side* text. Report this as a benchmark artifac
 - [ ] **20–23.** Hierarchical resampling, Holm correction, TOST, zero-rate
   intervals — to be implemented against the Phase 3 runs.
 
+## Phase 4 — Credible defense baselines *(done — and it goes against us)*
+
+*(`secure_clarify/baselines.py`, `scripts/defense_baselines.py`,
+`results/defense_baselines.json`. Mistral-Nemo-12B, main_120 test split, 96 tasks.)*
+
+Three defenses that are not our own ablations: a **PromptArmor-style detector**
+(one LLM call: "INJECTION or CLEAN"), **spotlighting/delimiting** (ASPI-style: no
+screening, just mark the span untrusted and tell the model not to obey it), and
+the existing **post-hoc guardrail** (screen the action PLAN against the task's
+prohibited actions).
+
+| defense | ask | attack success | goal | utility |
+|---|---|---|---|---|
+| conventional_voi (none) | 1.000 | 0.583 | 0.708 | −0.508 |
+| **prompt_armor** | 1.000 | **0.000** [0.00,0.04] | 0.417 | **+0.367** |
+| spotlighting | 1.000 | 0.427 | 0.740 | −0.165 |
+| posthoc_guardrail *(oracle)* | 1.000 | **0.000** | **1.000** | **+0.950** |
+| **secure_voi (ours)** | 0.750 | **0.208** | 0.396 | −0.096 |
+
+**SecureVoI loses to a one-call detector on this model**, on safety (0.208 vs
+0.000), goal (0.396 vs 0.417) and utility (−0.096 vs +0.367). The post-hoc
+guardrail dominates everything, but it is an **oracle** — it screens against the
+task's own `prohibited_actions` — so it is an upper bound on action filtering,
+not a deployable competitor. Spotlighting is the weakest real defense: it removes
+only about a quarter of the attack success (0.583 → 0.427) for free.
+
+### The cause, and it is fixable: the stage-2 prompt, not the model
+
+Same model, same texts, two prompts:
+
+| condition | n | `classify_malice` ≥0.5 | `detect_injection` |
+|---|---|---|---|
+| benign | 3 | 0/3 | 2/3 |
+| noisy | 3 | 0/3 | 2/3 |
+| adversarial | 4 | 3/4 | 4/4 |
+| **adversarial_stealth** | 12 | **0/12** | **12/12** |
+
+Mistral recognises **every** stealth injection when asked "INJECTION or CLEAN",
+and **none** when asked to "rate 0.0–1.0 the probability". **This overturns the
+earlier conclusion that Mistral cannot notice a subtle injection** — that was a
+property of `classify_malice`'s numeric-rating prompt, not of the model. Replacing
+that prompt is a one-line change that should recover stage 2 on the weakest model
+in the set, and it re-scopes every "the screen is blind on Mistral" result:
+the screen is blind because of how it asks.
+
+### But the baseline has the same fatal flaw, and the benchmark hides it
+
+On the Step 7/18 corpus — the fair precision test:
+
+| set | flagged |
+|---|---|
+| 81 corpus attacks | **81/81** (incl. 36/36 held-out families) |
+| 12 benign hard negatives | **12/12 — all false positives** |
+
+The detector flags everything that mentions security. Its perfect score on
+main_120 is a **benchmark artifact**: the benign answer PromptArmor actually
+receives there is the single character `"A"` (the restricted-format reply), which
+nothing could flag. SecureVoI's own screen rejects the same 12/12 hard negatives
+(Steps 7/18), so this is not special pleading — **both** defenses have zero
+measurable precision, and this benchmark cannot see it.
+
+**What Phase 4 establishes.** (a) SecureVoI does *not* currently beat a trivial
+detector baseline on safety, and the paper must say so. (b) The gap is
+attributable to a fixable prompt, not to the architecture. (c) Every screen-based
+comparison here is decided by recall alone, because the benign traffic is
+degenerate — which makes realistic benign traffic the highest-value benchmark
+work remaining, ahead of more models or more attacks.
+
 ## Phase 8 — External validity
 
 - [ ] **28. Port at least the screening comparison to an established benchmark**
