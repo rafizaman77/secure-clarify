@@ -205,8 +205,7 @@
         "secure_voi": 96,
         "stage1_only_secure_voi": 96
       },
-      "tasks_expected": 96,
-      "INCOMPLETE_ALL_ARMS": "only 96 tasks per arm (expected 144) -- a run is probably still in progress; results are PRELIMINARY"
+      "tasks_expected": 96
     }
   }
 }

@@ -320,6 +320,38 @@ redundant exactly where the screen already works and load-bearing where it does
 not — the predicted pattern, and a *stronger* result for the two-stage design
 than the current manuscript claims.
 
+## The stage-1 / stage-2 split is an artifact of the screen's operating point
+
+Rerunning the full factorial on Mistral with **only the `classify_malice` prompt
+changed** (`results/confirmatory_classify.json`):
+
+| hypothesis | rating prompt (default) | **classify prompt** |
+|---|---|---|
+| H1 vs ConventionalVoI | +0.375, p<0.0001 ✓ | **+0.583**, p<0.0001 ✓ |
+| **H2 — stage 1** | +0.146, p=0.128 ✗ | **+0.000, p=1.000 ✗** |
+| **H3 — stage 2** | +0.000, p=1.000 ✗ | **+0.208, p<0.0001 ✓** |
+
+**The two stages trade places.** With a screen that never fires, stage 1 carries
+what effect there is and stage 2 measures exactly zero. With a screen that fires
+on everything, stage 2 carries it all and stage 1 measures exactly zero —
+SecureVoI and ScreenedConventionalVoI become *identical, episode for episode*,
+because once the screen rejects every attack there is nothing left for
+risk-aware acquisition to avoid.
+
+Neither configuration shows both stages contributing. **The per-model H2/H3
+pattern reported above is therefore not a property of the two-stage
+architecture — it is a readout of where each model's screen happens to sit on
+the recall/precision frontier.** gpt-oss-20b showed both stages significant
+because its screen sits somewhere in the middle; Mistral can be moved to either
+extreme by editing one prompt.
+
+**Consequence for the paper.** The factorial cannot support "both stages
+contribute" as a general claim while the screen's operating point is uncontrolled
+and, on the evidence in `benign_precision.json`, indefensible at both ends. The
+defensible version is conditional: *given a screen operating at a stated
+precision/recall point, the factorial decomposes as follows* — and that point has
+to be reported, not left to whichever prompt happened to be in the file.
+
 ## Pre-declared decision rules
 
 Written down so the conclusion is not chosen after the fact.

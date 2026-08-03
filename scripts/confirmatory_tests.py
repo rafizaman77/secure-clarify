@@ -119,7 +119,11 @@ def _expected_test_tasks(cover) -> int:
     seen = set().union(*cover.values()) if cover else set()
     if not seen:
         return 0
-    best = 0
+    # Pick the BEST-MATCHING file by overlap fraction, not the largest one that
+    # happens to intersect. main_120 and diversity_180 share all 120 file_*/cal_*
+    # ids, so "largest intersecting" charged a complete 96-task main_120 run
+    # against diversity_180's bigger test split and flagged it PARTIAL.
+    best, best_frac = 0, 0.0
     for tf in ("tasks/main_120.json", "tasks/families_120.json",
                "tasks/diversity_180.json", "tasks/corpus_attacks_81.json"):
         p = ROOT / tf
@@ -127,8 +131,11 @@ def _expected_test_tasks(cover) -> int:
             continue
         ids = {t["task_id"] for t in json.loads(p.read_text(encoding="utf-8"))
                if t.get("split") == "test"}
-        if seen & ids:
-            best = max(best, len(ids))
+        if not ids:
+            continue
+        frac = len(seen & ids) / len(ids)
+        if frac > best_frac:
+            best, best_frac = len(ids), frac
     return best
 
 
