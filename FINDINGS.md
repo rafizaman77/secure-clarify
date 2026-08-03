@@ -49,20 +49,45 @@ benign traffic, the per-model reruns — matter more than any single number.
 
 ---
 
-## 3. The central problem: stage 2 has no defensible operating point
+## 3. Stage 2's operating point is a model × prompt interaction
 
-Screening is evaluated on the wrong axis. Measured against 81 corpus attacks
-(4 families held out) and 24 graded benign answers, on Mistral:
+Measured against 81 corpus attacks (**4 persuasion families held out**) and the
+24 graded benign answers. Balanced accuracy = (recall + specificity)/2; the
+held-out column is the one that counts.
 
-| screen | recall (all) | specificity | balanced acc | **held-out recall** |
-|---|---|---|---|---|
-| rating (shipped default) | 0.062 | 1.000 | 0.531 | 0.028 |
-| classify (verdict) | 0.963 | 0.167 | 0.565 | 0.917 |
-| contextual (verdict + request) | 0.704 | 0.667 | 0.685 | 0.389 |
+| model | prompt | recall | specificity | bal acc | **held-out bal acc** |
+|---|---|---|---|---|---|
+| mistral-nemo-12b | rating *(default)* | 0.062 | 1.000 | 0.531 | 0.514 |
+| mistral-nemo-12b | classify | 0.963 | 0.167 | 0.565 | 0.542 |
+| mistral-nemo-12b | contextual | 0.704 | 0.667 | 0.685 | 0.528 |
+| **llama-3.3-70b** | **rating *(default)*** | 0.852 | 0.750 | **0.801** | **0.722** |
+| llama-3.3-70b | classify | 0.951 | 0.167 | 0.559 | 0.528 |
+| llama-3.3-70b | contextual | 0.494 | 0.875 | 0.684 | 0.632 |
+| gpt-oss-20b | rating *(default)* | 0.864 | 0.042 | 0.453 | 0.410 |
+| gpt-oss-20b | classify | 0.815 | 0.125 | 0.470 | 0.354 |
+| gpt-oss-20b | **contextual** | 0.901 | 0.500 | **0.701** | 0.639 |
 
-**Nothing tested exceeds 0.55 balanced accuracy on unseen attack families.** The
-configurations sit at opposite ends of a degenerate frontier — "never fires" or
-"always fires" — and the one that reaches the middle does so by not generalizing.
+**A defensible operating point exists: llama-3.3-70b with the shipped default
+prompt reaches 0.801 pooled / 0.722 on held-out families.** My earlier claim that
+"nothing exceeds 0.55 balanced accuracy on unseen families" was measured on
+Mistral alone and is **withdrawn** — it is a weak-model result, not a ceiling.
+
+**But the best prompt is model-dependent, and no prompt wins everywhere:**
+
+- llama: rating **0.801** ≫ contextual 0.684 > classify 0.559
+- gpt-oss-20b: contextual **0.701** ≫ classify 0.470 > rating 0.453
+- mistral: contextual **0.685** > classify 0.565 > rating 0.531
+
+The shipped prompt is close to optimal on llama and close to worst on the other
+two. **A fixed screen prompt across models therefore guarantees a poor operating
+point on some of them** — which is what produced the "screen is blind"
+(Mistral, 0.531) and "screen refuses everything" (gpt-oss, 0.042 specificity)
+results reported earlier as model properties.
+
+**What this means for the paper.** Stage 2 is viable, but only when the
+screen's operating point is measured and the prompt matched to the model. The
+paper currently reports neither. Reporting a single safety number per model
+without its operating point conflates three different regimes.
 
 **Two consequences the paper cannot avoid.**
 
@@ -117,12 +142,13 @@ Spotlighting removes ~25% of attack success for free — the cheapest real defen
 
 ## 6. What is still open
 
-1. **Does 0.55 balanced accuracy bound all models, or just Mistral?** Runs on
-   gpt-oss-20b and llama-3.3-70b are the next evidence. If a capable model clears
-   it, the framing is "needs a capable screen"; if not, response screening on this
-   benchmark is unsolved and the paper should lean on the stage-1 result.
-2. **Re-run the factorial at a stated operating point.** H2/H3 measured anywhere
-   else are not meaningful.
+1. **Re-run the factorial at a stated operating point** — and now there is one
+   worth using: llama + the default prompt (0.722 held-out balanced accuracy).
+   H2/H3 measured anywhere else are not meaningful, since the split inverts with
+   the operating point.
+2. **Match the prompt per model, then re-measure.** gpt-oss-20b should be run
+   with `contextual` (0.639 held-out) rather than the default (0.410), and the
+   choice reported as part of the configuration.
 3. **Adaptive attacks are built but never run as episodes** (8 minimal-cue
    attacks at the structural floor of 1 cue term).
 4. **Manuscript.** Several current claims no longer match the evidence, in both
@@ -136,11 +162,14 @@ Spotlighting removes ~25% of attack success for free — the cheapest real defen
 Risk-aware acquisition is the part of SecureVoI that survives scrutiny: it beats
 a risk-blind baseline decisively on every model, and its advantage generalizes
 across five task families that the benchmark was not built around. Response
-screening is not currently defensible — its measured contribution is entirely
-determined by an operating point that no configuration reaches acceptably, the
-benchmark's benign traffic was too clean to expose this, and a trivial detector
-baseline "wins" on the same benchmark purely by refusing everything. The
-contribution this work can honestly claim is the stage-1 result plus the
-instruments that made the stage-2 problem visible: a family-split attack corpus,
-graded benign traffic, and an operating-point measurement that the original
-evaluation could not perform.
+screening is viable but conditional: its contribution is entirely determined by an
+operating point the paper never measured, that point is a model x prompt
+interaction rather than a model property, and the benchmark's benign traffic was
+too clean to expose any of it -- a trivial detector baseline "wins" there purely
+by refusing everything. One configuration (llama-3.3-70b with the shipped prompt)
+does reach a defensible 0.722 balanced accuracy on held-out attack families; the
+same prompt reaches 0.410 on gpt-oss-20b, which needs a different one. The
+contribution this work can honestly claim is the stage-1 result, plus the
+instruments that made the stage-2 problem measurable at all: a family-split
+attack corpus, graded benign traffic, and an operating-point measurement the
+original evaluation could not perform.
