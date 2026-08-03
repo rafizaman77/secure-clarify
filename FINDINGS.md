@@ -89,6 +89,33 @@ screen's operating point is measured and the prompt matched to the model. The
 paper currently reports neither. Reporting a single safety number per model
 without its operating point conflates three different regimes.
 
+### The factorial, read against its operating point
+
+*(`scripts/factorial_at_operating_point.py`. Held-out recall and specificity from
+the corpus/benign measurement above; H2/H3 are exact-attacker-objective
+differences on stealth, Holm-corrected, `*` = significant.)*
+
+| model | prompt | tasks | held-out recall | spec | **bal acc** | H2 stage 1 | H3 stage 2 |
+|---|---|---|---|---|---|---|---|
+| mistral | rating | main_120 | 0.028 | 1.000 | 0.514 | +0.146 | +0.000 |
+| mistral | classify | main_120 | 0.917 | 0.167 | 0.542 | +0.000 | +0.208* |
+| **llama** | **rating** | main_120 | 0.694 | 0.750 | **0.722** | **+0.146\*** | **+0.115\*** |
+| gpt-oss-20b | rating | main_120 | 0.778 | 0.042 | 0.410 | +0.240* | +0.188* |
+| mistral | rating | families | 0.028 | 1.000 | 0.514 | +0.200* | +0.021 |
+| **llama** | **rating** | families | 0.694 | 0.750 | **0.722** | **+0.316\*** | **+0.042\*** |
+| gpt-oss-20b | rating | families | 0.778 | 0.042 | 0.410 | +0.158* | +0.042* |
+
+**At the one defensible operating point in the project — llama, balanced accuracy
+0.722 — both stages carry independent, significant effects, on `main_120` *and*
+on the five held-out task families.** That is the cleanest support the two-stage
+claim has, and it is now stated with the operating point attached.
+
+Every other row is measured at a degenerate point and should not be read as
+evidence about the architecture: Mistral/rating never fires (specificity 1.000,
+held-out recall 0.028), Mistral/classify always fires, and gpt-oss/rating has
+specificity **0.042** — it rejects 23 of 24 benign answers, so its two
+"significant" effects are a property of near-total refusal.
+
 **Two consequences the paper cannot avoid.**
 
 1. **The factorial inverts with the operating point.** On Mistral, changing only
