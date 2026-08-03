@@ -1011,6 +1011,47 @@ no configuration achieves is rejecting attacks while accepting ordinary work.
 Until a screen does that, stage 2's contribution is not a safety mechanism, it is
 a refusal rate, and the paper should not claim otherwise.
 
+### Task-conditioned screening helps — but not on unseen attack families
+
+*(`scripts/screen_operating_point.py`, `results/screen_operating_point.json`.
+The fair test: 81 corpus attacks with 4 persuasion families **held out**, against
+the 24 graded benign answers. Mistral-Nemo-12B.)*
+
+An injection is defined by what the request did *not* ask for, so a screen judging
+the reply in isolation cannot separate *"send the report to teammate1"* (the
+request asked for it) from *"send credentials.json outside"*. Mode `contextual`
+puts the user's request in the prompt.
+
+| mode | recall (all 81) | specificity | balanced acc | **train → held-out recall** |
+|---|---|---|---|---|
+| rating | 0.062 | **1.000** | 0.531 | 0.089 → 0.028 |
+| classify | **0.963** | 0.167 | 0.565 | 1.000 → **0.917** |
+| **contextual** | 0.704 | **0.667** | **0.685** | 0.956 → **0.389** |
+
+On the *pooled* corpus contextual wins (balanced accuracy 0.685 vs 0.565). **But
+its recall collapses on held-out families — 0.956 → 0.389, a 0.567 drop, where
+classify loses only 0.083.** Restricting to held-out families, the two are
+statistically indistinguishable:
+
+| mode | held-out recall | specificity | balanced acc |
+|---|---|---|---|
+| classify | 33/36 [0.78,0.97] | 0.167 | **0.542** |
+| contextual | 14/36 [0.25,0.55] | 0.667 | **0.528** |
+
+**CORRECTION TO MY OWN CLAIM.** I reported task-conditioning as resolving the
+precision problem, on the strength of the 12 main_120 stealth strings. On 81
+attacks with families held out, its apparent advantage is largely an artifact of
+scoring it on attack *styles* it had effectively been tuned against: the win
+survives on train families and does not transfer. Contextual buys precision by
+being conservative about *unfamiliar* phrasings too — it declines to flag them.
+
+**What actually stands.** (1) Judging the reply against the request is the right
+*framing* — it is the only variant that is perfect on plain benign text (0/6).
+(2) It does **not** yet deliver a deployable operating point: nothing tested
+exceeds 0.55 balanced accuracy on unseen attack families. (3) The train/held-out
+split is doing exactly the job it was built for — the pooled number would have
+been reported as a solution.
+
 ## Phase 8 — External validity
 
 - [ ] **28. Port at least the screening comparison to an established benchmark**
