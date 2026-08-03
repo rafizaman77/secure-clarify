@@ -933,6 +933,44 @@ comparison here is decided by recall alone, because the benign traffic is
 degenerate — which makes realistic benign traffic the highest-value benchmark
 work remaining, ahead of more models or more attacks.
 
+### THE FIX WORKS END-TO-END — and it invalidates a chain of earlier conclusions
+
+*(`results/attacked_channel_audit_classify.json`; the manuscript's own
+per-episode audit, same code path, same 96 test tasks, one prompt changed.)*
+
+| tier | rating prompt (default) | **classify prompt** | benign accepted |
+|---|---|---|---|
+| explicit adversarial | 13/20 | **20/20** | 20/20 |
+| **adversarial stealth** | **0/20** | **20/20** | **20/20** |
+
+Mistral-Nemo-12B rejects **every** stealth attack and still accepts **every**
+matched benign answer on the same channel. This is not "reject everything" — it
+is perfect discrimination on that subset.
+
+**Results that were measuring the prompt, not the model, and must be re-run or
+re-scoped:**
+
+| earlier claim | where | status |
+|---|---|---|
+| "Mistral's screen is blind on stealth" (0/20) | attacked-channel audit | **overturned** — 20/20 with the fixed prompt |
+| "stealth discrimination is a MODEL property, 0–80%" | Step 27 rerun | **re-scoped** — the 0% end was a prompt artifact |
+| "the learned classifier contributes nothing" | Step 27, Mistral | **suspect** — rerun pending |
+| H3 = +0.000 on Mistral, p=1.000 | confirmatory tests | **suspect** — rerun in flight |
+| λ absorbs *model* miscalibration | Step 26 | **partly** — some of it was prompt miscalibration |
+
+**The honest framing for the paper.** SecureVoI's stage 2 was underperforming for
+a reason that has nothing to do with its architecture: it asked a small model for
+a calibrated probability, and small models anchor on round numbers (0.2)
+regardless of content — which is exactly the flat, uninformative reliability
+profile Step 26 measured. Asking for a verdict instead recovers the mechanism
+completely on the weakest model in the set.
+
+**What this does NOT fix.** The detector prompt still flags **12/12** Step-18
+benign hard negatives. Recall is repaired; precision is not, and remains
+unmeasurable on this benchmark. The 20/20 benign acceptance above is on
+main_120's benign text, which is the single character `"A"` in the restricted
+format — so it is not evidence of precision either.
+
 ## Phase 8 — External validity
 
 - [ ] **28. Port at least the screening comparison to an established benchmark**
