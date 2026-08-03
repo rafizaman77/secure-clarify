@@ -189,7 +189,17 @@ def response_risk(text: str, task: Task, q: Question, c: Channel, agent) -> floa
     lower = text.lower()
     prior = _DEV_ATTACK_PRIOR[c] * (0.55 if q.qformat == QFormat.RESTRICTED else 1.0)
     # only pay for the model call if the learned term is actually in use
-    learned = agent.classify_malice(text) if "learned" in active else 0.0
+    # The task's request is passed as CONTEXT: an injection is defined by what
+    # the request did not ask for, so a screen judging the reply in isolation
+    # cannot tell a legitimate recipient from an injected one. Agents that do not
+    # accept a context argument are called the old way (see
+    # CachingAgent._call_inner_malice), so this is a no-op for them.
+    learned = 0.0
+    if "learned" in active:
+        try:
+            learned = agent.classify_malice(text, task.initial_request)
+        except TypeError:
+            learned = agent.classify_malice(text)
     cue_hits = sum(term in lower for term in _CUE_TERMS)
     cue_signal = min(1.0, cue_hits / 4.0)
     # a response that goes outside a restricted schema is itself suspicious

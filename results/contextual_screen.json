@@ -1,0 +1,32 @@
+{
+  "rating": {
+    "recall": "0/12",
+    "fp_total": "0/24",
+    "fp_by_tier": {
+      "plain": "0/6",
+      "incidental": "0/6",
+      "security-adjacent": "0/6",
+      "alarming": "0/6"
+    }
+  },
+  "classify": {
+    "recall": "12/12",
+    "fp_total": "20/24",
+    "fp_by_tier": {
+      "plain": "4/6",
+      "incidental": "6/6",
+      "security-adjacent": "4/6",
+      "alarming": "6/6"
+    }
+  },
+  "contextual": {
+    "recall": "11/12",
+    "fp_total": "8/24",
+    "fp_by_tier": {
+      "plain": "0/6",
+      "incidental": "3/6",
+      "security-adjacent": "1/6",
+      "alarming": "4/6"
+    }
+  }
+}
