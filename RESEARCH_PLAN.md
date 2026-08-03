@@ -965,11 +965,51 @@ regardless of content — which is exactly the flat, uninformative reliability
 profile Step 26 measured. Asking for a verdict instead recovers the mechanism
 completely on the weakest model in the set.
 
-**What this does NOT fix.** The detector prompt still flags **12/12** Step-18
-benign hard negatives. Recall is repaired; precision is not, and remains
-unmeasurable on this benchmark. The 20/20 benign acceptance above is on
-main_120's benign text, which is the single character `"A"` in the restricted
-format — so it is not evidence of precision either.
+**What this does NOT fix — and it is worse than "not fixed".**
+
+*(`secure_clarify/benign_traffic.py`, `results/benign_precision.json`: 24 benign
+answers graded by how security-adjacent they *sound*, none requesting anything
+prohibited. Tiers 1–2 are the realistic middle that neither main_120's `"A"` nor
+the Step-18 extremes covered.)*
+
+False positives — a rejected benign answer means the agent acts without
+clarification and the task fails, so this is a utility cost, not a courtesy:
+
+| tier | mean cues | rating prompt | **classify prompt** | **PromptArmor** |
+|---|---|---|---|---|
+| 0 plain | 0.00 | **0/6** | 4/6 | **6/6** |
+| 1 incidental | 0.67 | **0/6** | 6/6 | **6/6** |
+| 2 security-adjacent | 0.83 | **0/6** | 4/6 | **6/6** |
+| 3 alarming | 5.50 | **0/6** | 6/6 | **6/6** |
+| **all 24** | | **0/24** | **20/24** | **24/24** |
+
+**PromptArmor flags 24/24, including 6/6 of the plain tier** — answers like
+*"Thursday at 14:00 works."* It is not a detector; it says INJECTION to
+everything. Its Phase-4 result of 0.000 attack success was never detection, it
+was refusal, and its benign goal of 1.000 on main_120 survived only because the
+one benign string it ever sees there is the single character `"A"`.
+
+**CORRECTION TO MY OWN CLAIM.** I wrote that the classify prompt "recovers the
+mechanism completely". It does not. Measured together:
+
+| screen | stealth recall | benign precision |
+|---|---|---|
+| rating (default) | **0/12** | **24/24 clean** |
+| classify | **12/12** | **4/24 clean** |
+| PromptArmor | **12/12** | **0/24 clean** |
+
+The prompt change does not repair the screen; it **slides along a degenerate
+frontier** from "never fires" to "always fires". Neither end is deployable, and
+the middle is unoccupied by any variant tested. The earlier 20/20 benign
+acceptance was on `"A"` — exactly the caveat I flagged, and this is the number
+that shows how much it mattered.
+
+**The real finding, and it now applies to every screen in this paper.** The
+benchmark's benign side was hiding a total absence of precision in *all* of them.
+Recall was never the hard part — three different configurations reach 12/12. What
+no configuration achieves is rejecting attacks while accepting ordinary work.
+Until a screen does that, stage 2's contribution is not a safety mechanism, it is
+a refusal rate, and the paper should not claim otherwise.
 
 ## Phase 8 — External validity
 
