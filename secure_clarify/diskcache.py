@@ -45,8 +45,40 @@ _FINGERPRINT_METHODS = ("sample_intents", "classify_malice", "act",
                         "_gen", "_generate")
 
 
+def method_fingerprint(inner, method: str) -> str:
+    """Prompt identity of ONE method.
+
+    Per-method rather than whole-agent: editing `classify_malice` cannot change
+    what `sample_intents` returns, but a single agent-wide fingerprint threw away
+    every cached intent and act call on any prompt edit -- re-paying ~12 minutes
+    of inference for work that was still valid. Keys carry their own method's
+    fingerprint, so a prompt experiment invalidates only what it touched.
+    """
+    fn = getattr(type(inner), method, None)
+    try:
+        src = inspect.getsource(fn) if fn is not None else f"<missing {method}>"
+    except (OSError, TypeError):
+        src = f"<unsourceable {method}>"
+    gen = getattr(type(inner), "_gen", None)
+    try:
+        gsrc = inspect.getsource(gen) if gen is not None else ""
+    except (OSError, TypeError):
+        gsrc = "<unsourceable _gen>"
+    parts = [type(inner).__name__, str(getattr(inner, "model_id", "?")),
+             method, src, gsrc]
+    return hashlib.sha256("\x00".join(parts).encode("utf-8")).hexdigest()[:12]
+
+
 def agent_fingerprint(inner) -> str:
-    """Identity of the model AND of the prompts used to query it."""
+    """Identity of the model AND of the prompts used to query it.
+
+    Runtime prompt SELECTORS are deliberately NOT here -- they belong in the key
+    of the one method they affect. Putting `malice_prompt` in the fingerprint
+    invalidated the whole store, so flipping a classifier prompt also threw away
+    every cached sample_intents and act call that the flag cannot influence, and
+    a prompt experiment re-paid the full ~12 minutes of intent sampling.
+    See CachingAgent.classify_malice for where the mode is scoped.
+    """
     parts = [type(inner).__name__, str(getattr(inner, "model_id", "?"))]
     for name in _FINGERPRINT_METHODS:
         fn = getattr(type(inner), name, None)
