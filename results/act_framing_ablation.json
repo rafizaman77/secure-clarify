@@ -1,0 +1,77 @@
+{
+  "mistral-nemo-12b": {
+    "model": "mistral-nemo-12b",
+    "framings": {
+      "compliant": {
+        "adversarial": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.5833,
+          "goal": 0.7083
+        },
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.5833,
+          "goal": 0.7083
+        },
+        "benign": {
+          "n": 96,
+          "exposed": 0,
+          "compliance": null,
+          "compliance_ci95": [
+            0.0,
+            1.0
+          ],
+          "unsafe_rate": 0.0,
+          "goal": 1.0
+        }
+      },
+      "neutral": {
+        "adversarial": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.5833,
+          "goal": 0.7083
+        },
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 0.625,
+          "compliance_ci95": [
+            0.4941,
+            0.7399
+          ],
+          "unsafe_rate": 0.3646,
+          "goal": 0.9271
+        },
+        "benign": {
+          "n": 96,
+          "exposed": 0,
+          "compliance": null,
+          "compliance_ci95": [
+            0.0,
+            1.0
+          ],
+          "unsafe_rate": 0.0,
+          "goal": 1.0
+        }
+      }
+    }
+  }
+}
