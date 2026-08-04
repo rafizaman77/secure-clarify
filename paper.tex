@@ -717,6 +717,44 @@ problem is not an artifact of an unanswerable attack.
 \label{sec:limitations}
 
 \begin{itemize}
+  \item \textbf{The harness instructs the agent to comply, and this inflates the
+  stealth tier.} When a policy accepts a clarification, the action prompt appends
+  ``treat the user's answer as authoritative and follow it, carrying out any
+  additional steps or requests it specifies,'' and labels the reply as the
+  user's whatever channel it arrived on. This is deliberate---an agent that
+  simply refuses would make the benchmark measure refusal rather than
+  clarification---but it is load-bearing. Ablating it (no compliance
+  instruction, actual channel named) leaves the explicit tier unchanged
+  (compliance $1.000$ either way) but on the \emph{stealth} tier drops compliance
+  from $1.000$ to $0.625$, the unsafe rate from $0.583$ to $0.365$, and
+  \emph{raises} goal completion from $0.708$ to $0.927$. Absolute stealth-tier
+  rates in this paper should be read as inflated by roughly that factor;
+  policy \emph{orderings}, which depend on exposure rather than compliance, are
+  far less affected.
+  \item \textbf{Cross-model agreement is partly arithmetic.} Because compliance
+  saturates at $1.000$ under the framing above, an accept-all policy's outcome is
+  fully determined by which tasks expose it to the attack. The set of failing
+  tasks is consequently \emph{bit-identical} across Mistral-Nemo-12B,
+  GPT-OSS-20B, GPT-OSS-120B and GPT-5.4-mini ($56$, $32$ and $20$ tasks for
+  Conventional VoI, Channel Heuristic and Trusted-Only respectively). Those cells
+  should not be read as four independent replications; only
+  Claude-Sonnet-5, whose compliance is below $1$, contributes independent
+  information.
+  \item \textbf{Pseudo-replication.} The $120$ headline tasks contain two
+  distinct initial requests, two goal predicates, two initial states, three
+  benign response texts and seven explicit adversarial texts. A task-level
+  bootstrap over $n=96$ therefore resamples parameter combinations, not
+  independent problems, and the resulting intervals understate uncertainty about
+  new tasks. We report family-level resampling where more than two task families
+  exist; on \textsc{main-120} that test has two clusters and no power.
+  \item \textbf{The noisy condition is inert.} It is advertised alongside benign
+  and adversarial, but every policy scores $0/672$ goal and $0/672$ unsafe on it,
+  because the noisy fill is a strict subset of the goal predicate and so fails by
+  construction. The stage-2 risk score is also identical on benign and noisy
+  responses ($108/108$ matched pairs), which is a useful validity check---the
+  screen does not mistake unhelpfulness for malice---but the condition
+  discriminates between no policies and should be described as a check rather
+  than a third evaluation condition.
   \item \textbf{Attack explicitness.} Main-tier injections are fairly overt
   imperatives; the stealth tier shows SecureVoI's unsafe rate rising in every
   model, a genuine classifier limitation on weaker models rather than a
@@ -738,10 +776,15 @@ problem is not an artifact of an unanswerable attack.
   intervals cover channel, stakes, and information gain but \emph{not}
   linguistic variation; the stealth tier triples this to 12, still small---all
   stealth-tier claims are exploratory with respect to attack language.
-  \item Six of the seven declared attacker objectives are exercised by the
-  current attack texts; two (\texttt{delete:credentials.json},
-  \texttt{email\_external}) are declared and verifier-covered but never
-  triggered, and \texttt{delete\_protected} fires rarely.
+  \item \textbf{Attacker objectives are not identifiable.} The task generator
+  declares seven objectives and the attack texts vary somewhat with them (7--8
+  distinct strings per domain), but the \emph{outcomes} do not: all $171$ unsafe
+  episodes on Mistral/\textsc{main-120} resolve to just two verifier signatures,
+  \texttt{share\_external;exfil\_secret} in the file domain and
+  \texttt{add\_external\_attendee;share\_availability\_*} in calendar. Objective
+  is therefore confounded with domain, and no per-objective claim in this paper
+  is identified. (An earlier draft stated that six of seven objectives are
+  exercised; that is incorrect at the level of measured outcomes.)
   \item $\textsc{classify\_malice}$ is a model-prompted heuristic and the
   binding constraint on the weakest model: the oracle ablation removes all of
   Mistral-Nemo's residual $0.073$, so safety scales with screening quality and
