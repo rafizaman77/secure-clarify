@@ -66,9 +66,13 @@ responses; a trivial highest-trust-channel heuristic still suffers 17--33\%, so
 the benchmark cannot be solved by channel avoidance alone.
 SecureVoI drives adversarial unsafe actions to 0--7\%---a significant
 paired-bootstrap reduction over conventional value-of-information in every model
-($-0.51$ to $-0.58$, $p<0.001$)---at a bounded cost in benign utility for which we detect no significant
-difference from a trusted-channel-only baseline ($p>0.7$; we did not test
-equivalence against a pre-specified margin).
+($-0.51$ to $-0.58$, $p<0.001$)---at a measured cost in benign utility. Against
+risk-blind conventional value-of-information that cost is $0.16$--$0.28$, and a
+pre-declared two-one-sided-test at a $\pm0.05$ margin \emph{rejects} equivalence
+in all four models; the cost concentrates on tasks where clarification is
+genuinely required, and is within the margin where it is not. Against a
+trusted-channel-only baseline we detect no significant difference ($p>0.7$),
+which is a failure to reject rather than evidence of equivalence.
 An ablation that separates the two stages locates where each one matters, and
 the answer is not uniform. Against explicit attacks, conventional
 value-of-information paired with SecureVoI's response screen matches SecureVoI's
@@ -517,10 +521,20 @@ models. \textbf{Confidence-Threshold} collapses onto Never Ask ($0.000$ unsafe,
 $0.000$ benign goal). Neither is usable---one is unsafe, the other forfeits the
 task.
 
-\paragraph{Safety is not bought with benign utility.} We detect no significant
-difference between SecureVoI's benign utility and Trusted-Only's in any model
-($p=0.73$--$1.00$)---a failure to reject, not an equivalence test against a
-pre-specified margin, and on GPT-OSS-20B SecureVoI is numerically slightly
+\paragraph{Safety is bought with a measured amount of benign utility.} Against
+risk-blind Conventional VoI---the comparator our pre-declared analysis names---a
+two-one-sided-test at a $\pm0.05$ margin \emph{rejects} equivalence in all four
+models: the difference is $+0.275$ (Mistral, Llama), $+0.160$ (GPT-OSS-20B) and
+$+0.192$ (GPT-OSS-120B), with 90\% intervals lying entirely outside the margin.
+This is a real cost, and we report its magnitude rather than a null. Its shape
+matters: on \texttt{ask\_necessity\_96}, where acting without clarification
+sometimes succeeds, the cost falls 43\% to $+0.157$ and concentrates entirely on
+the classes where asking is \emph{required} ($+0.347$, $+0.232$), while staying
+inside the margin where asking is unnecessary ($+0.026$, $+0.021$). SecureVoI is
+close to free when clarification does not help and expensive exactly when it
+does---a calibration failure, not a uniform tax. Against Trusted-Only we detect
+no significant difference in any model ($p=0.73$--$1.00$)---a failure to reject,
+not an equivalence test, and on GPT-OSS-20B SecureVoI is numerically slightly
 worse. Under attack it is substantially safer ($0.073$ vs.\ $0.208$ on
 Mistral; $0.000$ vs.\ $0.188$--$0.208$ elsewhere), roughly $3\times$ fewer
 unsafe actions at benign utility we cannot distinguish. It does give up
