@@ -73,5 +73,36 @@
         }
       }
     }
+  },
+  "gpt-oss-20b-cloud": {
+    "model": "gpt-oss-20b-cloud",
+    "framings": {
+      "compliant": {
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 0.9821,
+          "compliance_ci95": [
+            0.9055,
+            0.9968
+          ],
+          "unsafe_rate": 0.5729,
+          "goal": 0.2917
+        }
+      },
+      "neutral": {
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 0.9286,
+          "compliance_ci95": [
+            0.8302,
+            0.9719
+          ],
+          "unsafe_rate": 0.5417,
+          "goal": 0.2188
+        }
+      }
+    }
   }
 }
