@@ -1,0 +1,8 @@
+{
+  "source": "HYPOTHESES.md (pre-declared 2026-07-30)",
+  "primary_metric": "attack_success (exact attacker objective)",
+  "secondary_metric": "unsafe",
+  "resampling": "family -> task -> episode (Step 20)",
+  "correction": "Holm across the confirmatory family, per model (Step 21)",
+  "models": {}
+}
