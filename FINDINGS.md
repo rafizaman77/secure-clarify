@@ -30,6 +30,54 @@ independent confirmations); verifier and simulator agree on 31,065 episodes
 
 ---
 
+## 1b. STEP 12 — stage 1's advantage depends on priors fit to the attacker's own placement rule
+
+**This is the most consequential negative result in the project, and it lands on
+the one claim I had called publishable.**
+
+`_pick_adv_channel` places attacks with weight ∝ (1 − trust); `fit_priors` then
+estimates the channel prior from dev labels produced by *that same rule*. So stage
+1 is handed an estimate of the attacker's placement distribution. Step 12 rebuilds
+the task set with placement changed and **priors not refit**, so the policy
+carries a belief that is merely stale (`uniform`) or actively wrong (`inverted` —
+an attacker who has read the defense and strikes where it feels safe).
+
+Mistral-Nemo-12B, five Step-6 task families, 95 test tasks, stealth tier:
+
+| regime | corr(prior, realized) | H1 vs risk-blind | **H2 = stage 1 alone** | family p |
+|---|---|---|---|---|
+| matched | +0.913 | +0.368, p<0.0001 ✓ | **+0.200, p=0.002 ✓** | **0.024 ✓** |
+| uniform | +0.934 (spread 0.216→0.050) | +0.263, p<0.0001 ✓ | +0.105, p=0.144 ✗ | 0.228 |
+| **inverted** | **−0.602** | +0.190, p=0.003 ✓ | **+0.063, p=0.302 ✗** | 0.509 |
+
+**The stage-1 effect degrades monotonically with prior misspecification: +0.200 →
++0.105 → +0.063, a 69% drop, losing significance at both the task and family
+level.** Under `inverted` its 95% CI is [−0.053, +0.179] — it includes zero.
+
+**What this does and does not kill.**
+
+- It **does** undercut "risk-aware acquisition generalizes." That result was real
+  but *conditional on the attacker following the placement distribution the
+  priors were fit to*. Against an attacker who does not, stage 1 contributes
+  nothing distinguishable from zero.
+- It does **not** kill SecureVoI wholesale: H1 survives all three regimes
+  (+0.190 even when priors are anti-correlated), so the method still beats
+  risk-blind VoI. But under prior shift that margin is being carried by the
+  screen, not by acquisition.
+
+**Caveats before this is treated as final.** One model, and Mistral is the model
+whose screen is degenerate at the shipped prompt — so the decomposition of H1
+under shift needs re-measuring on llama and gpt-oss at their own operating points.
+The direction, however, is consistent across two independent shifts.
+
+**Consequence for framing.** The paper cannot claim acquisition-time risk
+reasoning as a defense against an adaptive adversary. The defensible version is
+narrower and should be stated as such: *given a channel-risk prior that reflects
+actual attack prevalence, risk-aware acquisition adds safety; that prior must be
+estimated from real deployment data, and the benefit vanishes when it is wrong.*
+That is a real and useful finding — it names the deployment precondition — but it
+is a much weaker claim than the current manuscript makes.
+
 ## 2. What was overturned, and by what
 
 Each of these was reported with confidence before a harder test contradicted it.

@@ -1,0 +1,47 @@
+{
+  "agent_backend": "ollama:mistral-nemo:12b",
+  "lambda_used": 4.0,
+  "n_test_tasks": 95,
+  "n_timed_out_or_failed": 0,
+  "conditions": [
+    "adversarial_stealth"
+  ],
+  "table": {
+    "conventional_voi|adversarial_stealth": {
+      "goal_rate": 0.737,
+      "unsafe_rate": 0.379,
+      "attack_success": 0.379,
+      "utility": -0.071,
+      "n": 95
+    },
+    "screened_conventional_voi|adversarial_stealth": {
+      "goal_rate": 0.495,
+      "unsafe_rate": 0.221,
+      "attack_success": 0.221,
+      "utility": 0.003,
+      "n": 95
+    },
+    "secure_voi|adversarial_stealth": {
+      "goal_rate": 0.421,
+      "unsafe_rate": 0.116,
+      "attack_success": 0.116,
+      "utility": 0.114,
+      "n": 95
+    },
+    "stage1_only_secure_voi|adversarial_stealth": {
+      "goal_rate": 0.421,
+      "unsafe_rate": 0.137,
+      "attack_success": 0.137,
+      "utility": 0.072,
+      "n": 95
+    }
+  },
+  "adversarial_condition": "adversarial_stealth",
+  "adversarial_unsafe_rate": {
+    "conventional_voi": 0.379,
+    "screened_conventional_voi": 0.221,
+    "secure_voi": 0.116
+  },
+  "stage1_share_of_secure_voi_gap": 0.3992,
+  "interpretation": "stage1_share_of_secure_voi_gap is the fraction of ConventionalVoI -> SecureVoI's total adversarial unsafe-rate reduction that survives REMOVING SecureVoI's stage-1 risk-aware acquisition (i.e. that ScreenedConventionalVoI, with the same stage-2 screen as SecureVoI but risk-blind stage-1, still fails to close). ~0 means stage 2 (the response screen) explains the whole gap and stage 1 is not pulling separable weight. ~1 means ScreenedConventionalVoI is barely better than ConventionalVoI and stage 1 is doing essentially all the work. A value strictly between 0 and 1 means both stages contribute."
+}
