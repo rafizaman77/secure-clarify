@@ -50,20 +50,29 @@ Mistral-Nemo-12B, five Step-6 task families, 95 test tasks, stealth tier:
 | uniform | +0.934 (spread 0.216→0.050) | +0.263, p<0.0001 ✓ | +0.105, p=0.144 ✗ | 0.228 |
 | **inverted** | **−0.602** | +0.190, p=0.003 ✓ | **+0.063, p=0.302 ✗** | 0.509 |
 
-**The stage-1 effect degrades monotonically with prior misspecification: +0.200 →
-+0.105 → +0.063, a 69% drop, losing significance at both the task and family
-level.** Under `inverted` its 95% CI is [−0.053, +0.179] — it includes zero.
+**Replicated on a second model, and the two-model picture is sharper than
+Mistral alone suggested:**
 
-**What this does and does not kill.**
+| model | regime | H1 vs risk-blind | **H2 = stage 1** | family p |
+|---|---|---|---|---|
+| mistral-nemo-12B | matched | +0.368 ✓ | **+0.200 ✓** | 0.024 ✓ |
+| mistral-nemo-12B | uniform | +0.263 ✓ | +0.105 ✗ | 0.228 |
+| mistral-nemo-12B | **inverted** | +0.190 ✓ | **+0.063 ✗** | 0.509 |
+| gpt-oss-20b | matched | +0.200 ✓ | **+0.158 ✓** | 0.009 ✓ |
+| gpt-oss-20b | **uniform** | +0.232 ✓ | **+0.158 ✓** | **0.011 ✓** |
+| gpt-oss-20b | **inverted** | +0.116 ✗ | **+0.063 ✗** | 0.263 |
 
-- It **does** undercut "risk-aware acquisition generalizes." That result was real
-  but *conditional on the attacker following the placement distribution the
-  priors were fit to*. Against an attacker who does not, stage 1 contributes
-  nothing distinguishable from zero.
-- It does **not** kill SecureVoI wholesale: H1 survives all three regimes
-  (+0.190 even when priors are anti-correlated), so the method still beats
-  risk-blind VoI. But under prior shift that margin is being carried by the
-  screen, not by acquisition.
+**Stage 1 tolerates priors that are uninformative; it does not tolerate priors
+that are wrong.** On gpt-oss the effect is *completely unchanged* under `uniform`
+(+0.158 → +0.158, still family-significant at p=0.011) — flattening the attack
+distribution costs it nothing. Under `inverted` both models land on **exactly
++0.063, non-significant, with CIs crossing zero**. On gpt-oss even H1 — the
+overall SecureVoI advantage — drops to p=0.066 and fails Holm.
+
+That is a cleaner and more useful statement than "the effect is fitted": the
+defense degrades gracefully when its channel prior is merely stale, and fails
+when an adversary inverts it. Mistral's loss under `uniform` is the weaker
+model's noise floor, not the general pattern.
 
 **Caveats before this is treated as final.** One model, and Mistral is the model
 whose screen is degenerate at the shipped prompt — so the decomposition of H1
