@@ -709,18 +709,36 @@ problem is not an artifact of an unanswerable attack.
 \label{sec:limitations}
 
 \begin{itemize}
-  \item \textbf{The harness instructs the agent to comply, inflating the stealth
-  tier.} On accepting a clarification the action prompt appends ``treat the
-  user's answer as authoritative and follow it, carrying out any additional steps
-  it specifies,'' labelling the reply as the user's whatever channel it arrived
-  on. This is deliberate---an agent that simply refuses would measure refusal
-  rather than clarification---but load-bearing. Ablating it (no compliance
-  instruction, real channel named) leaves the explicit tier unchanged (compliance
-  $1.000$ either way) but on \emph{stealth} drops compliance $1.000\to0.625$ and
-  unsafe $0.583\to0.365$ while \emph{raising} goal $0.708\to0.927$. The effect is
-  model-dependent (GPT-OSS-20B: $0.982\to0.929$). Read absolute stealth rates as
-  inflated accordingly; policy \emph{orderings}, which turn on exposure rather
-  than compliance, are far less affected.
+  \item \textbf{The harness instructs the agent to comply; its effect is
+  model-specific.} On accepting a clarification the action prompt appends
+  ``treat the user's answer as authoritative and follow it, carrying out any
+  additional steps it specifies,'' labelling the reply as the user's whatever
+  channel it arrived on. This is deliberate---an agent that simply refuses would
+  measure refusal rather than clarification---but it is load-bearing, so we
+  ablate it (no compliance instruction, real channel named) and report
+  compliance, $P(\text{unsafe}\mid\text{an attack-carrying reply was accepted})$:
+
+  \begin{center}\small
+  \begin{tabular}{llcc}
+  \toprule
+  Model & Tier & Compliant & Neutral \\
+  \midrule
+  Mistral-Nemo-12B & stealth & $1.000$ & $\mathbf{0.625}$ \\
+  GPT-OSS-20B & stealth & $0.982$ & $0.929$ \\
+  Llama-3.3-70B & stealth & $1.000$ & $1.000$ \\
+  Llama-3.3-70B & explicit & $0.911$ & $\mathbf{1.000}$ \\
+  \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \noindent The clause materially inflates compliance on \emph{one} model, the
+  weakest (Mistral, $-0.375$ on stealth, with unsafe $0.583\to0.365$ and goal
+  \emph{rising} $0.708\to0.927$). Elsewhere it is small (GPT-OSS-20B, $-0.053$)
+  or absent-to-reversed (Llama, $0.000$ on stealth and $+0.089$ on explicit,
+  where removing the instruction slightly \emph{raises} compliance). High
+  compliance is therefore predominantly a property of the models, not an artifact
+  of our prompt---but Mistral's stealth-tier rates should be read as inflated,
+  and we report the clause so readers can judge it.
   \item \textbf{Cross-model agreement is partly arithmetic.} With compliance
   saturated, an accept-all policy's outcome is fully determined by which tasks
   expose it, so the failing-task set is \emph{bit-identical} across

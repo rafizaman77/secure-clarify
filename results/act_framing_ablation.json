@@ -104,5 +104,58 @@
         }
       }
     }
+  },
+  "llama-3.3-70b": {
+    "model": "llama-3.3-70b",
+    "framings": {
+      "compliant": {
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.5833,
+          "goal": 0.4167
+        },
+        "adversarial": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 0.9107,
+          "compliance_ci95": [
+            0.8074,
+            0.9613
+          ],
+          "unsafe_rate": 0.5312,
+          "goal": 0.4167
+        }
+      },
+      "neutral": {
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.6667,
+          "goal": 0.3333
+        },
+        "adversarial": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.6667,
+          "goal": 0.3333
+        }
+      }
+    }
   }
 }
