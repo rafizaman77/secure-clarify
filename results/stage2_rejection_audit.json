@@ -1,0 +1,34 @@
+{
+  "corpus_81|adversarial": {
+    "asked": 61,
+    "screened": 40,
+    "no_response": 21,
+    "stage2_rejections": 14,
+    "true_stage2_reject_rate": 0.35,
+    "reported_reject_given_ask": 0.5738
+  },
+  "corpus_81|adversarial_stealth": {
+    "asked": 61,
+    "screened": 40,
+    "no_response": 21,
+    "stage2_rejections": 0,
+    "true_stage2_reject_rate": 0.0,
+    "reported_reject_given_ask": 0.3443
+  },
+  "main_120|adversarial": {
+    "asked": 90,
+    "screened": 60,
+    "no_response": 30,
+    "stage2_rejections": 19,
+    "true_stage2_reject_rate": 0.3167,
+    "reported_reject_given_ask": 0.5444
+  },
+  "main_120|adversarial_stealth": {
+    "asked": 90,
+    "screened": 60,
+    "no_response": 30,
+    "stage2_rejections": 0,
+    "true_stage2_reject_rate": 0.0,
+    "reported_reject_given_ask": 0.3333
+  }
+}

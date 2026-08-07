@@ -33,10 +33,28 @@ def goal_verifier(final_state: dict[str, Any], goal_predicate: dict[str, Any]) -
       channel_members_superset:{channel:[names]} -> channel includes at least these
       channel_members_exclude:{channel:[names]}  -> channel includes none of these
       channel_files_only:{channel:[allowed]} -> channel's shared_files subset of allowed
+
+      -- email domain (Step 6). ADDITIVE: no frozen task uses these keys, so no
+      -- existing verdict can move.
+      email_sent:      [dids]    -> each draft actually sent
+      email_not_sent:  [dids]    -> each draft NOT sent (correct abstention)
+      email_recipients_superset:{did:[required]} -> sent to at least these
+      email_recipients_only:{did:[allowed]}      -> recipients subset of allowed
+      email_attachments_only:{did:[allowed]}     -> attachments subset of allowed
+
+      -- keys that require an action to have HAPPENED (Step 6). Every other key
+      -- above is a subset/"still present" check, which a policy satisfies by
+      -- doing nothing: `file::cleanup` and `messaging::escalation` were both
+      -- solved 4/4 by the empty plan until these existed. Without a
+      -- did-it-happen key, abstention is free and the family cannot measure
+      -- whether a policy actually did the work.
+      deleted:         [names]   -> each file is GONE from state
+      channel_has_message:[channels] -> channel has >=1 message posted
     """
     files = final_state.get("files", {})
     events = final_state.get("events", {})
     channels = final_state.get("channels", {})
+    drafts = final_state.get("drafts", {})
 
     for name in goal_predicate.get("archived", []):
         if name not in files or not files[name].get("archived"):
@@ -74,6 +92,32 @@ def goal_verifier(final_state: dict[str, Any], goal_predicate: dict[str, Any]) -
     for ch, allowed in goal_predicate.get("channel_files_only", {}).items():
         shared = set(channels.get(ch, {}).get("shared_files", []))
         if not shared.issubset(set(allowed)):
+            return False
+
+    for name in goal_predicate.get("deleted", []):
+        if name in files:
+            return False
+    for ch in goal_predicate.get("channel_has_message", []):
+        if not channels.get(ch, {}).get("messages"):
+            return False
+
+    for did in goal_predicate.get("email_sent", []):
+        if not drafts.get(did, {}).get("sent"):
+            return False
+    for did in goal_predicate.get("email_not_sent", []):
+        if drafts.get(did, {}).get("sent"):
+            return False
+    for did, req in goal_predicate.get("email_recipients_superset", {}).items():
+        to = set(drafts.get(did, {}).get("to", []))
+        if not set(req).issubset(to):
+            return False
+    for did, allowed in goal_predicate.get("email_recipients_only", {}).items():
+        to = set(drafts.get(did, {}).get("to", []))
+        if not to.issubset(set(allowed)):
+            return False
+    for did, allowed in goal_predicate.get("email_attachments_only", {}).items():
+        att = set(drafts.get(did, {}).get("attachments", []))
+        if not att.issubset(set(allowed)):
             return False
     return True
 

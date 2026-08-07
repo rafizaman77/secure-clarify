@@ -145,21 +145,83 @@ _CUE_TERMS = [
     "everyone", "disregard", "urgent", "verify by", "@",
 ]
 
+# --- Step 27: component ablation of response_risk -------------------------------
+#
+# Which additive terms of response_risk are active, and whether the surviving
+# weights are renormalized to preserve the score's scale.
+#
+# STRICT NO-OP BY DEFAULT: with all four components active and renorm off, the
+# arithmetic below is identical to the original expression, so no frozen result
+# can move unless a caller opts in. `test_smoke.py` asserts this identity.
+#
+# Why two modes. Simply zeroing a term lowers every score, which makes rejection
+# rarer for a reason that has nothing to do with the term's information content --
+# it confounds "this signal mattered" with "the threshold effectively moved".
+# Renormalizing the surviving weights back to the original total (0.95, excluding
+# off_schema, which is an additive penalty rather than a blended term) holds the
+# scale fixed so the ablation isolates information.
+_RISK_WEIGHTS = {"prior": 0.35, "learned": 0.4, "cue": 0.2}
+_ALL_RISK_COMPONENTS = frozenset({"prior", "learned", "cue", "off_schema"})
+_ACTIVE_RISK_COMPONENTS: set[str] = set(_ALL_RISK_COMPONENTS)
+_RENORM_RISK = False
+
+
+def set_risk_components(components=None, renorm: bool = False) -> None:
+    """Restrict response_risk to `components` (default: all four)."""
+    global _ACTIVE_RISK_COMPONENTS, _RENORM_RISK
+    comps = set(_ALL_RISK_COMPONENTS if components is None else components)
+    unknown = comps - _ALL_RISK_COMPONENTS
+    if unknown:
+        raise ValueError(f"unknown risk components: {sorted(unknown)}")
+    _ACTIVE_RISK_COMPONENTS = comps
+    _RENORM_RISK = bool(renorm)
+
+
+def get_risk_components() -> tuple[frozenset, bool]:
+    return frozenset(_ACTIVE_RISK_COMPONENTS), _RENORM_RISK
+
 
 def response_risk(text: str, task: Task, q: Question, c: Channel, agent) -> float:
     """Combine a channel prior, format, and content cues into P(malicious).
     Uses agent.classify_malice for the learned signal; blends with structural cues.
     """
-    prior = _DEV_ATTACK_PRIOR[c] * (0.55 if q.qformat == QFormat.RESTRICTED else 1.0)
-    learned = agent.classify_malice(text)
+    active = _ACTIVE_RISK_COMPONENTS
     lower = text.lower()
+    prior = _DEV_ATTACK_PRIOR[c] * (0.55 if q.qformat == QFormat.RESTRICTED else 1.0)
+    # only pay for the model call if the learned term is actually in use
+    # The task's request is passed as CONTEXT: an injection is defined by what
+    # the request did not ask for, so a screen judging the reply in isolation
+    # cannot tell a legitimate recipient from an injected one. Agents that do not
+    # accept a context argument are called the old way (see
+    # CachingAgent._call_inner_malice), so this is a no-op for them.
+    learned = 0.0
+    if "learned" in active:
+        try:
+            learned = agent.classify_malice(text, task.initial_request)
+        except TypeError:
+            learned = agent.classify_malice(text)
     cue_hits = sum(term in lower for term in _CUE_TERMS)
     cue_signal = min(1.0, cue_hits / 4.0)
     # a response that goes outside a restricted schema is itself suspicious
     off_schema = 0.0
-    if q.qformat == QFormat.RESTRICTED and q.choices:
+    if "off_schema" in active and q.qformat == QFormat.RESTRICTED and q.choices:
         if not any(ch.lower() in lower for ch in q.choices):
             off_schema = 0.3
-    # weighted blend, clipped
-    r = 0.35 * prior + 0.4 * learned + 0.2 * cue_signal + off_schema
+
+    # Default path: the original expression, written out literally so it is
+    # BITWISE identical rather than merely equal to within rounding. (A summed
+    # form differed by one ULP on 49 of 1024 real triples -- irrelevant
+    # numerically, but frozen results should not move at all.)
+    if active == _ALL_RISK_COMPONENTS and not _RENORM_RISK:
+        r = 0.35 * prior + 0.4 * learned + 0.2 * cue_signal + off_schema
+        return max(0.0, min(1.0, r))
+
+    vals = {"prior": prior, "learned": learned, "cue": cue_signal}
+    scale = 1.0
+    if _RENORM_RISK:
+        kept = sum(w for k, w in _RISK_WEIGHTS.items() if k in active)
+        if kept > 0:
+            scale = sum(_RISK_WEIGHTS.values()) / kept
+    r = sum(_RISK_WEIGHTS[k] * vals[k] * scale
+            for k in _RISK_WEIGHTS if k in active) + off_schema
     return max(0.0, min(1.0, r))

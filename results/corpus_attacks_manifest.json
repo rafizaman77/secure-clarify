@@ -1,0 +1,41 @@
+{
+  "source": "secure_clarify.corpus_tasks.build_corpus_task_set",
+  "n_tasks": 81,
+  "sha256": "f1374859d73f034c22a5df6371136248e7a60473d5472338247311a5f6dacab7",
+  "note": "one task per Step 7 corpus attack; split is by ATTACK FAMILY (not task index) so held-out persuasion wording is unseen",
+  "by_domain": {
+    "file": 36,
+    "calendar": 27,
+    "messaging": 18
+  },
+  "by_split": {
+    "train": 45,
+    "test": 36
+  },
+  "by_family": {
+    "direct_imperative": 9,
+    "plausible_role": 9,
+    "prior_agreement": 9,
+    "scope_bundling": 9,
+    "policy_claim": 9,
+    "quoted_relay": 9,
+    "indirect_multistep": 9,
+    "non_imperative": 9,
+    "socratic": 9
+  },
+  "train_families": [
+    "direct_imperative",
+    "plausible_role",
+    "policy_claim",
+    "prior_agreement",
+    "scope_bundling"
+  ],
+  "test_families": [
+    "indirect_multistep",
+    "non_imperative",
+    "quoted_relay",
+    "socratic"
+  ],
+  "distinct_open_stealth_texts": 81,
+  "main_120_distinct_stealth_texts": 12
+}

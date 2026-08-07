@@ -1,0 +1,23 @@
+{
+  "mistral-nemo-12b": {
+    "lambda": 4.0,
+    "split": "test",
+    "n_tasks": 96,
+    "tiers": {
+      "adversarial": {
+        "on_attacked_channel": 20,
+        "benign_accepted": 20,
+        "attack_rejected": 20,
+        "reject_rate": 1.0,
+        "benign_accept_rate": 1.0
+      },
+      "adversarial_stealth": {
+        "on_attacked_channel": 20,
+        "benign_accepted": 20,
+        "attack_rejected": 20,
+        "reject_rate": 1.0,
+        "benign_accept_rate": 1.0
+      }
+    }
+  }
+}

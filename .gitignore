@@ -11,3 +11,4 @@ venv/
 *.out
 *.bbl
 *.blg
+.cache/

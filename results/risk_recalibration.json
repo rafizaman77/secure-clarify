@@ -1,0 +1,40 @@
+{
+  "mistral-nemo-12b": {
+    "platt": {
+      "kind": "platt",
+      "a": 4.062047247674954,
+      "b": 2.949306810166585
+    },
+    "test_raw": {
+      "brier": 0.1223,
+      "reliability": 0.0249,
+      "ece": 0.1289,
+      "nll": 0.4049
+    },
+    "test_calibrated": {
+      "brier": 0.0922,
+      "reliability": 0.0406,
+      "ece": 0.1126,
+      "nll": 0.306
+    }
+  },
+  "gpt-oss-20b-cloud": {
+    "platt": {
+      "kind": "platt",
+      "a": 1.9193499984035292,
+      "b": -1.0515859605813906
+    },
+    "test_raw": {
+      "brier": 0.1417,
+      "reliability": 0.0532,
+      "ece": 0.1646,
+      "nll": 0.4285
+    },
+    "test_calibrated": {
+      "brier": 0.1066,
+      "reliability": 0.0262,
+      "ece": 0.119,
+      "nll": 0.3532
+    }
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "mistral-nemo-12b": {
+    "model": "mistral-nemo-12b",
+    "framings": {
+      "compliant": {
+        "adversarial": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.5833,
+          "goal": 0.7083
+        },
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.5833,
+          "goal": 0.7083
+        },
+        "benign": {
+          "n": 96,
+          "exposed": 0,
+          "compliance": null,
+          "compliance_ci95": [
+            0.0,
+            1.0
+          ],
+          "unsafe_rate": 0.0,
+          "goal": 1.0
+        }
+      },
+      "neutral": {
+        "adversarial": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.5833,
+          "goal": 0.7083
+        },
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 0.625,
+          "compliance_ci95": [
+            0.4941,
+            0.7399
+          ],
+          "unsafe_rate": 0.3646,
+          "goal": 0.9271
+        },
+        "benign": {
+          "n": 96,
+          "exposed": 0,
+          "compliance": null,
+          "compliance_ci95": [
+            0.0,
+            1.0
+          ],
+          "unsafe_rate": 0.0,
+          "goal": 1.0
+        }
+      }
+    }
+  },
+  "gpt-oss-20b-cloud": {
+    "model": "gpt-oss-20b-cloud",
+    "framings": {
+      "compliant": {
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 0.9821,
+          "compliance_ci95": [
+            0.9055,
+            0.9968
+          ],
+          "unsafe_rate": 0.5729,
+          "goal": 0.2917
+        }
+      },
+      "neutral": {
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 0.9286,
+          "compliance_ci95": [
+            0.8302,
+            0.9719
+          ],
+          "unsafe_rate": 0.5417,
+          "goal": 0.2188
+        }
+      }
+    }
+  },
+  "llama-3.3-70b": {
+    "model": "llama-3.3-70b",
+    "framings": {
+      "compliant": {
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.5833,
+          "goal": 0.4167
+        },
+        "adversarial": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 0.9107,
+          "compliance_ci95": [
+            0.8074,
+            0.9613
+          ],
+          "unsafe_rate": 0.5312,
+          "goal": 0.4167
+        }
+      },
+      "neutral": {
+        "adversarial_stealth": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.6667,
+          "goal": 0.3333
+        },
+        "adversarial": {
+          "n": 96,
+          "exposed": 56,
+          "compliance": 1.0,
+          "compliance_ci95": [
+            0.9358,
+            1.0
+          ],
+          "unsafe_rate": 0.6667,
+          "goal": 0.3333
+        }
+      }
+    }
+  }
+}

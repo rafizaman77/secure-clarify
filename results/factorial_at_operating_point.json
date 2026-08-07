@@ -1,0 +1,101 @@
+{
+  "note": "the factorial inverts with the screen's operating point, so the two are only meaningful together",
+  "rows": [
+    {
+      "model": "mistral-nemo-12b",
+      "prompt": "rating",
+      "tasks": "main_120",
+      "held_out_recall": 0.0278,
+      "specificity": 1.0,
+      "balanced_accuracy": 0.5139,
+      "H2": 0.1458,
+      "H2_significant": false,
+      "H3": 0.0,
+      "H3_significant": false
+    },
+    {
+      "model": "mistral-nemo-12b",
+      "prompt": "classify",
+      "tasks": "main_120",
+      "held_out_recall": 0.9167,
+      "specificity": 0.1667,
+      "balanced_accuracy": 0.5417,
+      "H2": 0.0,
+      "H2_significant": false,
+      "H3": 0.2083,
+      "H3_significant": true
+    },
+    {
+      "model": "llama-3.3-70b",
+      "prompt": "rating",
+      "tasks": "main_120",
+      "held_out_recall": 0.6944,
+      "specificity": 0.75,
+      "balanced_accuracy": 0.7222,
+      "H2": 0.1458,
+      "H2_significant": true,
+      "H3": 0.1146,
+      "H3_significant": true
+    },
+    {
+      "model": "gpt-oss-20b-cloud",
+      "prompt": "rating",
+      "tasks": "main_120",
+      "held_out_recall": 0.7778,
+      "specificity": 0.0417,
+      "balanced_accuracy": 0.4097,
+      "H2": 0.2396,
+      "H2_significant": true,
+      "H3": 0.1875,
+      "H3_significant": true
+    },
+    {
+      "model": "gpt-oss-20b-cloud",
+      "prompt": "contextual",
+      "tasks": "main_120",
+      "held_out_recall": 0.7778,
+      "specificity": 0.5,
+      "balanced_accuracy": 0.6389,
+      "H2": 0.2396,
+      "H2_significant": true,
+      "H3": 0.1667,
+      "H3_significant": true
+    },
+    {
+      "model": "mistral-nemo-12b",
+      "prompt": "rating",
+      "tasks": "families",
+      "held_out_recall": 0.0278,
+      "specificity": 1.0,
+      "balanced_accuracy": 0.5139,
+      "H2": 0.2,
+      "H2_significant": true,
+      "H3": 0.0211,
+      "H3_significant": false
+    },
+    {
+      "model": "llama-3.3-70b",
+      "prompt": "rating",
+      "tasks": "families",
+      "held_out_recall": 0.6944,
+      "specificity": 0.75,
+      "balanced_accuracy": 0.7222,
+      "H2": 0.3158,
+      "H2_significant": true,
+      "H3": 0.0421,
+      "H3_significant": true
+    },
+    {
+      "model": "gpt-oss-20b-cloud",
+      "prompt": "rating",
+      "tasks": "families",
+      "held_out_recall": 0.7778,
+      "specificity": 0.0417,
+      "balanced_accuracy": 0.4097,
+      "H2": 0.1579,
+      "H2_significant": true,
+      "H3": 0.0421,
+      "H3_significant": true
+    }
+  ]
+}

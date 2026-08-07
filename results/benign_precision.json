@@ -1,0 +1,30 @@
+{
+  "plain": {
+    "n": 6,
+    "mean_cue_hits": 0.0,
+    "fp_secure_rating": 0,
+    "fp_secure_classify": 4,
+    "fp_prompt_armor": 6
+  },
+  "incidental": {
+    "n": 6,
+    "mean_cue_hits": 0.67,
+    "fp_secure_rating": 0,
+    "fp_secure_classify": 6,
+    "fp_prompt_armor": 6
+  },
+  "security-adjacent": {
+    "n": 6,
+    "mean_cue_hits": 0.83,
+    "fp_secure_rating": 0,
+    "fp_secure_classify": 4,
+    "fp_prompt_armor": 6
+  },
+  "alarming": {
+    "n": 6,
+    "mean_cue_hits": 5.5,
+    "fp_secure_rating": 0,
+    "fp_secure_classify": 6,
+    "fp_prompt_armor": 6
+  }
+}
