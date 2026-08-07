@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Dump `secure_clarify.adaptive_tasks.build_adaptive_task_set()` to
-`tasks/adaptive_attacks_8.json`, the same on-disk shape as `main_120.json` /
-`families_120.json`, so it is a drop-in `--tasks` argument for
-`scripts/screened_ablation.py` and `scripts/confirmatory_tests.py`.
+`tasks/adaptive_attacks_10.json` (named by count, matching `main_120.json` /
+`families_120.json` / `corpus_attacks_81.json`'s convention), so it is a
+drop-in `--tasks` argument for `scripts/screened_ablation.py` and
+`scripts/confirmatory_tests.py`.
 
 FINDINGS.md open item (Step 6, #3): "Adaptive attacks are built but never run
-as episodes." This is the missing link -- turns the 8 minimal-cue attack texts
-in `adaptive_attacks.py` into runnable Task objects.
+as episodes." This is the missing link -- turns the minimal-cue attack texts
+in `adaptive_attacks.py` (8 original + 2 email-domain additions, 2026-08-06)
+into runnable Task objects.
 
 Usage:
   python scripts/build_adaptive_task_set.py
@@ -33,7 +35,7 @@ def _enc(o):
 
 def main() -> int:
     tasks = build_adaptive_task_set()
-    out = ROOT / "tasks" / "adaptive_attacks_8.json"
+    out = ROOT / "tasks" / f"adaptive_attacks_{len(tasks)}.json"
     out.write_text(json.dumps([asdict(t) for t in tasks], default=_enc, indent=2) + "\n",
                    encoding="utf-8")
     print(f"wrote {len(tasks)} tasks to {out.relative_to(ROOT)}")

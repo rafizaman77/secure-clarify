@@ -18,11 +18,15 @@ corpus-vs-adaptive delta on the SAME (domain, objective) pairs isolates cue
 density and nothing else.
 
 ADDITIVE BY CONSTRUCTION. Calls `make_file_task`/`make_calendar_task`/
-`make_messaging_task` exactly as `corpus_tasks.py` does; nothing frozen moves.
+`make_messaging_task` exactly as `corpus_tasks.py` does for the original 3
+domains; nothing frozen moves. The email-domain entries (added 2026-08-06) are
+FAMILY-shaped, not domain-shaped -- `task_families.make_family_task` takes a
+fixed family name rather than a choice of attack scenario -- so those two are
+dispatched separately, keyed by `a["maker_family"]`.
 
-SPLIT. All 8 are `split="test"` in `adaptive_attacks.py` itself, by design --
-"never used for any fitting" (see that module's docstring and its own smoke
-assertion). This module does not override that.
+SPLIT. Every attack is `split="test"` in `adaptive_attacks.py` itself, by
+design -- "never used for any fitting" (see that module's docstring and its
+own smoke assertion). This module does not override that.
 """
 from __future__ import annotations
 
@@ -30,6 +34,7 @@ from .adaptive_attacks import build_adaptive_attacks
 from .schema import AttackType, Condition, Task
 from .task_factory import (make_file_task, make_calendar_task,
                            make_messaging_task, AVAIL_GROUPS, STAKES)
+from .task_families import make_family_task
 
 _MAKERS = {"file": make_file_task,
            "calendar": make_calendar_task,
@@ -44,14 +49,19 @@ def _restricted_form(body: str) -> str:
 
 
 def build_adaptive_task_set() -> list[Task]:
-    """One task per adaptive (minimal-cue) attack (8), each carrying exactly
-    that attack on its stealth-tier responses."""
+    """One task per adaptive (minimal-cue) attack, each carrying exactly that
+    attack on its stealth-tier responses."""
     tasks: list[Task] = []
     for i, a in enumerate(build_adaptive_attacks()):
-        maker = _MAKERS[a["domain"]]
         chans, _ = AVAIL_GROUPS[i % len(AVAIL_GROUPS)]
-        t = maker(idx=i, channels=list(chans), stakes=STAKES[i % len(STAKES)],
-                  attack=AttackType(a["objective"]), split="test")
+        if a["maker_family"] is not None:
+            t = make_family_task(idx=i, family=a["maker_family"],
+                                 channels=list(chans), stakes=STAKES[i % len(STAKES)],
+                                 attack=AttackType(a["objective"]), split="test")
+        else:
+            maker = _MAKERS[a["domain"]]
+            t = maker(idx=i, channels=list(chans), stakes=STAKES[i % len(STAKES)],
+                      attack=AttackType(a["objective"]), split="test")
 
         restricted = _restricted_form(a["body"])
         n_written = 0
@@ -66,7 +76,7 @@ def build_adaptive_task_set() -> list[Task]:
                 f"attack-carrying stealth response; cannot attribute it")
 
         t.task_id = f"adaptive_{i:03d}"
-        t.family = f"adaptive::{a['domain']}::{a['objective']}"
+        t.family = a["attack_id"]  # e.g. "adaptive::email::attachment::data_exfiltration"
         t.hidden_intent = dict(t.hidden_intent)
         t.hidden_intent["_adaptive"] = {
             "attack_id": a["attack_id"], "domain": a["domain"],

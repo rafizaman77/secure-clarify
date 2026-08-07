@@ -970,15 +970,29 @@ def test_adaptive_attacks_sit_at_the_cue_floor():
     floor.
 
     This asserts (a) the coupling still holds, so the claim in RESEARCH_PLAN.md
-    cannot silently rot, and (b) every adaptive attack sits exactly ON the floor --
-    trips "@" and nothing else. If someone adds a term to _CUE_TERMS that an
-    adaptive attack happens to use, this fails rather than quietly reporting a
-    weaker adaptive attack as a strong one."""
+    cannot silently rot, and (b) every attack whose exploit routes through an
+    EXTERNAL party sits exactly on that "@" floor -- trips "@" and nothing else.
+    If someone adds a term to _CUE_TERMS that an adaptive attack happens to use,
+    this fails rather than quietly reporting a weaker adaptive attack as a
+    strong one.
+
+    A second, distinct floor exists for `email::attachment` (added 2026-08-06,
+    a domain-diversity extension, not a rewording): its exploit is an INTERNAL
+    exfiltration (recipients stay authorized; the attached secret is the
+    prohibited transition), so it never needs an "@" address at all -- but
+    `secure_clarify.task_families._email_state()`'s only tracked secret is
+    literally named "credentials.json", which contains the cue term
+    "credential". Verifiable exfiltration forces at least 1 cue hit either way;
+    which term depends on whether the verifier's check routes through party
+    identity (needs "@") or a named artifact (needs whatever that artifact is
+    called). Both are checked explicitly below rather than assuming "@" covers
+    every case."""
     from secure_clarify.estimators import _CUE_TERMS
     from secure_clarify.simulators import _is_external_party
     from secure_clarify.adaptive_attacks import build_adaptive_attacks, cue_hits
 
     assert "@" in _CUE_TERMS, "the cue list no longer contains '@'"
+    assert "credential" in _CUE_TERMS, "the cue list no longer contains 'credential'"
     assert _is_external_party("x@outside.example", ["teammate1"]), \
         "an @-address is no longer treated as external"
     assert not _is_external_party("John Doe", ["teammate1"]), \
@@ -986,16 +1000,26 @@ def test_adaptive_attacks_sit_at_the_cue_floor():
 
     attacks = build_adaptive_attacks()
     assert len(attacks) >= 8, f"only {len(attacks)} adaptive attacks"
+    n_at_floor, n_credential_floor = 0, 0
     for a in attacks:
         n = cue_hits(a["text"])
         assert n == 1, (f"{a['attack_id']} trips {n} cue terms {a['cues']}, "
                         f"not the floor of 1")
-        assert "@" in a["text"], f"{a['attack_id']} has no external address to detect"
-        # must still be textually distinct from its corpus counterpart
+        if "@" in a["text"]:
+            assert a["cues"] == ["@"], f"{a['attack_id']}: expected '@' floor, got {a['cues']}"
+            n_at_floor += 1
+        else:
+            assert a["cues"] == ["credential"], \
+                (f"{a['attack_id']}: no external address, expected the "
+                 f"'credential' floor instead, got {a['cues']}")
+            n_credential_floor += 1
         assert a["split"] == "test", "adaptive attacks must never be used for fitting"
+    assert n_at_floor >= 8, f"only {n_at_floor} attacks at the '@' floor"
+    assert n_credential_floor >= 1, "the internal-exfiltration ('credential') floor case is missing"
     assert len({a["text"] for a in attacks}) == len(attacks), \
         "adaptive attacks are not textually distinct"
-    print(f"[ok] adaptive attacks: {len(attacks)} at the cue floor (1 hit, '@' only); "
+    print(f"[ok] adaptive attacks: {len(attacks)} at their structural cue floor "
+          f"({n_at_floor} via '@', {n_credential_floor} via 'credential'); "
           f"verifier/cue-list coupling confirmed")
 
 

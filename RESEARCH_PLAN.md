@@ -387,11 +387,15 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
   legitimate information while minimizing response-risk score. Evaluate on held-out
   models or with human editing to avoid same-model self-evaluation.
   *(First episode run done 2026-08-06 — see FINDINGS.md §1c. `secure_clarify/
-  adaptive_tasks.py` + `scripts/build_adaptive_task_set.py` turn the 8 existing
-  minimal-cue attacks into runnable tasks; run on Mistral-Nemo-12B locally
-  (n=8, no held-out model yet). Screen still rejects 3/8 despite cue-count
-  minimization — real but partial evasion. Still needed: more attacks than 8,
-  and the held-out-model requirement this step explicitly calls for.)*
+  adaptive_tasks.py` + `scripts/build_adaptive_task_set.py` turn the minimal-cue
+  attacks into runnable tasks; run on Mistral-Nemo-12B locally (n=8, then
+  extended same-day to n=10 by adding the email domain additively — a second,
+  distinct structural cue floor found in the process: `email::attachment`'s
+  exploit needs no external address, so it trips "credential" instead of "@").
+  Screen still rejects 4/10 despite cue-count minimization — real but partial
+  evasion, consistent between the n=8 and n=10 rounds. Still needed: more
+  attacks, and the held-out-model requirement this step explicitly calls for
+  (only Mistral tested — the one model runnable without an API key).)*
 
 - [ ] **17. Attacks targeting stage 1.** Attacks in nominally trusted channels;
   dangerous channels made unusually informative; manipulated stakes; exploited
@@ -1120,6 +1124,24 @@ been reported as a solution.
 ---
 
 ## Log
+
+- **2026-08-06** — Step 16 extended to n=10 with a domain-diversity addition
+  (email::correspondence, email::attachment), same day as the first episode
+  run below. `adaptive_attacks.py`'s original 8 minimal-cue attacks all sit at
+  the "@" cue floor (every one routes exfiltration through an external
+  address). Adding the email domain surfaced a genuinely distinct case:
+  `email::attachment`'s exploit is an *internal* exfiltration — the recipients
+  are already correct, the attached secret is the violation — so it needs no
+  external address at all, and yet still can't drop below 1 cue hit, because
+  email's only tracked secret (`task_families._email_state()`) is literally
+  named `credentials.json`. Generalized the structural-floor argument (and its
+  smoke-test guard) from "verifiable exfiltration needs '@'" to "verifiable
+  exfiltration needs *something* the cue list already flags, whatever routes
+  the verifier's check" — a strictly more general and more defensible version
+  of the original claim. Re-ran the full n=10 set: screen rejection rate 4/10
+  (40%), consistent with the n=8 round's 3/8 (37.5%); the new
+  `email::attachment` attack was itself one of the 4 rejections despite having
+  no external address to catch. Full detail in FINDINGS.md §1c.
 
 - **2026-08-06** — Step 16 first episode run. `adaptive_attacks.py`'s 8
   minimal-cue attacks existed only as validated text (smoke test), never as
