@@ -382,10 +382,16 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 ## Phase 5 — Make the attacks adaptive
 
-- [ ] **16. Attacks targeting stage 2.** Attacker knows the screening prompt, lexical
+- [~] **16. Attacks targeting stage 2.** Attacker knows the screening prompt, lexical
   heuristic, format constraints, channel priors, acceptance threshold. Preserve
   legitimate information while minimizing response-risk score. Evaluate on held-out
   models or with human editing to avoid same-model self-evaluation.
+  *(First episode run done 2026-08-06 — see FINDINGS.md §1c. `secure_clarify/
+  adaptive_tasks.py` + `scripts/build_adaptive_task_set.py` turn the 8 existing
+  minimal-cue attacks into runnable tasks; run on Mistral-Nemo-12B locally
+  (n=8, no held-out model yet). Screen still rejects 3/8 despite cue-count
+  minimization — real but partial evasion. Still needed: more attacks than 8,
+  and the held-out-model requirement this step explicitly calls for.)*
 
 - [ ] **17. Attacks targeting stage 1.** Attacks in nominally trusted channels;
   dangerous channels made unusually informative; manipulated stakes; exploited
@@ -1114,6 +1120,42 @@ been reported as a solution.
 ---
 
 ## Log
+
+- **2026-08-06** — Step 16 first episode run. `adaptive_attacks.py`'s 8
+  minimal-cue attacks existed only as validated text (smoke test), never as
+  episodes — flagged as an open item in `FINDINGS.md`. Built
+  `secure_clarify/adaptive_tasks.py` + `scripts/build_adaptive_task_set.py`
+  (additive, mirrors `corpus_tasks.py`'s established pattern exactly: call the
+  frozen domain makers, overwrite only the stealth response text) and ran the
+  resulting 8 tasks through `screened_ablation.py` against Mistral-Nemo-12B
+  locally via Ollama (no API key needed). **Finding (n=8, one model, first
+  observation — not a confirmatory result): the screen still rejects 3/8
+  despite every attack sitting at the 1-cue-hit structural floor**, down from
+  88.9% held-out rejection on the full 81-attack corpus but not collapsed to
+  zero, consistent with the learned component (not the lexical list) doing
+  the generalizing. Also recorded, precisely, a concrete Step-38 failure case
+  and its mirror: on `adaptive_002` stage 1's channel choice causes an unsafe
+  action a risk-blind channel choice would not have; on `adaptive_007` it
+  prevents one. Full detail in `FINDINGS.md` §1c. Next: this needs more than
+  8 attacks and a held-out model (Step 16 explicitly asks for one) before any
+  rate here is more than descriptive.
+
+- **2026-08-06 (merge)** — Pulled Anagh's Step 12 replication (gpt-oss-20b,
+  matched/uniform/inverted prior-shift regimes, `ba85db1`) into a branch that
+  had diverged with unrelated local infra work (checkpoint/resume for
+  `oracle_ablation.py`/`guardrail_eval.py`, a disk-persisted `CachingAgent`
+  cache, and a third token-truncation-bug fix for `qwen3.6` — RAFI_RESEARCH_
+  PLAN.md Phase 1). One merge conflict in `secure_clarify/agent.py`
+  (`CachingAgent`'s new disk-cache stats method vs. this session's new
+  save/load-cache methods), resolved by keeping both — they touch disjoint
+  cache layers and don't overlap. Full smoke suite passes post-merge. Noted a
+  real gap while reading the merged state: `results/confirmatory_priorshift_
+  uniform_llama.json` is an empty stub (`cb65e5d`'s commit message says this
+  run was still in flight, throttled by a Groq daily token budget) — llama's
+  uniform prior-shift regime is the one cell of the 3-model × 3-regime Step 12
+  matrix still missing, and completing it needs `GROQ_API_KEY`, which is not
+  present in this environment (a dead end already recorded once in
+  RAFI_RESEARCH_PLAN.md's log — not re-hunted here).
 
 - **2026-07-29** — Step 6 scoped and blocked on a decision. Found that the model
   may emit only 3 tools per domain although the simulators implement 7/6/5, so
