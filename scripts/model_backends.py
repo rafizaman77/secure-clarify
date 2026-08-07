@@ -518,6 +518,19 @@ def build_agent(backend: str, model: str, base_url: str = "", api_key_env: str =
             openai_max_tokens = 1536
         elif "generativelanguage.googleapis.com" in base_url:
             openai_max_tokens = 4096
+        elif "qwen3.6" in model:
+            # RAFI_RESEARCH_PLAN.md Phase 1 Step 3 (new model lineage via
+            # Groq): a THIRD distinct mechanism for the same truncation bug
+            # already documented above for api.openai.com/Gemini. This model
+            # emits an inline <think>...</think> block INSIDE `content`
+            # itself (not a separate structured field, and not billed
+            # separately either) before its actual answer. Confirmed
+            # directly: a 20-token cap returns finish_reason="length" with
+            # content still mid-<think> block, zero JSON emitted. Every other
+            # Groq-served model (llama-3.3-70b-versatile, gpt-oss-20b/120b)
+            # keeps the validated 512 default unchanged -- this is scoped to
+            # the one model that reasons inline.
+            openai_max_tokens = 4096
         else:
             openai_max_tokens = 512
         gen = openai_compatible_generate_fn(base_url=base_url, api_key=api_key,

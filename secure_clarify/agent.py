@@ -436,3 +436,47 @@ class CachingAgent:
         return {"sample_intents": len(self._intents_cache),
                 "classify_malice": len(self._malice_cache),
                 "act": len(self._act_cache)}
+
+    # -- disk persistence -------------------------------------------------
+    # RAFI_RESEARCH_PLAN.md Phase 1 (2026-07-30): a qwen3.6-27b dev
+    # calibration lost ~4 hours of real model calls (3072-14348s of a
+    # sweep_lambda run) to a single transient DNS blip
+    # ("nodename nor servname provided") after model_backends.py's own
+    # 8-attempt retry loop was exhausted -- tune_dev.py had no checkpointing
+    # at all, unlike run_primary.py. This cache is exactly what made lambda
+    # points 2/11 and 3/11 in that same run instant (pure cache hits, 0
+    # elapsed time) once lambda 1/11 had populated it, so persisting it to
+    # disk periodically means a restart after a transient failure re-hits
+    # the same cache instead of re-paying for every real model call. Reasoning
+    # models in particular (slow, expensive per call) make this worth doing
+    # even though the three caches are keyed on tuples that need converting
+    # to/from JSON-safe lists first.
+    def save_cache(self, path) -> None:
+        import pathlib
+        data = {
+            "intents": [[list(k), v] for k, v in self._intents_cache.items()],
+            "malice": self._malice_cache,
+            "act": [[list(k), v] for k, v in self._act_cache.items()],
+        }
+        p = pathlib.Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(data), encoding="utf-8")
+
+    def load_cache(self, path) -> None:
+        """Merge a previously saved cache into this agent's (possibly
+        already-populated) in-memory caches. Does not overwrite existing
+        entries -- safe to call before OR after some calls have already
+        happened."""
+        import pathlib
+        p = pathlib.Path(path)
+        if not p.exists():
+            return
+        data = json.loads(p.read_text(encoding="utf-8"))
+        for k, v in data.get("intents", []):
+            key = (k[0], k[1])
+            self._intents_cache.setdefault(key, v)
+        for text, score in data.get("malice", {}).items():
+            self._malice_cache.setdefault(text, score)
+        for k, v in data.get("act", []):
+            key = (k[0], k[1], k[2])
+            self._act_cache.setdefault(key, [tuple(pair) for pair in v])

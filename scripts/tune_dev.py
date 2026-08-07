@@ -69,7 +69,7 @@ def fit_dev_priors(dev_tasks) -> dict:
     return dict(estimators._DEV_ATTACK_PRIOR)
 
 
-def sweep_lambda(dev_tasks, agent) -> list[dict]:
+def sweep_lambda(dev_tasks, agent, cache_file=None) -> list[dict]:
     import time
     frontier = []
     t_start = time.time()
@@ -85,6 +85,13 @@ def sweep_lambda(dev_tasks, agent) -> list[dict]:
             "benign_goal_rate": benign.get("goal_rate", 0.0),
             "adv_unsafe_rate": adv.get("unsafe_rate", 0.0),
         })
+        # Checkpoint the underlying model-call cache after every lambda point
+        # (not just at the end) -- see CachingAgent.save_cache's docstring for
+        # the 2026-07-30 incident (a qwen3.6-27b run lost ~4h of real model
+        # calls to one transient DNS failure with nothing to resume from).
+        # Cheap: at most ~n_dev_tasks entries per cache, trivial JSON I/O.
+        if cache_file is not None:
+            agent.save_cache(cache_file)
         print(f"  [lambda {li}/{len(LAMBDA_GRID)}={lam}] "
               f"({time.time()-t_start:.0f}s elapsed, cache={agent.cache_sizes()})",
               file=sys.stderr, flush=True)
@@ -123,6 +130,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tasks", default="tasks/main_120.json")
     ap.add_argument("--out", default="results/dev_calibration.json")
+    ap.add_argument("--cache-file", default=None,
+                    help="persist/reuse the CachingAgent's model-call cache here "
+                         "across restarts -- recommended for any real (non-scripted) "
+                         "backend so a transient failure mid-sweep doesn't force "
+                         "every already-made model call to be repeated")
     add_backend_args(ap)
     args = ap.parse_args()
 
@@ -135,7 +147,12 @@ def main() -> int:
     raw_agent = build_agent(args.backend, args.model, args.base_url,
                             args.api_key_env, args.host)
     agent = CachingAgent(raw_agent)
-    frontier = sweep_lambda(dev_tasks, agent)
+    if args.cache_file:
+        agent.load_cache(ROOT / args.cache_file)
+        print(f"loaded cache from {args.cache_file} (if present): "
+              f"{agent.cache_sizes()}", file=sys.stderr, flush=True)
+    frontier = sweep_lambda(dev_tasks, agent,
+                            cache_file=(ROOT / args.cache_file) if args.cache_file else None)
     chosen_lambda = choose_lambda(frontier)
     conf_calib = calibrate_confidence_threshold(dev_tasks, agent)
 

@@ -23,10 +23,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from dataclasses import asdict  # noqa: E402
+
 from secure_clarify.schema import Condition, Channel, load_task  # noqa: E402
 from secure_clarify.agent import CachingAgent  # noqa: E402
 from secure_clarify.policies import SecureVoI, SecureVoIOracle  # noqa: E402
-from secure_clarify.runner import run_grid, summarize  # noqa: E402
+from secure_clarify.runner import run_grid, summarize, Episode  # noqa: E402
 from secure_clarify import estimators  # noqa: E402
 from scripts.model_backends import build_agent, add_backend_args  # noqa: E402
 
@@ -41,6 +43,17 @@ def main() -> int:
     ap.add_argument("--tasks", default="tasks/main_120.json")
     ap.add_argument("--calibration", default="results/dev_calibration.json")
     ap.add_argument("--out", default="results/oracle_ablation.json")
+    # RAFI_RESEARCH_PLAN.md Phase 1 Step 1 follow-up (2026-07-30): this script
+    # previously had no checkpointing at all -- a single mid-run failure (a
+    # 2026-07-30 Claude-Sonnet-5 attempt hit "credit balance too low" 41/96
+    # tasks in) lost the ENTIRE run's spend with nothing to resume from.
+    # --resume/--episodes-out mirror run_primary.py's exact pattern: write
+    # after every task, skip already-done task_ids on restart.
+    ap.add_argument("--episodes-out", default="results/oracle_ablation_episodes.json",
+                    help="checkpoint file; written after every task so a mid-run "
+                         "failure loses at most one task's progress")
+    ap.add_argument("--resume", action="store_true",
+                    help="load --episodes-out if present and skip task_ids already there")
     add_backend_args(ap)
     args = ap.parse_args()
 
@@ -58,16 +71,55 @@ def main() -> int:
                             args.api_key_env, args.host)
     agent = CachingAgent(raw_agent)
     policies = [SecureVoI(lam=lam), SecureVoIOracle(lam=lam)]
-    eps = []
+
+    episodes_path = ROOT / args.episodes_out
+    episodes_path.parent.mkdir(parents=True, exist_ok=True)
+    eps_dicts: list[dict] = []
+    done_task_ids: set[str] = set()
+    if args.resume and episodes_path.exists():
+        try:
+            eps_dicts = json.loads(episodes_path.read_text(encoding="utf-8"))
+            done_task_ids = {e["task_id"] for e in eps_dicts}
+            print(f"--resume: {len(done_task_ids)} tasks already completed in "
+                  f"{episodes_path}, skipping those", file=sys.stderr, flush=True)
+        except (json.JSONDecodeError, KeyError):
+            print(f"--resume: {episodes_path} unreadable, starting fresh",
+                  file=sys.stderr, flush=True)
+            eps_dicts, done_task_ids = [], set()
+
+    remaining = [t for t in test_tasks if t.task_id not in done_task_ids]
+    failed_task_ids: list[str] = []
     t_start = time.time()
-    for i, task in enumerate(test_tasks, 1):
-        eps.extend(run_grid([task], policies, agent,
-                            conditions=[Condition.BENIGN, Condition.ADVERSARIAL],
-                            sev_profile="medium"))
+    for i, task in enumerate(remaining, 1):
+        try:
+            new_eps = run_grid([task], policies, agent,
+                               conditions=[Condition.BENIGN, Condition.ADVERSARIAL],
+                               sev_profile="medium")
+        except Exception as e:
+            # A backend can fail cleanly (model_backends' own retry loop gives
+            # up and raises RuntimeError -- e.g. the 2026-07-30 "credit balance
+            # too low" case) rather than hang. Skip and keep going: one failed
+            # task must not cost the whole run's already-completed progress.
+            failed_task_ids.append(task.task_id)
+            elapsed = time.time() - t_start
+            print(f"  [{i}/{len(remaining)} remaining, {len(eps_dicts)}/{len(test_tasks)} total] "
+                  f"{task.task_id} FAILED ({type(e).__name__}: {e}) -- skipping "
+                  f"({elapsed:.0f}s elapsed). Re-run with --resume to retry it.",
+                  file=sys.stderr, flush=True)
+            continue
+        eps_dicts.extend(asdict(e) for e in new_eps)
+        episodes_path.write_text(json.dumps(eps_dicts, indent=2) + "\n", encoding="utf-8")
         elapsed = time.time() - t_start
-        print(f"  [{i}/{len(test_tasks)}] {task.task_id} done "
-              f"({elapsed:.0f}s elapsed, {elapsed/i:.1f}s/task avg, "
+        print(f"  [{i}/{len(remaining)} remaining, {len(eps_dicts)}/{len(test_tasks)} total] "
+              f"{task.task_id} done ({elapsed:.0f}s elapsed, {elapsed/i:.1f}s/task avg, "
               f"cache={agent.cache_sizes()})", file=sys.stderr, flush=True)
+
+    if failed_task_ids:
+        print(f"\nWARNING: {len(failed_task_ids)} task(s) failed and were skipped: "
+              f"{failed_task_ids}. Re-run with --resume before trusting a "
+              f"partial-coverage result.", file=sys.stderr, flush=True)
+
+    eps = [Episode(**d) for d in eps_dicts]
     table = summarize(eps)
 
     learned_adv = table["secure_voi|adversarial"]
@@ -83,6 +135,8 @@ def main() -> int:
         "agent_backend": backend_label,
         "lambda_used": lam,
         "n_test_tasks": len(test_tasks),
+        "n_tasks_completed": len(test_tasks) - len(failed_task_ids),
+        "failed_task_ids": failed_task_ids,
         "learned_classify_malice": {
             "adversarial_unsafe_rate": learned_adv["unsafe_rate"],
             "benign_utility": learned_benign["utility"],
