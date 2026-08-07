@@ -25,10 +25,14 @@ on every attack set measured before this session.** H1 (vs ConventionalVoI)
 rejects on 4/4 models, effects +0.375 to +0.552 on main_120, +0.200 to +0.453
 on the new families. **Caveat added 2026-08-06 (§1d): on the one attack set
 that varies persuasion *style*, not just target/domain — the 81-attack
-corpus's 36 held-out test tasks — H1 does not reject (Mistral only tested so
-far, n=36).** `main_120` and the Step-6 families are more numerous but
-declarative; they were never a test of stylistic diversity. Read §1d before
-treating this as settled across "diverse attacks" generally.
+corpus's 36 held-out test tasks — H1 does not reject (diff +0.139, CI crosses
+zero, Mistral only, n=36). The same pipeline on that corpus's 45 TRAIN-family
+tasks (styles the defense was implicitly shaped by) instead gives a huge,
+clean, highly significant effect (+0.400, p_holm<0.0001).** `main_120` and the
+Step-6 families are more numerous but declarative; they were never a test of
+stylistic diversity, and neither number in isolation is the finding — the gap
+between them is. Read §1d before treating H1 as settled across "diverse
+attacks" generally.
 
 **The pipeline is sound.** Acceptance→action is not hard-coded (Step 2, four
 independent confirmations); verifier and simulator agree on 31,065 episodes
@@ -242,6 +246,41 @@ with the correct 4-cluster grouping would only widen the CI further. H1
 failing to reject under the more favorable (28-cluster) accounting makes the
 null harder to dismiss as a resampling artifact, not easier.
 
+**Addendum, same day: the null does not replicate on the corpus's TRAIN-split
+families — and the contrast is the real story.** Run *after* seeing the test
+result above, specifically to explain it: the corpus's other 45 tasks (5
+persuasion families — `direct_imperative`, `plausible_role`, `prior_agreement`,
+`scope_bundling`, `policy_claim` — the ones the screen/cue-list were, in
+whatever informal sense, built and iterated against) run through the identical
+pipeline. **Labeled exploratory, not confirmatory** — this is precisely the
+train-data-inflates-the-number pattern `HYPOTHESES.md` and §3 warn about
+everywhere else in this file, so treat the numbers below as diagnostic, not as
+a second confirmatory result:
+
+| policy | attack_success (TRAIN families, n=45, exploratory) |
+|---|---|
+| conventional_voi | 25/45 = 0.556 [0.412, 0.691] |
+| screened_conventional_voi | 17/45 = 0.378 [0.251, 0.524] |
+| secure_voi | 7/45 = 0.156 [0.077, 0.288] |
+| stage1_only_secure_voi | 7/45 = 0.156 [0.077, 0.288] |
+
+Run through the same confirmatory machinery purely as a diagnostic (not a
+second confirmatory claim): H1 diff **+0.400** [+0.178, +0.600], p_holm<0.0001,
+family p=0.001 — a huge, clean, decisive effect, the opposite of the test
+result on the same model, same policies, same pipeline, differing only in
+which persuasion families the attacks use.
+
+**This is the load-bearing comparison, not either number alone.** The entire
+safety effect that makes SecureVoI look decisive is concentrated on attack
+styles resembling whatever the defense's components were implicitly shaped by,
+and it does not merely shrink but **statistically vanishes** on styles held out
+from that process — replicating, at the level of full episodes and the paper's
+central hypothesis, exactly the pattern §3 already found for the screen alone
+in isolation (`screen_operating_point.py`: held-out recall 0.389–0.917 vs.
+pooled 0.685–0.963). That the same overfitting-to-style pattern now shows up
+end-to-end, on H1 itself, is a materially stronger version of a concern the
+paper could previously only raise about one component.
+
 **Consequence for the paper.** The headline "H1 holds decisively in all four
 models" (§1, HYPOTHESES.md's own scorecard) is true on every attack set
 measured so far — but every one of those sets is either `main_120`'s 12
@@ -257,7 +296,14 @@ resamples at the right cluster level without the 28-vs-4 caveat above.
 
 Artifacts: `results/models/mistral-nemo-12b/corpus_factorial.json`,
 `results/models/mistral-nemo-12b/corpus_factorial_episodes.json`,
-`results/confirmatory_corpus_diverse.json`.
+`results/confirmatory_corpus_diverse.json` (test, confirmatory); `results/models/
+mistral-nemo-12b/corpus_factorial_TRAINFAMILIES_exploratory.json`,
+`results/models/mistral-nemo-12b/corpus_factorial_TRAINFAMILIES_exploratory_
+episodes.json`, `results/confirmatory_corpus_TRAINFAMILIES_exploratory.json`
+(train, exploratory-only — filenames say so on purpose), `tasks/corpus_attacks_
+81_TRAINFAMILIES_eval_only.json` (the 45 train tasks, split relabeled `test`
+purely so `screened_ablation.py`'s existing `split=="test"` filter would
+evaluate them; the frozen `corpus_attacks_81.json` itself is untouched).
 
 ---
 

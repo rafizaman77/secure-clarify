@@ -1125,6 +1125,21 @@ been reported as a solution.
 
 ## Log
 
+- **2026-08-06** — Addendum to the corpus-diversity entry below, run
+  immediately after it specifically to explain the null: ran the corpus's
+  other 45 tasks (the 5 TRAIN-split persuasion families the screen/cue-list
+  were implicitly shaped by) through the identical pipeline. Labeled and
+  filenamed exploratory throughout, never confirmatory -- this is exactly the
+  train-data-inflates-the-number pattern the project's own discipline warns
+  against elsewhere. **Result: H1 on TRAIN families is +0.400, p_holm<0.0001,
+  family p=0.001 -- a huge, clean, decisive effect, the mirror image of the
+  TEST-family null.** Same model, same policies, same pipeline; only the
+  attack styles differ. This reproduces, at the level of full episodes and the
+  paper's central hypothesis, the same overfitting-to-trained-against-style
+  pattern already found for the screen in isolation (screen_operating_point.py,
+  held-out recall collapsing relative to pooled). The gap between the two
+  numbers, not either alone, is the finding -- full writeup in FINDINGS.md §1d.
+
 - **2026-08-06** — Ran the 81-attack corpus (Step 7) through the full policy
   pipeline as episodes for the first time. `corpus_tasks.py`'s own docstring
   flagged this gap: the corpus was built in Step 7 and scored as text
