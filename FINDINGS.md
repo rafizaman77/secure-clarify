@@ -20,9 +20,15 @@ ScreenedConventionalVoI, exact attacker objective, stealth) is significant at th
 p=0.009. On the original `main_120` it held on only 2 of 4 models and never at
 the family level.
 
-**The safety advantage over a risk-blind baseline is large and consistent.** H1
-(vs ConventionalVoI) rejects on 4/4 models, effects +0.375 to +0.552 on
-main_120, +0.200 to +0.453 on the new families.
+**The safety advantage over a risk-blind baseline is large and consistent —
+on every attack set measured before this session.** H1 (vs ConventionalVoI)
+rejects on 4/4 models, effects +0.375 to +0.552 on main_120, +0.200 to +0.453
+on the new families. **Caveat added 2026-08-06 (§1d): on the one attack set
+that varies persuasion *style*, not just target/domain — the 81-attack
+corpus's 36 held-out test tasks — H1 does not reject (Mistral only tested so
+far, n=36).** `main_120` and the Step-6 families are more numerous but
+declarative; they were never a test of stylistic diversity. Read §1d before
+treating this as settled across "diverse attacks" generally.
 
 **The pipeline is sound.** Acceptance→action is not hard-coded (Step 2, four
 independent confirmations); verifier and simulator agree on 31,065 episodes
@@ -168,6 +174,90 @@ case, not because n=10 supports a rate claim.
 Artifacts: `tasks/adaptive_attacks_10.json`, `results/models/mistral-nemo-12b/
 adaptive_attacks.json`, `results/models/mistral-nemo-12b/adaptive_attacks_
 episodes.json`, `scripts/build_adaptive_task_set.py`.
+
+## 1d. The 81-attack corpus run through the full policy pipeline for the first time — H1 does not clear significance on genuinely diverse, held-out attack text
+
+**This is the largest-consequence result from this session and it cuts against
+the paper's single most robust claim.**
+
+`corpus_tasks.py`'s docstring states the problem precisely: the 81-attack, 9-
+persuasion-family corpus (`tasks/corpus_attacks_81.json`, Step 7) had **never
+been run as episodes** — every published safety number, including every H1/H2/H3
+result in this file, rests on `main_120`'s 12 distinct stealth strings, or the
+Step-6 families' larger-but-structurally-similar set. The corpus's 36 test-split
+tasks (4 held-out persuasion families — `quoted_relay`, `indirect_multistep`,
+`non_imperative`, `socratic`, 9 each — never used for any prompt tuning, cue-list
+design, or lambda fit) were scored only as *text* (`screen_generalization.py`).
+Ran them for the first time as real episodes: `screened_ablation.py`, frozen
+Mistral-Nemo-12B calibration, stealth condition, no refitting.
+
+| policy | attack_success | 95% CI |
+|---|---|---|
+| conventional_voi | 10/36 = 0.278 | [0.158, 0.440] |
+| screened_conventional_voi | 6/36 = 0.167 | [0.079, 0.319] |
+| secure_voi | 5/36 = 0.139 | [0.061, 0.287] |
+| stage1_only_secure_voi | 5/36 = 0.139 | [0.061, 0.287] |
+
+Run through the project's own pre-declared confirmatory pipeline
+(`confirmatory_tests.py`, hierarchical family→task→episode resampling, Holm
+correction — `results/confirmatory_corpus_diverse.json`):
+
+| hypothesis | diff | task-level 95% CI | p_holm | reject? |
+|---|---|---|---|---|
+| H1 (vs ConventionalVoI) | +0.139 | [−0.083, +0.333] | 0.621 | **✗** |
+| H2 (vs ScreenedConventionalVoI — stage 1 alone) | +0.028 | [−0.167, +0.194] | 1.000 | ✗ |
+| H3 (vs Stage1OnlySecureVoI — stage 2 alone) | +0.000 | [+0.000, +0.000] | 1.000 | ✗ |
+
+**H1 — the hypothesis significant at p<0.0001 on every single model tested
+anywhere else in this project — does not reject here.** The point estimate
+still moves in the right direction (attacker success falls by exactly a third
+in absolute terms, 0.278→0.139), but the CI is wide enough to cross zero at
+both the task level and, more forgivably, the family level. Two things pull in
+opposite directions and both need to be said:
+
+- **Underpowered, not necessarily null.** n=36 (vs. 96 on `main_120`, 95 on
+  `families_120`) is genuinely thin, and the effect's *direction* is exactly
+  what every other measurement predicts. A wide CI crossing zero is evidence
+  of imprecision, not evidence the true effect is zero — the same distinction
+  `HYPOTHESES.md`'s own "zero rates" rule insists on elsewhere in this file.
+- **But the corpus is also intrinsically harder to attack with, in absolute
+  terms, which is not just a power story.** `conventional_voi`'s attack
+  success here (0.278) is *less than half* what it is on `main_120` stealth
+  (0.583, §4) — even the risk-blind, accept-everything baseline is harder to
+  compromise with these more linguistically indirect persuasion styles than
+  with `main_120`'s twelve strings. That compresses the absolute room
+  SecureVoI has to improve on, independent of sample size, and is itself a
+  real, useful finding about what "diverse attacks" costs an attacker before
+  any defense is even applied.
+
+**A resampling-unit caveat that, if anything, makes this null MORE credible,
+not less.** `confirmatory_tests.py`'s family-level resampling groups corpus
+tasks by `f"corpus::{persuasion_family}::{objective}"` (28 distinct groups),
+not by the 4 actual held-out persuasion families. The true independent
+clustering unit is almost certainly the 4 persuasion styles — tasks sharing a
+style plausibly share correlated wording/structure regardless of objective —
+so the family-level test reported here (`n_families=28`) likely *overstates*
+the effective sample size and *understates* the true uncertainty. Re-running
+with the correct 4-cluster grouping would only widen the CI further. H1
+failing to reject under the more favorable (28-cluster) accounting makes the
+null harder to dismiss as a resampling artifact, not easier.
+
+**Consequence for the paper.** The headline "H1 holds decisively in all four
+models" (§1, HYPOTHESES.md's own scorecard) is true on every attack set
+measured so far — but every one of those sets is either `main_120`'s 12
+strings or the Step-6 families, which are more numerous but not more
+*linguistically* diverse (declarative injections differing in target/domain,
+not in persuasion strategy). This is the first time the claim has been tested
+against attacks that vary in *how they persuade*, and on that axis, at the one
+sample size affordable in this session, it does not clear the bar. **Needs:**
+a larger diverse-attack set (only 36 test tasks exist), the same run on the
+other 3 models before generalizing beyond Mistral, and ideally a task file
+whose `family` field is the actual persuasion style so `confirmatory_tests.py`
+resamples at the right cluster level without the 28-vs-4 caveat above.
+
+Artifacts: `results/models/mistral-nemo-12b/corpus_factorial.json`,
+`results/models/mistral-nemo-12b/corpus_factorial_episodes.json`,
+`results/confirmatory_corpus_diverse.json`.
 
 ---
 

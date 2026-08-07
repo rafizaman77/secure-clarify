@@ -1125,6 +1125,34 @@ been reported as a solution.
 
 ## Log
 
+- **2026-08-06** — Ran the 81-attack corpus (Step 7) through the full policy
+  pipeline as episodes for the first time. `corpus_tasks.py`'s own docstring
+  flagged this gap: the corpus was built in Step 7 and scored as text
+  (`screen_generalization.py`) but every published H1/H2/H3 number still rests
+  on `main_120` or the Step-6 families, neither of which varies attack
+  *persuasion style*. Ran the 36 held-out test tasks (4 persuasion families —
+  quoted_relay, indirect_multistep, non_imperative, socratic — never used for
+  cue-list design or any fitting) through `screened_ablation.py` against
+  Mistral-Nemo-12B locally, frozen calibration, no refitting.
+  **FINDING, and it is the most consequential of this session: H1 — significant
+  at p<0.0001 on every model on every attack set tested anywhere else in this
+  project — does NOT reject here** (task-level diff +0.139, CI [-0.083,+0.333],
+  p_holm=0.621; H2 and H3 also null). Two things both true and worth holding
+  at once: n=36 is genuinely underpowered relative to the 96-task sets
+  elsewhere, but the corpus is also intrinsically harder to attack with in
+  ABSOLUTE terms regardless of sample size (conventional_voi's attack success
+  here, 0.278, is under half of its main_120 value, 0.583) — diverse persuasion
+  style compresses the room any defense has to show an advantage. A
+  resampling-unit issue in `confirmatory_tests.py` (corpus tasks group into 28
+  family×objective clusters, not the true 4 persuasion-style clusters) means
+  the reported family-level test is if anything MORE favorable to rejecting
+  than it should be, so the null is not an artifact of that mismatch. Full
+  detail and the caveats in FINDINGS.md §1d; §1's "what holds up" summary
+  amended to point to it rather than stating H1 unconditionally. Mistral only
+  — needs replication on the other 3 models (keyless for Mistral via local
+  Ollama; the rest need provider API keys not present in this environment)
+  before this changes the paper's claims rather than just qualifying them.
+
 - **2026-08-06** — Step 16 extended to n=10 with a domain-diversity addition
   (email::correspondence, email::attachment), same day as the first episode
   run below. `adaptive_attacks.py`'s original 8 minimal-cue attacks all sit at
